@@ -77,6 +77,15 @@ public class RNPDFPdfViewManagerDelegate<T extends View, U extends BaseViewManag
       case "singlePage":
         mViewManager.setSinglePage(view, value == null ? false : (boolean) value);
         break;
+      case "pdfId":
+        mViewManager.setPdfId(view, value == null ? null : (String) value);
+        break;
+      case "highlightRects":
+        mViewManager.setHighlightRects(view, (ReadableArray) value);
+        break;
+      case "activeMatchIndex":
+        mViewManager.setActiveMatchIndex(view, value == null ? -1 : ((Double) value).intValue());
+        break;
       default:
         super.setProperty(view, propName, value);
     }

@@ -105,12 +105,17 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
     /** Search highlight rects: list of { page (1-based), rect "left,top,right,bottom" in PDF points } */
     private List<HighlightRect> highlightRects = new ArrayList<>();
     private static final int HIGHLIGHT_COLOR = Color.argb(80, 255, 255, 0);
+    private static final int ACTIVE_HIGHLIGHT_COLOR = Color.argb(180, 255, 165, 0);
     private final Paint highlightPaint = new Paint();
+    private final Paint activeHighlightPaint = new Paint();
+    private int activeMatchIndex = -1;
 
     public PdfView(Context context, AttributeSet set){
         super(context, set);
         highlightPaint.setColor(HIGHLIGHT_COLOR);
         highlightPaint.setStyle(Paint.Style.FILL);
+        activeHighlightPaint.setColor(ACTIVE_HIGHLIGHT_COLOR);
+        activeHighlightPaint.setStyle(Paint.Style.FILL);
     }
 
     /** Entry for one highlight: page (1-based) and rect in PDF points "left,top,right,bottom". */
@@ -346,6 +351,9 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
             originalWidth = pageWidth;
         }
         
+        if (!highlightRects.isEmpty()) {
+        }
+
         if (lastPageWidth>0 && lastPageHeight>0 && (pageWidth!=lastPageWidth || pageHeight!=lastPageHeight)) {
             // maybe change by other instance, restore zoom setting
             Constants.Pinch.MINIMUM_ZOOM = this.minScale;
@@ -392,8 +400,12 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
                 if (pdfW > 0 && pdfH > 0) {
                     float scaleX = pageWidth / pdfW;
                     float scaleY = pageHeight / pdfH;
+                    int matchIndex = 0;
                     for (HighlightRect hr : highlightRects) {
-                        if (hr.page != pageOneBased) continue;
+                        if (hr.page != pageOneBased) {
+                            matchIndex++;
+                            continue;
+                        }
                         float left = hr.left * scaleX;
                         float right = hr.right * scaleX;
                         float top = hr.top * scaleY;
@@ -401,7 +413,9 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
                         // PDF coords: origin bottom-left, so top > bottom. Canvas: origin top-left.
                         float canvasTop = pageHeight - top;
                         float canvasBottom = pageHeight - bottom;
-                        canvas.drawRect(left, canvasTop, right, canvasBottom, highlightPaint);
+                        Paint paint = (matchIndex == activeMatchIndex) ? activeHighlightPaint : highlightPaint;
+                        canvas.drawRect(left, canvasTop, right, canvasBottom, paint);
+                        matchIndex++;
                     }
                 }
             } catch (Exception e) {
@@ -534,6 +548,11 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
             SearchRegistry.unregisterPath(this.pdfId);
         }
         this.pdfId = pdfId;
+    }
+
+    public void setActiveMatchIndex(int index) {
+        this.activeMatchIndex = index;
+        invalidate();
     }
 
     public void setHighlightRects(ReadableArray arr) {

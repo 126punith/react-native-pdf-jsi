@@ -11,6 +11,7 @@ package com.facebook.react.viewmanagers;
 
 import android.view.View;
 import androidx.annotation.Nullable;
+import com.facebook.react.bridge.ReadableArray;
 
 public interface RNPDFPdfViewManagerInterface<T extends View> {
   void setPath(T view, @Nullable String value);
@@ -31,5 +32,8 @@ public interface RNPDFPdfViewManagerInterface<T extends View> {
   void setSpacing(T view, int value);
   void setPassword(T view, @Nullable String value);
   void setSinglePage(T view, boolean value);
+  void setPdfId(T view, @Nullable String value);
+  void setHighlightRects(T view, @Nullable ReadableArray value);
+  void setActiveMatchIndex(T view, int value);
   void setNativePage(T view, int page);
 }

@@ -79,6 +79,11 @@ public class PdfManager extends SimpleViewManager<PdfView> implements RNPDFPdfVi
         pdfView.setHighlightRects(highlightRects);
     }
 
+    @ReactProp(name = "activeMatchIndex")
+    public void setActiveMatchIndex(PdfView pdfView, int activeMatchIndex) {
+        pdfView.setActiveMatchIndex(activeMatchIndex);
+    }
+
     // page start from 1
     @ReactProp(name = "page")
     public void setPage(PdfView pdfView, int page) {

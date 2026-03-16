@@ -165,14 +165,8 @@ public class PDFJSIModule extends ReactContextBaseJavaModule {
      * Cleanup resources - Updated for React Native 0.72+
      */
     @Override
-    public void onCatalystInstanceDestroy() {
-        // Note: onCatalystInstanceDestroy is deprecated in RN 0.72+, but we keep it for compatibility
-        // The new architecture will handle cleanup automatically
-        try {
-            super.onCatalystInstanceDestroy();
-        } catch (Exception e) {
-            Log.w(TAG, "PDFJSIModule: onCatalystInstanceDestroy compatibility warning: " + e.getMessage());
-        }
+    public void invalidate() {
+        super.invalidate();
         
         if (backgroundExecutor != null && !backgroundExecutor.isShutdown()) {
             backgroundExecutor.shutdown();

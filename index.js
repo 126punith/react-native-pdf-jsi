@@ -70,6 +70,7 @@ export default class Pdf extends Component {
         onPressLink: PropTypes.func,
         pdfId: PropTypes.string,
         highlightRects: PropTypes.arrayOf(PropTypes.shape({ page: PropTypes.number.isRequired, rect: PropTypes.string.isRequired })),
+        activeMatchIndex: PropTypes.number,
 
         // Props that are not available in the earlier react native version, added to prevent crashed on android
         accessibilityLabel: PropTypes.string,
@@ -116,6 +117,7 @@ export default class Pdf extends Component {
         },
         pdfId: undefined,
         highlightRects: undefined,
+        activeMatchIndex: -1,
     };
 
     constructor(props) {

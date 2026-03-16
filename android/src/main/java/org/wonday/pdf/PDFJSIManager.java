@@ -332,21 +332,41 @@ public class PDFJSIManager extends ReactContextBaseJavaModule {
                             item.putString("text", snippet);
                             String rectStr = "{}";
                             try {
+                                float minL = Float.MAX_VALUE;
+                                float maxR = -Float.MAX_VALUE;
+                                float minB = Float.MAX_VALUE;
+                                float maxT = -Float.MAX_VALUE;
+                                boolean found = false;
+
+                                // 1. Try with rects (covers whole lines/ranges)
                                 int rectCount = textPage.textPageCountRects(idx, len);
-                                if (rectCount > 0) {
-                                    RectF first = textPage.textPageGetRect(0);
-                                    if (first != null) {
-                                        rectStr = first.left + "," + first.top + "," + first.right + "," + first.bottom;
+                                for (int r = 0; r < rectCount; r++) {
+                                    RectF rf = textPage.textPageGetRect(r);
+                                    if (rf != null) {
+                                        minL = Math.min(minL, rf.left);
+                                        maxR = Math.max(maxR, rf.right);
+                                        minB = Math.min(minB, rf.bottom);
+                                        maxT = Math.max(maxT, rf.top);
+                                        found = true;
                                     }
                                 }
-                                if ("{}".equals(rectStr)) {
-                                    RectF charBox = textPage.textPageGetCharBox(idx);
-                                    if (charBox != null) {
-                                        rectStr = charBox.left + "," + charBox.top + "," + charBox.right + "," + charBox.bottom;
+
+                                // 2. Also merge individual character boxes to be absolutely sure we cover the word
+                                for (int i = idx; i < idx + len; i++) {
+                                    RectF cf = textPage.textPageGetCharBox(i);
+                                    if (cf != null && (cf.left != cf.right)) {
+                                        minL = Math.min(minL, cf.left);
+                                        maxR = Math.max(maxR, cf.right);
+                                        minB = Math.min(minB, cf.bottom);
+                                        maxT = Math.max(maxT, cf.top);
+                                        found = true;
                                     }
+                                }
+
+                                if (found) {
+                                    rectStr = minL + "," + maxT + "," + maxR + "," + minB;
                                 }
                             } catch (Exception e) {
-                                Log.d(TAG, "Rect lookup for match at " + idx + ": " + e.getMessage());
                             }
                             item.putString("rect", rectStr);
                             out.pushMap(item);
