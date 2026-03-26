@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.1] - 2026-03-19
+
+### Fixed
+- **Android crash: `IllegalStateException: Already closed`** – Prevents crashes caused by a race condition between the background rendering thread (`RenderingHandler`) and the main thread calling `recycle()` during unmount.
+  - Configures PdfiumAndroid to **ignore double-close attempts** by setting `AlreadyClosedBehavior.IGNORE` via `ConfigKt.setPdfiumConfig(new Config(new DefaultLogger(), AlreadyClosedBehavior.IGNORE))` in `PdfView`'s constructor.
+  - Aligns behavior with the upstream fix in [`wonday/react-native-pdf` commit `3234127`](https://github.com/wonday/react-native-pdf/commit/32341278905678c09358ecc1e7c54cc8876b2af1), where closing an already-closed PDF resource is treated as a no-op instead of throwing.
+
 ## [4.4.0] - 2025-03-08
 
 ### Added

@@ -1,6 +1,6 @@
 {
     "name": "react-native-pdf-jsi",
-    "version": "4.4.0",
+    "version": "4.4.1",
     "summary": "High-performance React Native PDF viewer with JSI acceleration - up to 80x faster than traditional bridge",
     "description": "🚀 Ultra-fast React Native PDF viewer with JSI (JavaScript Interface) integration for maximum performance. Features lazy loading, smart caching, progressive loading, and zero-bridge overhead operations. Perfect for large PDF files with 30-day persistent cache and advanced memory optimization. Google Play 16KB page size compliant for Android 15+. Supports iOS, Android, and Windows platforms.",
     "main": "index.js",

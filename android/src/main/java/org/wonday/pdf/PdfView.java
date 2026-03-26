@@ -28,6 +28,10 @@ import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
 import android.os.Looper;
 
+import io.legere.pdfiumandroid.util.Config;
+import io.legere.pdfiumandroid.util.ConfigKt;
+import io.legere.pdfiumandroid.util.AlreadyClosedBehavior;
+import io.legere.pdfiumandroid.DefaultLogger;
 
 import com.facebook.react.uimanager.ThemedReactContext;
 import com.facebook.react.uimanager.UIManagerHelper;
@@ -112,6 +116,7 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
 
     public PdfView(Context context, AttributeSet set){
         super(context, set);
+        ConfigKt.setPdfiumConfig(new Config(new DefaultLogger(), AlreadyClosedBehavior.IGNORE));
         highlightPaint.setColor(HIGHLIGHT_COLOR);
         highlightPaint.setStyle(Paint.Style.FILL);
         activeHighlightPaint.setColor(ACTIVE_HIGHLIGHT_COLOR);
