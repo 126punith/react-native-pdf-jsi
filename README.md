@@ -263,6 +263,7 @@ The documentation includes:
 | `singlePage` | boolean | false | Show only first page (thumbnail mode) |
 | `pdfId` | string | undefined | Stable ID for this PDF (e.g. `"main-pdf"`); required for `searchTextDirect()` so native code can resolve the document path |
 | `highlightRects` | array | undefined | Array of `{ page: number, rect: string }` (rect: `"left,top,right,bottom"` in PDF points) to draw yellow highlights; use with `searchTextDirect()` results |
+| `activeMatchIndex` | number | -1 | Index of the active match within `highlightRects` to highlight with a distinct color (orange). **Android only** |
 | `trustAllCerts` | boolean | true | Allow self-signed certificates |
 | `onLoadProgress` | function(percent) | null | Loading progress callback (0-1) |
 | `onLoadComplete` | function(pages, path, size, tableContents) | null | Called when PDF loads |

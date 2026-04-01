@@ -356,8 +356,6 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
             originalWidth = pageWidth;
         }
         
-        if (!highlightRects.isEmpty()) {
-        }
 
         if (lastPageWidth>0 && lastPageHeight>0 && (pageWidth!=lastPageWidth || pageHeight!=lastPageHeight)) {
             // maybe change by other instance, restore zoom setting

@@ -99,6 +99,11 @@ export interface PdfProps {
      * Supported on Android; iOS can be added later.
      */
     highlightRects?: Array<{ page: number; rect: string }>,
+    /**
+     * Optional. Index of the active match within highlightRects to highlight with a distinct color.
+     * Supported on Android.
+     */
+    activeMatchIndex?: number,
 }
 
 declare class Pdf extends React.Component<PdfProps, any> {

@@ -77,8 +77,8 @@
         "@expo/config-plugins": "^9.0.0",
         "@types/react": "^18.2.0",
         "prop-types": "^15.7.2",
-        "react": "^18.2.0",
-        "react-native": "^0.74.0",
+        "react": "*",
+        "react-native": "*",
         "typescript": "^5.0.0"
     },
     "scripts": {

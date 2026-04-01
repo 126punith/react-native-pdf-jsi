@@ -367,6 +367,7 @@ public class PDFJSIManager extends ReactContextBaseJavaModule {
                                     rectStr = minL + "," + maxT + "," + maxR + "," + minB;
                                 }
                             } catch (Exception e) {
+                                Log.d(TAG, "Search rect error: " + e.getMessage());
                             }
                             item.putString("rect", rectStr);
                             out.pushMap(item);

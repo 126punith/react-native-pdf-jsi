@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **`searchTextDirect(pdfId, searchTerm, startPage, endPage)`** – Exported to JS; runs native PDF text search and returns `{ page, text, rect }[]` with bounding boxes in PDF coordinates.
   - **`pdfId` prop** – Optional stable ID for the current PDF (e.g. `"main-pdf"`). Required for `searchTextDirect` so the native side can resolve the document path.
   - **`highlightRects` prop** – Array of `{ page, rect }` (rect: `"left,top,right,bottom"` in PDF points). When set, the viewer draws semi-transparent yellow highlights over those regions. Supports zoom and scroll on both platforms.
+  - **`activeMatchIndex` prop (Android only)** – Integer index to highlight a specific match from `highlightRects` with a distinct orange color, useful for "current match" UI.
   - **Path registration** – Path for search is registered when the PDF loads (from `onLoadComplete` and native `onDocumentChanged`). JS can also call `PDFJSIManager.registerPathForSearch(pdfId, path)` for explicit registration. Only local file paths are registered; URI paths are ignored to avoid search on non-downloaded sources.
 - **Android**: `SearchRegistry` for `pdfId`→path and page dimensions; PDFium-based search with rect fallback; highlight drawing in `PdfView` with correct PDF-to-view scaling and Y-axis conversion.
 - **iOS**: `SearchRegistry`, PDFKit `findString` search, `HighlightOverlayView` for drawing highlights; overlay redraw on zoom and scroll so highlights stay aligned with text.

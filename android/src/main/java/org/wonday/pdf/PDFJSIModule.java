@@ -31,6 +31,7 @@ public class PDFJSIModule extends ReactContextBaseJavaModule {
     
     private ExecutorService backgroundExecutor;
     private boolean isJSIInitialized = false;
+    private boolean isCleanupStarted = false;
     
     // Load native library
     static {
@@ -166,16 +167,40 @@ public class PDFJSIModule extends ReactContextBaseJavaModule {
      */
     @Override
     public void invalidate() {
+        doCleanup();
         super.invalidate();
-        
+    }
+
+    /**
+     * Legacy cleanup for older React Native versions
+     */
+    @Override
+    public void onCatalystInstanceDestroy() {
+        // Note: onCatalystInstanceDestroy is deprecated in RN 0.72+, but we keep it for compatibility
+        // The new architecture will handle cleanup automatically
+        doCleanup();
+        try {
+            super.onCatalystInstanceDestroy();
+        } catch (Exception e) {
+            Log.w(TAG, "PDFJSIModule: onCatalystInstanceDestroy compatibility warning: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Shared cleanup logic for JSI and background executor
+     */
+    private synchronized void doCleanup() {
+        if (isCleanupStarted) {
+            return;
+        }
+        isCleanupStarted = true;
+
         if (backgroundExecutor != null && !backgroundExecutor.isShutdown()) {
             backgroundExecutor.shutdown();
         }
-        
         if (isJSIInitialized) {
             nativeCleanupJSI();
         }
-        
         Log.d(TAG, "PDFJSIModule: Cleaned up resources");
     }
     
