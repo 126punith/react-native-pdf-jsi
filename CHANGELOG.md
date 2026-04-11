@@ -8,9 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [4.4.1] - 2026-03-19
 
 ### Fixed
+- **`page` prop not respected (controlled / list usage)** – Fixes [#13](https://github.com/126punith/react-native-pdf-jsi/issues/13): sync native navigation when only `page` changes after load (`componentDidUpdate` in `index.js`); stable `pdfId` for JSI `setPage` (`props.pdfId` or per-instance id); Android ignores stale `onPageChanged` during `jumpTo`; iOS Fabric `setNativePage` and Paper `setPage:` reset navigation state so re-applying the same page still navigates.
 - **Android crash: `IllegalStateException: Already closed`** – Prevents crashes caused by a race condition between the background rendering thread (`RenderingHandler`) and the main thread calling `recycle()` during unmount.
   - Configures PdfiumAndroid to **ignore double-close attempts** by setting `AlreadyClosedBehavior.IGNORE` via `ConfigKt.setPdfiumConfig(new Config(new DefaultLogger(), AlreadyClosedBehavior.IGNORE))` in `PdfView`'s constructor.
   - Aligns behavior with the upstream fix in [`wonday/react-native-pdf` commit `3234127`](https://github.com/wonday/react-native-pdf/commit/32341278905678c09358ecc1e7c54cc8876b2af1), where closing an already-closed PDF resource is treated as a no-op instead of throwing.
+- **PDFCompressor / `compressPDF` corrupted output (Android & iOS)** – Fixes [#26](https://github.com/126punith/react-native-pdf-jsi/issues/26): `StreamingPDFProcessor.compressPDFStreaming` no longer wraps the whole file in zlib (which produced a non-PDF stream). It now uses the existing streaming copy so the output file remains a valid PDF; size ratio is ~1 until a PDF-aware recompression path exists.
 
 ## [4.4.0] - 2025-03-08
 

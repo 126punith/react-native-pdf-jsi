@@ -11,9 +11,6 @@ package org.wonday.pdf;
 import android.util.Log;
 
 import java.io.*;
-import java.util.zip.Deflater;
-import java.util.zip.DeflaterOutputStream;
-import java.util.zip.InflaterInputStream;
 
 public class StreamingPDFProcessor {
     private static final String TAG = "StreamingPDFProcessor";
@@ -21,69 +18,23 @@ public class StreamingPDFProcessor {
     private static final int BUFFER_SIZE = 8192; // 8KB buffer for I/O
     
     /**
-     * Stream PDF compression without loading entire file
-     * @param inputFile Input PDF file
-     * @param outputFile Output compressed file
-     * @param compressionLevel Compression level (0-9, 9 is best)
-     * @return Compression statistics
-     * @throws IOException if operation fails
+     * Writes a valid PDF to {@code outputFile} using a streaming copy.
+     * Whole-file zlib is not PDF-safe (produces a zlib stream, not a PDF); see #26.
+     *
+     * @param compressionLevel ignored (kept for API compatibility)
      */
-    public CompressionResult compressPDFStreaming(File inputFile, File outputFile, 
+    public CompressionResult compressPDFStreaming(File inputFile, File outputFile,
                                                    int compressionLevel) throws IOException {
-        long startTime = System.currentTimeMillis();
-        long bytesRead = 0;
-        long bytesWritten = 0;
-        
-        Log.d(TAG, String.format("Starting streaming compression: %s -> %s (level: %d)",
+        Log.d(TAG, String.format(
+            "compressPDFStreaming: streaming copy (valid PDF); zlib whole-file not supported: %s -> %s (level %d ignored)",
             inputFile.getName(), outputFile.getName(), compressionLevel));
-        
-        try (FileInputStream fis = new FileInputStream(inputFile);
-             FileOutputStream fos = new FileOutputStream(outputFile);
-             BufferedInputStream bis = new BufferedInputStream(fis, BUFFER_SIZE);
-             BufferedOutputStream bos = new BufferedOutputStream(fos, BUFFER_SIZE)) {
-            
-            // Setup deflater for compression
-            Deflater deflater = new Deflater(compressionLevel);
-            DeflaterOutputStream dos = new DeflaterOutputStream(bos, deflater, BUFFER_SIZE);
-            
-            byte[] buffer = new byte[CHUNK_SIZE];
-            int bytesInChunk;
-            int chunksProcessed = 0;
-            
-            // Process file in chunks
-            while ((bytesInChunk = bis.read(buffer)) != -1) {
-                dos.write(buffer, 0, bytesInChunk);
-                bytesRead += bytesInChunk;
-                chunksProcessed++;
-                
-                if (chunksProcessed % 10 == 0) {
-                    Log.d(TAG, String.format("Processed %d chunks, %d MB",
-                        chunksProcessed, bytesRead / (1024 * 1024)));
-                }
-            }
-            
-            dos.finish();
-            dos.flush();
-            bytesWritten = outputFile.length();
-            
-            long duration = System.currentTimeMillis() - startTime;
-            double compressionRatio = bytesRead > 0 ? (double) bytesWritten / bytesRead : 1.0;
-            double spaceSaved = bytesRead > 0 ? (1.0 - compressionRatio) * 100 : 0.0;
-            
-            Log.d(TAG, String.format(
-                "Streaming compression complete: %d MB -> %d MB (%.1f%% saved) in %dms",
-                bytesRead / (1024 * 1024),
-                bytesWritten / (1024 * 1024),
-                spaceSaved,
-                duration
-            ));
-            
-            return new CompressionResult(bytesRead, bytesWritten, duration, compressionRatio);
-            
-        } catch (IOException e) {
-            Log.e(TAG, "Error in streaming compression", e);
-            throw e;
-        }
+        CopyResult copy = copyPDFStreaming(inputFile, outputFile);
+        return new CompressionResult(
+            copy.bytesCopied,
+            copy.bytesCopied,
+            copy.durationMs,
+            1.0
+        );
     }
     
     /**

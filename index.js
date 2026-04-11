@@ -131,7 +131,9 @@ export default class Pdf extends Component {
         // Store downloaded file path in instance variable for immediate access
         // This ensures path is available when onLoadComplete fires, even before state updates
         this.downloadedFilePath = '';
-        
+        // Stable per-instance id for JSI calls when props.pdfId is not set (#13 / setPage)
+        this._instancePdfId = `pdf_inst_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
         this.lastRNBFTask = null;
         this.pdfJSI = PDFJSI;
         this.initializeJSI();
@@ -168,6 +170,25 @@ export default class Pdf extends Component {
                 this.lastRNBFTask = null;
             } else {
                 this._loadFromSource(this.props.source);
+            }
+        }
+
+        // #13: Same URI but `page` prop changed — force native navigation (lists / controlled page)
+        const uriUnchanged = nextSource.uri === curSource.uri;
+        if (
+            uriUnchanged &&
+            this.state.isDownloaded &&
+            prevProps.page !== this.props.page
+        ) {
+            const p = Number(this.props.page);
+            if (Number.isFinite(p) && p >= 1) {
+                try {
+                    this.setPage(p);
+                } catch (e) {
+                    if (__DEV__) {
+                        console.warn('[Pdf] componentDidUpdate setPage failed:', e);
+                    }
+                }
             }
         }
     }
@@ -422,12 +443,14 @@ export default class Pdf extends Component {
             throw new Error('Specified pageNumber is not a number');
         }
         
-        // Use JSI for enhanced performance if available
-        if (this.state.jsiAvailable && this.state.path) {
+        // Use JSI only with a stable id (props.pdfId or per-mount instance id — not a new random id per call)
+        const pdfIdForJsi = this.props.pdfId || this._instancePdfId;
+        if (this.state.jsiAvailable && this.state.path && pdfIdForJsi) {
             try {
-                const pdfId = this.generatePdfId();
-                this.pdfJSI.setCurrentPage(pdfId, pageNumber);
-                console.log(`🚀 JSI: Set page ${pageNumber} for PDF ${pdfId}`);
+                this.pdfJSI.setCurrentPage(pdfIdForJsi, pageNumber);
+                if (__DEV__) {
+                    console.log(`🚀 JSI: Set page ${pageNumber} for PDF ${pdfIdForJsi}`);
+                }
             } catch (error) {
                 console.warn('JSI setPage failed, falling back to standard method:', error);
             }

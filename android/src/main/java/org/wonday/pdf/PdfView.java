@@ -70,6 +70,16 @@ import org.wonday.pdf.events.TopChangeEvent;
 
 public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompleteListener,OnErrorListener,OnTapListener,OnDrawListener,OnPageScrollListener, LinkHandler {
     private int page = 1;               // start from 1
+    /** While >= 1, ignore onPageChanged callbacks for other pages (stale events during jumpTo). #13 */
+    private int programmaticTargetPage = -1;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Runnable clearProgrammaticTargetRunnable = () -> programmaticTargetPage = -1;
+
+    private void armProgrammaticJump(int targetPage) {
+        programmaticTargetPage = targetPage;
+        mainHandler.removeCallbacks(clearProgrammaticTargetRunnable);
+        mainHandler.postDelayed(clearProgrammaticTargetRunnable, 500);
+    }
     private boolean horizontal = false;
     private float scale = 1;
     private float minScale = 1;
@@ -135,7 +145,16 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
     @Override
     public void onPageChanged(int page, int numberOfPages) {
         // pdf lib page start from 0, convert it to our page (start from 1)
-        page = page+1;
+        int pageOneBased = page + 1;
+        if (programmaticTargetPage >= 1 && pageOneBased != programmaticTargetPage) {
+            showLog(format("onPageChanged: skip stale page %d during programmatic jump to %d", pageOneBased, programmaticTargetPage));
+            return;
+        }
+        if (programmaticTargetPage >= 1 && pageOneBased == programmaticTargetPage) {
+            mainHandler.removeCallbacks(clearProgrammaticTargetRunnable);
+            programmaticTargetPage = -1;
+        }
+        page = pageOneBased;
         this.page = page;
         showLog(format("%s %s / %s", path, page, numberOfPages));
         
@@ -450,6 +469,7 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
             showLog(format("drawPdf: Skipping reload, path unchanged: %s", this.path));
             // Just jump to the page if needed, dont reload entire document
             if (this.page > 0 && !this.isRecycled()) {
+                armProgrammaticJump(this.page);
                 this.jumpTo(this.page - 1, false);
             }
             // If PDF is already loaded but loadComplete event hasn't been dispatched yet, dispatch it now
@@ -529,6 +549,8 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
             SearchRegistry.unregisterPath(pdfId);
         }
         needsReload = true;
+        programmaticTargetPage = -1;
+        mainHandler.removeCallbacks(clearProgrammaticTargetRunnable);
         this.path = path;
         loadCompleteDispatched = false;
         lastKnownPageCount = 0;
@@ -572,6 +594,7 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
         
         // If page changed and PDF is already loaded, jump to the new page immediately
         if (newPage != oldPage && !needsReload && this.path != null && !this.isRecycled()) {
+            armProgrammaticJump(newPage);
             showLog(format("setPage: Jumping to page %d (from %d)", newPage, oldPage));
             this.jumpTo(newPage - 1, false);
         }

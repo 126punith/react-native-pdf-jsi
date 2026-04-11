@@ -9,7 +9,6 @@
 
 #import "StreamingPDFProcessor.h"
 #import <React/RCTLog.h>
-#import <zlib.h>
 
 static const NSUInteger CHUNK_SIZE = 1024 * 1024; // 1MB chunks
 static const NSUInteger BUFFER_SIZE = 8192; // 8KB buffer for I/O
@@ -46,148 +45,20 @@ static const NSUInteger BUFFER_SIZE = 8192; // 8KB buffer for I/O
                                   outputPath:(NSString *)outputPath
                             compressionLevel:(int)compressionLevel
                                        error:(NSError **)error {
-    
-    NSTimeInterval startTime = CACurrentMediaTime();
-    unsigned long long bytesRead = 0;
-    unsigned long long bytesWritten = 0;
-    
-    RCTLogInfo(@"🌊 Starting streaming compression: %@ -> %@ (level: %d)",
-              [inputPath lastPathComponent], [outputPath lastPathComponent], compressionLevel);
-    
-    NSFileHandle *inputHandle = [NSFileHandle fileHandleForReadingAtPath:inputPath];
-    if (!inputHandle) {
-        if (error) {
-            *error = [NSError errorWithDomain:@"StreamingPDFProcessor"
-                                         code:1
-                                     userInfo:@{NSLocalizedDescriptionKey: @"Failed to open input file"}];
-        }
+    RCTLogInfo(@"🌊 compressPDFStreaming: streaming copy (valid PDF); whole-file zlib not PDF-safe (#26); level %d ignored — %@ -> %@",
+              compressionLevel, [inputPath lastPathComponent], [outputPath lastPathComponent]);
+
+    CopyResult *copy = [self copyPDFStreaming:inputPath destPath:outputPath error:error];
+    if (!copy) {
         return nil;
     }
-    
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    if ([fileManager fileExistsAtPath:outputPath]) {
-        [fileManager removeItemAtPath:outputPath error:nil];
-    }
-    [fileManager createFileAtPath:outputPath contents:nil attributes:nil];
-    
-    NSFileHandle *outputHandle = [NSFileHandle fileHandleForWritingAtPath:outputPath];
-    if (!outputHandle) {
-        [inputHandle closeFile];
-        if (error) {
-            *error = [NSError errorWithDomain:@"StreamingPDFProcessor"
-                                         code:2
-                                     userInfo:@{NSLocalizedDescriptionKey: @"Failed to open output file"}];
-        }
-        return nil;
-    }
-    
-    // Setup zlib for compression
-    z_stream stream;
-    stream.zalloc = Z_NULL;
-    stream.zfree = Z_NULL;
-    stream.opaque = Z_NULL;
-    
-    int ret = deflateInit2(&stream, compressionLevel, Z_DEFLATED, MAX_WBITS, 8, Z_DEFAULT_STRATEGY);
-    if (ret != Z_OK) {
-        [inputHandle closeFile];
-        [outputHandle closeFile];
-        if (error) {
-            *error = [NSError errorWithDomain:@"StreamingPDFProcessor"
-                                         code:3
-                                     userInfo:@{NSLocalizedDescriptionKey: @"Failed to initialize compression"}];
-        }
-        return nil;
-    }
-    
-    NSMutableData *inputBuffer = [NSMutableData dataWithLength:CHUNK_SIZE];
-    NSMutableData *outputBuffer = [NSMutableData dataWithLength:CHUNK_SIZE];
-    NSUInteger chunksProcessed = 0;
-    
-    @try {
-        while (YES) {
-            NSData *chunk = [inputHandle readDataOfLength:CHUNK_SIZE];
-            if (chunk.length == 0) {
-                break;
-            }
-            
-            bytesRead += chunk.length;
-            chunksProcessed++;
-            
-            stream.avail_in = (uInt)chunk.length;
-            stream.next_in = (Bytef *)chunk.bytes;
-            
-            do {
-                stream.avail_out = (uInt)outputBuffer.length;
-                stream.next_out = (Bytef *)outputBuffer.mutableBytes;
-                
-                ret = deflate(&stream, Z_NO_FLUSH);
-                if (ret == Z_STREAM_ERROR) {
-                    @throw [NSException exceptionWithName:@"CompressionError"
-                                                   reason:@"Stream error during compression"
-                                                 userInfo:nil];
-                }
-                
-                NSUInteger have = outputBuffer.length - stream.avail_out;
-                if (have > 0) {
-                    NSData *compressedChunk = [NSData dataWithBytes:outputBuffer.bytes length:have];
-                    [outputHandle writeData:compressedChunk];
-                    bytesWritten += have;
-                }
-            } while (stream.avail_out == 0);
-            
-            if (chunksProcessed % 10 == 0) {
-                RCTLogInfo(@"🌊 Processed %lu chunks, %llu MB",
-                          (unsigned long)chunksProcessed, bytesRead / (1024 * 1024));
-            }
-        }
-        
-        // Finish compression
-        do {
-            stream.avail_out = (uInt)outputBuffer.length;
-            stream.next_out = (Bytef *)outputBuffer.mutableBytes;
-            
-            ret = deflate(&stream, Z_FINISH);
-            NSUInteger have = outputBuffer.length - stream.avail_out;
-            if (have > 0) {
-                NSData *compressedChunk = [NSData dataWithBytes:outputBuffer.bytes length:have];
-                [outputHandle writeData:compressedChunk];
-                bytesWritten += have;
-            }
-        } while (ret != Z_STREAM_END);
-        
-        deflateEnd(&stream);
-        
-        [inputHandle closeFile];
-        [outputHandle closeFile];
-        
-        NSTimeInterval duration = (CACurrentMediaTime() - startTime) * 1000;
-        double compressionRatio = bytesRead > 0 ? (double)bytesWritten / bytesRead : 1.0;
-        double spaceSaved = bytesRead > 0 ? (1.0 - compressionRatio) * 100 : 0.0;
-        
-        RCTLogInfo(@"🌊 Streaming compression complete: %llu MB -> %llu MB (%.1f%% saved) in %.0fms",
-                  bytesRead / (1024 * 1024), bytesWritten / (1024 * 1024), spaceSaved, duration);
-        
-        CompressionResult *result = [[CompressionResult alloc] init];
-        result.originalSize = bytesRead;
-        result.compressedSize = bytesWritten;
-        result.durationMs = duration;
-        result.compressionRatio = compressionRatio;
-        result.spaceSavedPercent = spaceSaved;
-        
-        return result;
-        
-    } @catch (NSException *exception) {
-        deflateEnd(&stream);
-        [inputHandle closeFile];
-        [outputHandle closeFile];
-        
-        if (error) {
-            *error = [NSError errorWithDomain:@"StreamingPDFProcessor"
-                                         code:4
-                                     userInfo:@{NSLocalizedDescriptionKey: exception.reason}];
-        }
-        return nil;
-    }
+    CompressionResult *result = [[CompressionResult alloc] init];
+    result.originalSize = copy.bytesCopied;
+    result.compressedSize = copy.bytesCopied;
+    result.durationMs = copy.durationMs;
+    result.compressionRatio = 1.0;
+    result.spaceSavedPercent = 0.0;
+    return result;
 }
 
 - (CopyResult *)copyPDFStreaming:(NSString *)sourcePath

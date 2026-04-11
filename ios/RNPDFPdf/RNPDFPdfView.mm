@@ -442,6 +442,8 @@ using namespace facebook::react;
 
 - (void)setNativePage:(NSInteger)page
 {
+    // #13: Imperative setNativePage must navigate even when page number equals _previousPage
+    _previousPage = -1;
     _page = (int)page;
     [self didSetProps:[NSArray arrayWithObject:@"page"]];
 }
@@ -547,6 +549,15 @@ using namespace facebook::react;
     }
 
     [self bindTap];
+}
+
+// #13: Paper — re-applying the same `page` must still run navigation (controlled lists / setNativeProps)
+- (void)setPage:(int)pageValue
+{
+    if (_documentLoaded && pageValue == _page) {
+        _previousPage = -1;
+    }
+    _page = pageValue;
 }
 
 - (void)PDFViewWillClickOnLink:(PDFView *)sender withURL:(NSURL *)url
