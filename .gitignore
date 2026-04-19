@@ -75,6 +75,6 @@ yarn-error.log
 !.yarn/sdks
 !.yarn/versions
 
-
-
+# Cursor (local / machine-specific agent rules)
+.cursor/rules/git-commit-messages.mdc
 
