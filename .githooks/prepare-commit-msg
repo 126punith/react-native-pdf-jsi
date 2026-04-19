@@ -1,0 +1,17 @@
+#!/bin/sh
+# Removes common Cursor commit footer if the editor or tooling injected it.
+# Enable this hook directory once per clone:
+#   git config core.hooksPath .githooks
+# Optional commit template (opens in editor for git commit without -m):
+#   git config commit.template .gitmessage
+
+msg_file=$1
+[ -n "$msg_file" ] && [ -f "$msg_file" ] || exit 0
+
+tmp="${msg_file}.strip.$$"
+if grep -qx 'Made-with: Cursor' "$msg_file" 2>/dev/null; then
+  grep -vx 'Made-with: Cursor' "$msg_file" > "$tmp" && mv "$tmp" "$msg_file"
+else
+  rm -f "$tmp"
+fi
+exit 0
