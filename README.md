@@ -16,6 +16,14 @@
 [![GitHub stars](https://img.shields.io/github/stars/126punith/react-native-pdf-jsi?style=flat-square&logo=github&color=181717)](https://github.com/126punith/react-native-pdf-jsi)
 [![license](https://img.shields.io/npm/l/react-native-pdf-jsi?style=flat-square&color=green)](https://github.com/126punith/react-native-pdf-jsi/blob/main/LICENSE)
 
+<p align="center">
+  <img src="https://media1.tenor.com/m/ULb88LZ1oM0AAAAd/oppenheimer-paradoxical.gif" alt="Oppenheimer — It is paradoxical, yet it works" width="320" />
+</p>
+
+<p align="center"><em>"It is paradoxical, yet it works."</em></p>
+
+<p align="center"><strong>Approaching 100,000 npm downloads 🚀</strong></p>
+
 High-performance React Native PDF viewer with JSI (JavaScript Interface) acceleration. A drop-in replacement for `react-native-pdf` with enhanced performance, Google Play compliance, and advanced features.
 
 ## Features
@@ -532,3 +540,27 @@ Fixed critical issue where pinch-to-zoom gestures were not working on iOS. The f
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for a complete list of changes and version history.
+
+## 👋 About the Maintainer
+
+Hi! I'm **Punith Manthri**, creator of **react-native-pdf-jsi**.
+
+I'm a Senior React Native Developer specializing in:
+
+- React Native
+- Enterprise Mobile Applications
+- Custom Location Tracking Systems
+- Native Modules (Swift/Kotlin)
+- Performance Optimization
+- Mobile Architecture
+
+Beyond open source, I built an **enterprise-grade FMCG delivery application** used for real-time delivery operations, including custom location tracking, route optimization, offline synchronization, and large-scale driver management.
+
+This project has been used by developers around the world and is approaching **100,000 npm downloads**.
+
+🚀 **I'm currently open to exciting Senior React Native / Mobile Platform opportunities.**
+
+[![Portfolio](https://img.shields.io/badge/Portfolio-Visit-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://portfolio-hazel-tau-91.vercel.app/)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/punith-manthri-ba15b4216/)
+[![Email](https://img.shields.io/badge/Email-punithm865%40gmail.com-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:punithm865@gmail.com)
+[![GitHub](https://img.shields.io/badge/GitHub-126punith-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/126punith)
