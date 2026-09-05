@@ -959,8 +959,8 @@ RCT_EXPORT_METHOD(getPageCount:(NSString *)filePath
 }
 
 /**
- * Compress PDF using streaming processor
- * Uses O(1) constant memory regardless of file size
+ * Compress PDF via PDF-aware page recompression (downsample + JPEG rebuild).
+ * Processes one page at a time; falls back to copy if not smaller.
  * @param inputPath Input PDF file path
  * @param outputPath Output compressed PDF file path
  * @param compressionLevel Compression level (0-9, 9 is maximum compression)
@@ -1006,7 +1006,6 @@ RCT_EXPORT_METHOD(compressPDF:(NSString *)inputPath
     
     RCTLogInfo(@"Starting compression: %@ -> %@", inputPath, finalOutputPath);
     
-    // Use StreamingPDFProcessor for O(1) memory compression
     StreamingPDFProcessor *processor = [StreamingPDFProcessor sharedInstance];
     NSError *error;
     CompressionResult *result = [processor compressPDFStreaming:inputPath

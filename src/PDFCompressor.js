@@ -2,8 +2,8 @@
  * PDFCompressor - PDF Compression Manager
  * Handles PDF file compression with streaming support for large files
  * 
- * Uses native StreamingPDFProcessor for O(1) memory operations
- * Can compress 1GB+ PDFs without memory issues
+ * Uses native StreamingPDFProcessor for page-at-a-time PDF-aware recompression
+ * (downsample + JPEG rebuild). Processes one page at a time to bound memory.
  * 
  * @author Punith M
  * @version 1.0.0
@@ -121,11 +121,13 @@ export class PDFCompressor {
     getCapabilities() {
         return {
             streamingCompression: this.isNativeAvailable,
+            pdfAwareRecompression: this.isNativeAvailable,
             presets: Object.values(CompressionPreset),
-            maxFileSizeMB: this.isNativeAvailable ? 1024 : 100, // 1GB+ with native, 100MB without
+            maxFileSizeMB: this.isNativeAvailable ? 1024 : 100, // large files OK with page-at-a-time processing
             supportedPlatforms: ['ios', 'android'],
             currentPlatform: Platform.OS,
-            nativeModuleAvailable: this.isNativeAvailable
+            nativeModuleAvailable: this.isNativeAvailable,
+            note: 'Recompression rasterizes pages (text becomes image). Level controls scale + JPEG quality.'
         };
     }
 
@@ -210,7 +212,7 @@ export class PDFCompressor {
             throughputMBps,
             preset,
             compressionLevel,
-            method: this.isNativeAvailable ? 'native_streaming' : 'fallback'
+            method: this.isNativeAvailable ? 'native_pdf_recompress' : 'fallback'
         };
 
         console.log(`📦 PDFCompressor: Compression complete!`);
@@ -299,17 +301,17 @@ export class PDFCompressor {
         const inputSizeMB = inputStats.size / (1024 * 1024);
         const presetConfig = this.getPresetConfig(preset);
 
-        // IMPORTANT: Native module uses zlib deflate which produces ~15-18% compression
-        // on PDFs regardless of compression level, because PDFs already contain 
-        // compressed content (JPEG images, embedded fonts, compressed streams).
-        // All presets produce approximately the same result.
-        const estimatedRatio = 0.84; // ~16% reduction - same for all presets
+        // Native recompresses pages (downsample + JPEG). Savings depend on content:
+        // image-heavy PDFs often see large reductions; text/vector PDFs may see little
+        // and keep the original if recompression is not smaller.
+        const level = presetConfig.level;
+        const estimatedRatio = Math.max(0.35, 1 - (level / 9) * 0.55);
         const estimatedSize = inputStats.size * estimatedRatio;
         const estimatedSizeMB = estimatedSize / (1024 * 1024);
         const estimatedSavingsPercent = (1 - estimatedRatio) * 100;
 
-        // Estimate time based on file size (actual ~25ms/MB with native streaming)
-        const msPerMB = this.isNativeAvailable ? 25 : 100;
+        // Page rasterization is slower than a byte copy
+        const msPerMB = this.isNativeAvailable ? 180 : 100;
         const estimatedTimeMs = inputSizeMB * msPerMB;
 
         return {
@@ -323,8 +325,8 @@ export class PDFCompressor {
             estimatedDurationMs: estimatedTimeMs,
             preset,
             presetDescription: presetConfig.description,
-            confidence: 'low',
-            note: 'All presets produce ~15-18% compression. Native uses zlib deflate which has minimal effect on already-compressed PDF content.'
+            confidence: 'medium',
+            note: 'Estimates assume image-heavy PDFs. Higher presets downsample and JPEG-encode pages; text-only PDFs may save little. Output remains a valid PDF.'
         };
     }
 
@@ -333,7 +335,7 @@ export class PDFCompressor {
      * @private
      */
     async _compressNative(inputPath, outputPath, compressionLevel, onProgress) {
-        console.log(`📦 PDFCompressor: Using native streaming compression (level: ${compressionLevel})`);
+        console.log(`📦 PDFCompressor: Using native PDF recompression (level: ${compressionLevel})`);
 
         try {
             // Use PDFExporter.compressPDF - the main native compression method

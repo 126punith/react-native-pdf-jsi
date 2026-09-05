@@ -8,6 +8,14 @@
 
 package org.wonday.pdf;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Rect;
+import android.graphics.pdf.PdfDocument;
+import android.graphics.pdf.PdfRenderer;
+import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
 import java.io.*;
@@ -18,23 +26,139 @@ public class StreamingPDFProcessor {
     private static final int BUFFER_SIZE = 8192; // 8KB buffer for I/O
     
     /**
-     * Writes a valid PDF to {@code outputFile} using a streaming copy.
-     * Whole-file zlib is not PDF-safe (produces a zlib stream, not a PDF); see #26.
+     * PDF-aware compression: rasterize each page at a level-scaled resolution,
+     * JPEG-encode, and rebuild a valid PDF (#36). Level 0 copies unchanged.
+     * If recompression is not smaller than the original, falls back to a copy.
      *
-     * @param compressionLevel ignored (kept for API compatibility)
+     * @param compressionLevel 0–9 (higher = smaller / lower quality)
      */
     public CompressionResult compressPDFStreaming(File inputFile, File outputFile,
                                                    int compressionLevel) throws IOException {
+        long startTime = System.currentTimeMillis();
+        long originalSize = inputFile.length();
+        int level = Math.max(0, Math.min(9, compressionLevel));
+
+        if (level == 0) {
+            Log.d(TAG, "compressPDFStreaming: level 0 — streaming copy (no recompression)");
+            CopyResult copy = copyPDFStreaming(inputFile, outputFile);
+            return new CompressionResult(originalSize, copy.bytesCopied, copy.durationMs, 1.0);
+        }
+
+        float scale = 1.0f - (level / 9.0f) * 0.55f;          // 1.0 → ~0.45
+        int jpegQuality = Math.round(92f - (level / 9.0f) * 57f); // 92 → ~35
+
         Log.d(TAG, String.format(
-            "compressPDFStreaming: streaming copy (valid PDF); zlib whole-file not supported: %s -> %s (level %d ignored)",
-            inputFile.getName(), outputFile.getName(), compressionLevel));
-        CopyResult copy = copyPDFStreaming(inputFile, outputFile);
-        return new CompressionResult(
-            copy.bytesCopied,
-            copy.bytesCopied,
-            copy.durationMs,
-            1.0
-        );
+            "compressPDFStreaming: PDF-aware recompress level=%d scale=%.2f jpeg=%d: %s -> %s",
+            level, scale, jpegQuality, inputFile.getName(), outputFile.getName()));
+
+        File tempFile = new File(outputFile.getParent(),
+            ".tmp_compress_" + System.currentTimeMillis() + "_" + outputFile.getName());
+
+        try {
+            recompressPdfPages(inputFile, tempFile, scale, jpegQuality);
+
+            long compressedSize = tempFile.length();
+            if (compressedSize <= 0 || compressedSize >= originalSize) {
+                Log.d(TAG, String.format(
+                    "compressPDFStreaming: recompress not smaller (%d >= %d) — falling back to copy",
+                    compressedSize, originalSize));
+                if (tempFile.exists()) {
+                    //noinspection ResultOfMethodCallIgnored
+                    tempFile.delete();
+                }
+                CopyResult copy = copyPDFStreaming(inputFile, outputFile);
+                long duration = System.currentTimeMillis() - startTime;
+                return new CompressionResult(originalSize, copy.bytesCopied, duration, 1.0);
+            }
+
+            if (outputFile.exists()) {
+                //noinspection ResultOfMethodCallIgnored
+                outputFile.delete();
+            }
+            if (!tempFile.renameTo(outputFile)) {
+                copyPDFStreaming(tempFile, outputFile);
+                //noinspection ResultOfMethodCallIgnored
+                tempFile.delete();
+            }
+
+            long duration = System.currentTimeMillis() - startTime;
+            double ratio = originalSize > 0 ? (double) compressedSize / (double) originalSize : 1.0;
+            Log.d(TAG, String.format(
+                "compressPDFStreaming: done %d -> %d bytes (%.1f%% saved) in %dms",
+                originalSize, compressedSize, (1.0 - ratio) * 100.0, duration));
+            return new CompressionResult(originalSize, compressedSize, duration, ratio);
+        } catch (Exception e) {
+            if (tempFile.exists()) {
+                //noinspection ResultOfMethodCallIgnored
+                tempFile.delete();
+            }
+            Log.e(TAG, "PDF-aware compression failed, falling back to copy", e);
+            CopyResult copy = copyPDFStreaming(inputFile, outputFile);
+            long duration = System.currentTimeMillis() - startTime;
+            return new CompressionResult(originalSize, copy.bytesCopied, duration, 1.0);
+        }
+    }
+
+    /**
+     * Rebuild PDF by rendering each page to a downsampled JPEG-backed bitmap.
+     * Processes one page at a time to keep peak memory bounded.
+     */
+    private void recompressPdfPages(File inputFile, File outputFile,
+                                    float scale, int jpegQuality) throws IOException {
+        PdfDocument outDoc = new PdfDocument();
+        try (ParcelFileDescriptor fd = ParcelFileDescriptor.open(inputFile, ParcelFileDescriptor.MODE_READ_ONLY);
+             PdfRenderer renderer = new PdfRenderer(fd)) {
+
+            int pageCount = renderer.getPageCount();
+            for (int i = 0; i < pageCount; i++) {
+                PdfRenderer.Page page = renderer.openPage(i);
+                try {
+                    int pageWidth = Math.max(1, page.getWidth());
+                    int pageHeight = Math.max(1, page.getHeight());
+                    int renderW = Math.max(1, Math.round(pageWidth * scale));
+                    int renderH = Math.max(1, Math.round(pageHeight * scale));
+
+                    Bitmap bitmap = Bitmap.createBitmap(renderW, renderH, Bitmap.Config.ARGB_8888);
+                    Canvas renderCanvas = new Canvas(bitmap);
+                    renderCanvas.drawColor(Color.WHITE);
+                    page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
+
+                    ByteArrayOutputStream jpegStream = new ByteArrayOutputStream();
+                    if (!bitmap.compress(Bitmap.CompressFormat.JPEG, jpegQuality, jpegStream)) {
+                        bitmap.recycle();
+                        throw new IOException("JPEG compress failed for page " + i);
+                    }
+                    bitmap.recycle();
+
+                    byte[] jpegBytes = jpegStream.toByteArray();
+                    Bitmap jpegBitmap = BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.length);
+                    if (jpegBitmap == null) {
+                        throw new IOException("Failed to decode JPEG for page " + i);
+                    }
+
+                    PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(
+                        pageWidth, pageHeight, i + 1
+                    ).create();
+                    PdfDocument.Page outPage = outDoc.startPage(pageInfo);
+                    outPage.getCanvas().drawBitmap(
+                        jpegBitmap,
+                        null,
+                        new Rect(0, 0, pageWidth, pageHeight),
+                        null
+                    );
+                    outDoc.finishPage(outPage);
+                    jpegBitmap.recycle();
+                } finally {
+                    page.close();
+                }
+            }
+        }
+
+        try (FileOutputStream fos = new FileOutputStream(outputFile)) {
+            outDoc.writeTo(fos);
+        } finally {
+            outDoc.close();
+        }
     }
     
     /**

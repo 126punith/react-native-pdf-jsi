@@ -50,6 +50,7 @@ High-performance React Native PDF viewer with JSI (JavaScript Interface) acceler
 - **PDF Operations**: Split, merge, extract, rotate, and delete pages
 - **PDF Compression**: Reduce file sizes with 5 smart presets (EMAIL, WEB, MOBILE, PRINT, ARCHIVE)
 - **Text Extraction & Search**: Extract and search text with statistics and context; **programmatic search** via `searchTextDirect(pdfId, term, startPage, endPage)` with bounding rects, and **highlight rendering** via `pdfId` + `highlightRects` props (Android & iOS)
+- **PDF Text & OCR**: Native extraction + optional on-device OCR (`PDFText`); searchable PDF (`makeSearchablePDF`); OCR highlight mapping. See [README_OCR.md](README_OCR.md).
 - **File Management** (Android): Download to public storage, open folders with MediaStore API
 
 ### Compliance & Compatibility
@@ -137,6 +138,16 @@ npx expo install react-native-pdf-jsi react-native-blob-util @react-native-async
 {
   "expo": {
     "plugins": ["react-native-pdf-jsi"]
+  }
+}
+```
+
+Optional OCR (Android ML Kit):
+
+```json
+{
+  "expo": {
+    "plugins": [["react-native-pdf-jsi", { "ocr": true }]]
   }
 }
 ```
@@ -337,6 +348,24 @@ setHighlights(results);
 ```
 
 On iOS, the path is registered when the document loads (local file only); you can also call `NativeModules.PDFJSIManager.registerPathForSearch(pdfId, path)` after `onLoadComplete` if needed. Highlights stay aligned when zooming and scrolling on both Android and iOS.
+
+#### PDFText / OCR
+
+Native text extraction, optional OCR, searchable PDFs, and highlight helpers.
+
+**See [README_OCR.md](README_OCR.md) for how OCR works and the full API.**
+
+```jsx
+import Pdf, { PDFText, searchTextDirect } from 'react-native-pdf-jsi';
+
+const { stats, pageMeta } = await PDFText.extract(filePath, {
+  mode: 'auto',
+  includeBlocks: true,
+});
+const highlightRects = await PDFText.toHighlightRects(filePath, pageMeta);
+
+const { outputPath } = await PDFText.makeSearchablePDF(filePath, { mode: 'auto' });
+```
 
 ## ProGuard / R8 Configuration (Android Release Builds)
 

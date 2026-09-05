@@ -737,7 +737,7 @@ public class PDFExporter extends ReactContextBaseJavaModule {
 
     /**
      * Compress PDF using streaming processor
-     * Uses O(1) constant memory regardless of file size
+     * PDF-aware page recompression (downsample + JPEG rebuild). One page at a time.
      * @param inputPath Input PDF file path
      * @param outputPath Output compressed PDF file path
      * @param compressionLevel Compression level (0-9, 9 is maximum compression)
@@ -777,7 +777,6 @@ public class PDFExporter extends ReactContextBaseJavaModule {
 
             Log.d(TAG, "Starting compression: " + inputFile.getAbsolutePath() + " -> " + outputFile.getAbsolutePath());
 
-            // Use StreamingPDFProcessor for O(1) memory compression
             StreamingPDFProcessor processor = new StreamingPDFProcessor();
             StreamingPDFProcessor.CompressionResult result = processor.compressPDFStreaming(
                 inputFile, 

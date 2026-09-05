@@ -788,6 +788,8 @@ import AnalyticsManager from './src/managers/AnalyticsManager';
 import FileManager from './src/managers/FileManager';
 import CacheManager from './src/managers/CacheManager';
 import PDFCompressor, { CompressionPreset, CompressionLevel } from './src/PDFCompressor';
+import PDFText from './src/PDFText';
+import PDFTextExtractor from './src/utils/PDFTextExtractor';
 
 // Alias for backward compatibility and intuitive naming
 export const PDFCache = CacheManager;
@@ -800,7 +802,9 @@ export {
     CacheManager,
     PDFCompressor,
     CompressionPreset,
-    CompressionLevel
+    CompressionLevel,
+    PDFText,
+    PDFTextExtractor
 };
 
 // ========================================

@@ -126,7 +126,7 @@ export class ExportManager {
                     result += sep;
                 }
                 
-                result += text;
+                result += text || '';
             });
 
             console.log(`📤 ExportManager: Exported ${result.length} characters from ${sortedPages.length} pages`);
@@ -601,6 +601,7 @@ export class ExportManager {
             extractPages: this.isNativeAvailable,
             rotatePages: this.isNativeAvailable,
             deletePages: this.isNativeAvailable,
+            ocrViaPDFText: true,
             share: true // Share API is always available
         };
     }

@@ -29,6 +29,7 @@ public class RNPDFJSIPackage implements ReactPackage {
         
         // Add advanced feature modules
         modules.add(new PDFExporter(reactContext));
+        modules.add(new PDFTextModule(reactContext));
         modules.add(new FileDownloader(reactContext));
         modules.add(new FileManager(reactContext));
         

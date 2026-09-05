@@ -110,6 +110,7 @@
         "fabric/",
         "README.md",
         "README_JSI.md",
+        "README_OCR.md",
         "LICENSE"
     ],
     "codegenConfig": {

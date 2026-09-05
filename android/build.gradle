@@ -79,6 +79,16 @@ def isNewArchitectureEnabled() {
     return project.hasProperty("newArchEnabled") && project.newArchEnabled == "true"
 }
 
+// Optional on-device OCR (ML Kit). Enable via:
+//   pdfJsiEnableOcr=true in gradle.properties
+// or Expo config plugin: ["react-native-pdf-jsi", { "ocr": true }]
+def isOcrEnabled() {
+    def fromProject = project.findProperty("pdfJsiEnableOcr")
+    def fromRoot = rootProject.findProperty("pdfJsiEnableOcr")
+    def value = fromProject != null ? fromProject : fromRoot
+    return value != null && value.toString().toBoolean()
+}
+
 if (isNewArchitectureEnabled()) {
     apply plugin: "com.facebook.react"
 }
@@ -99,10 +109,15 @@ android {
     // Use NDK r28.2 which provides proper 16KB page alignment toolchain
     ndkVersion "28.2.13676358"
 
+    buildFeatures {
+        buildConfig true
+    }
+
     defaultConfig {
         minSdkVersion safeExtGet('minSdkVersion', 21)
         targetSdkVersion safeExtGet('targetSdkVersion', 35)
         buildConfigField("boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString())
+        buildConfigField("boolean", "PDF_JSI_OCR_ENABLED", isOcrEnabled().toString())
         
         // 🚀 JSI Configuration with 16KB Page Support
         ndk {
@@ -202,4 +217,9 @@ dependencies {
     // 🚀 Android dependencies for JSI
     implementation 'androidx.annotation:annotation:1.7.0'
     implementation 'androidx.core:core:1.12.0'
+
+    // Optional on-device OCR (only when pdfJsiEnableOcr=true)
+    if (isOcrEnabled()) {
+        implementation 'com.google.mlkit:text-recognition:16.0.1'
+    }
 }

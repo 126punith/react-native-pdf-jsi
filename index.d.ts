@@ -349,8 +349,10 @@ export interface CompressionEstimate {
  * PDFCompressor capabilities
  */
 export interface CompressionCapabilities {
-    /** Whether streaming compression is available */
+    /** Whether streaming / page-at-a-time compression is available */
     streamingCompression: boolean;
+    /** Whether PDF-aware page recompression (downsample + JPEG) is available */
+    pdfAwareRecompression?: boolean;
     /** Available presets */
     presets: CompressionPreset[];
     /** Maximum file size in MB */
@@ -361,11 +363,13 @@ export interface CompressionCapabilities {
     currentPlatform: string;
     /** Whether native module is available */
     nativeModuleAvailable: boolean;
+    /** Optional capability note */
+    note?: string;
 }
 
 /**
  * PDFCompressor Manager for PDF compression
- * Uses native streaming for O(1) memory operations on large files (1GB+)
+ * Uses native PDF-aware page recompression (downsample + JPEG rebuild)
  */
 export interface PDFCompressorManager {
     /**
@@ -489,7 +493,7 @@ export interface PDFSearchResultItem {
 /**
  * Search PDF text programmatically.
  * On iOS: pass the same pdfId to the Pdf view (pdfId prop) so the view is registered for search.
- * On Android: returns empty array until a native text-extraction implementation is added.
+ * On Android: uses Pdfium text layer via SearchRegistry (pass pdfId to the Pdf view).
  */
 export function searchTextDirect(
     pdfId: string,
@@ -497,3 +501,135 @@ export function searchTextDirect(
     startPage: number,
     endPage: number
 ): Promise<PDFSearchResultItem[]>;
+
+// ========================================
+// PDFText (extraction + optional OCR)
+// ========================================
+
+export type PDFTextMode = 'text' | 'ocr' | 'auto';
+
+export interface OCRBlock {
+    text: string;
+    rect?: string;
+}
+
+export interface OCRResult {
+    text: string;
+    blocks?: OCRBlock[];
+    engine?: string;
+    imageWidth?: number;
+    imageHeight?: number;
+}
+
+export interface OCREngine {
+    recognize(imagePath: string, options?: object): Promise<OCRResult | string>;
+}
+
+export interface OCROptions {
+    /** iOS Vision: use fast recognition level */
+    fast?: boolean;
+    /** iOS 16+ Vision recognition language identifiers, e.g. ['en-US'] */
+    languages?: string[];
+    /** Hint that Latin ML Kit recognizer is in use on Android */
+    latinOnly?: boolean;
+    [key: string]: unknown;
+}
+
+export interface PDFTextExtractOptions {
+    /** 1-based page numbers; omit for all pages */
+    pages?: number[] | null;
+    /** text = embedded only; ocr = always OCR; auto = OCR when page text is sparse */
+    mode?: PDFTextMode;
+    /** auto mode: OCR if trimmed embedded text length is below this (default 20) */
+    minTextLength?: number;
+    /** DPI used when rasterizing pages for OCR (default 200) */
+    ocrDpi?: number;
+    ocrFormat?: 'jpeg' | 'png';
+    ocrOptions?: OCROptions;
+    includeBlocks?: boolean;
+    onProgress?: (progress: { page: number; total: number; mode: string }) => void;
+}
+
+export interface PDFTextStats {
+    totalPages: number;
+    pagesNative: number;
+    pagesOcr: number;
+    pagesEmpty: number;
+    mode: string;
+}
+
+export interface PDFTextPageMeta {
+    mode: string;
+    blocks: OCRBlock[];
+    imageSize?: { width: number; height: number };
+    pageSize?: { width: number; height: number };
+}
+
+export interface PDFTextCapabilities {
+    textExtraction: boolean;
+    ocr: boolean;
+    customEngineSupported: boolean;
+    customEngineRegistered?: boolean;
+    recognizePage?: boolean;
+    searchablePdf?: boolean;
+    platform: string;
+    ocrBuildEnabled?: boolean;
+}
+
+export interface PDFTextExtractResult {
+    pages: Map<number, string>;
+    fullText: string;
+    stats: PDFTextStats;
+    pageMeta?: Map<number, PDFTextPageMeta>;
+}
+
+export interface PDFTextSearchableResult {
+    outputPath: string;
+    stats: PDFTextStats;
+}
+
+export interface PDFTextMakeSearchableOptions extends PDFTextExtractOptions {
+    outputPath?: string;
+}
+
+export interface PDFHighlightRect {
+    page: number;
+    rect: string;
+}
+
+export interface PDFTextManager {
+    setOCREngine(engine: OCREngine | null): void;
+    clearOCREngine(): void;
+    getOCREngine(): OCREngine | null;
+    isAvailable(): boolean;
+    isOCRAvailable(): Promise<boolean>;
+    getCapabilities(): Promise<PDFTextCapabilities>;
+    getPageSize(filePath: string, pageIndex0: number): Promise<{ width: number; height: number }>;
+    extract(filePath: string, options?: PDFTextExtractOptions): Promise<PDFTextExtractResult>;
+    makeSearchablePDF(inputPath: string, options?: PDFTextMakeSearchableOptions): Promise<PDFTextSearchableResult>;
+    toHighlightRects(filePath: string, pageMeta: Map<number, PDFTextPageMeta> | object): Promise<PDFHighlightRect[]>;
+    blocksToHighlightRects(pageMeta: Map<number, PDFTextPageMeta> | object): PDFHighlightRect[];
+    extractTextFromPage(filePath: string, pageNumber: number): Promise<string>;
+    extractTextFromPages(filePath: string, pageIndices: number[]): Promise<Map<number, string>>;
+    extractAllText(filePath: string): Promise<Map<number, string>>;
+    getPageCount(filePath: string): Promise<number>;
+    recognizeImage(imagePath: string, options?: OCROptions): Promise<OCRResult>;
+    recognizePage(filePath: string, pageIndex0: number, options?: OCROptions & { dpi?: number; ocrDpi?: number; format?: string }): Promise<OCRResult>;
+}
+
+/**
+ * Native PDF text extraction (Pdfium / PDFKit) with optional on-device OCR
+ * (iOS Vision; Android ML Kit when pdfJsiEnableOcr / Expo `{ ocr: true }`),
+ * searchable PDF export, viewer highlight mapping, and custom OCR engines.
+ */
+export const PDFText: PDFTextManager;
+
+export interface PDFTextExtractorStatic {
+    isTextExtractionAvailable(): boolean;
+    extractTextFromPage(filePath: string, pageNumber: number): Promise<string>;
+    extractTextFromPages(filePath: string, pageIndices: number[]): Promise<Map<number, string>>;
+    extractAllText(filePath: string): Promise<Map<number, string>>;
+    getPageCount(filePath: string): Promise<number>;
+}
+
+export const PDFTextExtractor: PDFTextExtractorStatic;

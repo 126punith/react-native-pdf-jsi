@@ -34,10 +34,11 @@
 + (instancetype)sharedInstance;
 
 /**
- * Stream PDF compression without loading entire file
+ * PDF-aware compression: rasterize pages at a level-scaled resolution, JPEG-encode,
+ * and rebuild a valid PDF (#36). Level 0 copies unchanged. Falls back to copy if not smaller.
  * @param inputPath Input PDF file path
  * @param outputPath Output compressed file path
- * @param compressionLevel Compression level (0-9, 9 is best)
+ * @param compressionLevel Compression level (0-9, 9 is best / smallest)
  * @return CompressionResult or nil if operation fails
  */
 - (CompressionResult *)compressPDFStreaming:(NSString *)inputPath

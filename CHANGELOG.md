@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### OCR (text extraction + on-device recognition)
+
+High-level overview of the new PDF text / OCR surface. Setup and examples: [README_OCR.md](README_OCR.md).
+
+**What it is**
+- **Embedded text** from digital PDFs (Pdfium on Android, PDFKit on iOS) via `PDFText` / `PDFTextModule` — no ML.
+- **Optional on-device OCR** for scanned or image-only pages: iOS **Vision** (system, iOS 13+); Android **ML Kit** only when `pdfJsiEnableOcr=true` or Expo `["react-native-pdf-jsi", { "ocr": true }]`.
+- Modes: `text` | `ocr` | `auto` on `PDFText.extract` (auto OCRs when page text is empty/sparse).
+- Medium APIs: `extract` + `stats`, in-memory `recognizePage`, `toHighlightRects` / `blocksToHighlightRects`, `makeSearchablePDF`, and `setOCREngine` for custom models.
+- Page-at-a-time processing so peak memory does not grow with page count.
+
+**What it is not**
+- Not a bundled custom CoreML / TFLite OCR model in the npm package.
+- Not cloud OCR (Google Vision, Textract, etc.) as a default.
+- Not Windows OCR.
+- Not live OCR inside `searchTextDirect` — that API still searches the PDF **text layer** only. For scans, use `makeSearchablePDF` then search, or draw OCR boxes with `toHighlightRects`.
+
+### Added
+- **PDF text extraction + optional OCR plugin**
+  - Native embedded-text APIs via new `PDFTextModule` (Android Pdfium / iOS PDFKit), exposed as `PDFText` and wired through `PDFTextExtractor` / `ExportManager.exportToText`.
+  - Modes: `text` | `ocr` | `auto` (`PDFText.extract`). Auto OCRs pages with little/no text layer.
+  - **iOS**: on-device OCR with Vision (`VNRecognizeTextRequest`, iOS 13+); Vision linked in the podspec.
+  - **Android**: optional ML Kit Text Recognition when `pdfJsiEnableOcr=true` (or Expo plugin `{ ocr: true }`); core package stays free of ML Kit unless enabled.
+  - **Custom engines**: `PDFText.setOCREngine` / `clearOCREngine` for CoreML, TFLite, or any `recognize(imagePath)` implementation.
+  - Expo config plugin accepts `["react-native-pdf-jsi", { "ocr": true }]`.
+- **Medium-effort OCR APIs**
+  - `extract` always returns `stats` (`pagesNative` / `pagesOcr` / `pagesEmpty`).
+  - `getPageSize`, `toHighlightRects` / `blocksToHighlightRects` for viewer `highlightRects`.
+  - In-memory `recognizePage` (native bitmap → OCR); `extract` prefers it over temp export files.
+  - `makeSearchablePDF` — image + invisible-text sandwich so `searchTextDirect` works on scanned docs.
+  - Documented `ocrOptions.fast` / `languages` (iOS) in [README_OCR.md](README_OCR.md).
+
+### Fixed
+- **PDF compression reported 0% savings** – Fixes [#36](https://github.com/126punith/react-native-pdf-jsi/issues/36): `compressPDF` / `PDFCompressor` now perform PDF-aware recompression (page downsample + JPEG rebuild) on Android (`PdfRenderer`/`PdfDocument`) and iOS (PDFKit). Compression level maps to render scale and JPEG quality. If the recompressed file is not smaller than the original (common for text-only PDFs), the library falls back to a byte-identical copy so output stays valid. Whole-file zlib remains unused (still not PDF-safe; see #26).
+
 ## [4.4.1] - 2026-03-19
 
 ### Fixed

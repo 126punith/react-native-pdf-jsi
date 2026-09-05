@@ -1,11 +1,14 @@
 /**
  * PDFTextExtractor - Text Extraction from PDF Files
- * 
- * Handles extracting text content from PDF files for export functionality
- * 
+ *
+ * Thin wrapper around PDFText (native Pdfium / PDFKit extraction).
+ * Prefer PDFText.extract() for OCR / auto modes and custom engines.
+ *
  * @author Punith M
- * @version 1.0.0
+ * @version 2.0.0
  */
+
+import PDFText from '../PDFText';
 
 /**
  * PDFTextExtractor Class
@@ -16,9 +19,7 @@ class PDFTextExtractor {
      * @returns {boolean} True if text extraction is available
      */
     static isTextExtractionAvailable() {
-        // For development: Always return true
-        // In production, this would check if native modules are available
-        return true;
+        return PDFText.isAvailable();
     }
 
     /**
@@ -28,42 +29,35 @@ class PDFTextExtractor {
      * @returns {Promise<string>} Extracted text content
      */
     static async extractTextFromPage(filePath, pageNumber) {
-        // For development: Return placeholder text
-        // In production, this would use native modules to extract text
-        console.warn(`📄 PDFTextExtractor: Text extraction not fully implemented. Returning placeholder for page ${pageNumber}`);
-        return `[Text extraction from page ${pageNumber + 1} not yet implemented]`;
+        if (!this.isTextExtractionAvailable()) {
+            throw new Error('Native text extraction is not available');
+        }
+        return PDFText.extractTextFromPage(filePath, pageNumber);
     }
 
     /**
      * Extract text from multiple pages
      * @param {string} filePath - Path to PDF file
      * @param {Array<number>} pageIndices - Array of page indices (0-indexed)
-     * @returns {Promise<Object>} Map of page index to extracted text
+     * @returns {Promise<Map<number, string>>} Map of page index to extracted text
      */
     static async extractTextFromPages(filePath, pageIndices) {
-        const textMap = {};
-        
-        for (const pageIndex of pageIndices) {
-            textMap[pageIndex] = await this.extractTextFromPage(filePath, pageIndex);
+        if (!this.isTextExtractionAvailable()) {
+            throw new Error('Native text extraction is not available');
         }
-        
-        return textMap;
+        return PDFText.extractTextFromPages(filePath, pageIndices);
     }
 
     /**
      * Extract text from all pages
      * @param {string} filePath - Path to PDF file
-     * @returns {Promise<Object>} Map of page index to extracted text
+     * @returns {Promise<Map<number, string>>} Map of page index to extracted text
      */
     static async extractAllText(filePath) {
-        // For development: Return placeholder for first few pages
-        // In production, this would extract from all pages
-        console.warn('📄 PDFTextExtractor: Full text extraction not yet implemented. Returning placeholder data.');
-        
-        // Return placeholder data structure
-        return {
-            0: '[Text extraction from all pages not yet implemented]',
-        };
+        if (!this.isTextExtractionAvailable()) {
+            throw new Error('Native text extraction is not available');
+        }
+        return PDFText.extractAllText(filePath);
     }
 
     /**
@@ -72,11 +66,11 @@ class PDFTextExtractor {
      * @returns {Promise<number>} Number of pages
      */
     static async getPageCount(filePath) {
-        // Placeholder implementation
-        // In production, this would use native modules
-        return 1;
+        if (!this.isTextExtractionAvailable()) {
+            throw new Error('Native text extraction is not available');
+        }
+        return PDFText.getPageCount(filePath);
     }
 }
 
 export default PDFTextExtractor;
-

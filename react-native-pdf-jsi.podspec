@@ -15,7 +15,7 @@ Pod::Spec.new do |s|
   s.homepage       = package['homepage']
   s.source         = { :git => 'https://github.com/126punith/react-native-pdf-enhanced.git', :tag => "v#{s.version}" }
   s.requires_arc   = true
-  s.framework    = "PDFKit"
+  s.frameworks   = "PDFKit", "Vision"
 
   if fabric_enabled
     s.platforms       = { ios: '11.0', tvos: '11.0' }

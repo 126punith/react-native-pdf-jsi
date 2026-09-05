@@ -17,6 +17,9 @@ export {
     CompressionLevel 
 } from './PDFCompressor';
 
+export { default as PDFText } from './PDFText';
+export { default as PDFTextExtractor } from './utils/PDFTextExtractor';
+
 // Enhanced PDF View component
 export { default as EnhancedPdfView, EnhancedPdfUtils } from './EnhancedPdfView';
 
