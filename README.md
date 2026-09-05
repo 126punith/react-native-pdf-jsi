@@ -26,6 +26,8 @@
 
 High-performance React Native PDF viewer with JSI (JavaScript Interface) acceleration. A drop-in replacement for `react-native-pdf` with enhanced performance, Google Play compliance, and advanced features.
 
+**Latest (`4.5.0`):** native PDF text extraction plus optional on-device OCR (iOS Vision / Android ML Kit), searchable PDF export, and OCR highlight helpers. See [README_OCR.md](README_OCR.md) and [CHANGELOG.md](CHANGELOG.md).
+
 ## Features
 
 ### Core Functionality

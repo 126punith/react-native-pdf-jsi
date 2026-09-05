@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.5.0] - 2026-09-05
+
 ### OCR (text extraction + on-device recognition)
 
 High-level overview of the new PDF text / OCR surface. Setup and examples: [README_OCR.md](README_OCR.md).
