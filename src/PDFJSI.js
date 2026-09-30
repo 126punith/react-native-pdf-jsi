@@ -10,6 +10,23 @@ import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
 
 const { PDFJSIManager: PDFJSIManagerNative, EnhancedPdfJSIBridge, RNPDFPdfViewManager } = NativeModules;
 
+let nitroPDFJSI;
+
+export function getNitroPDFJSI() {
+    if (nitroPDFJSI !== undefined) {
+        return nitroPDFJSI;
+    }
+    try {
+        const { NitroModules } = require('react-native-nitro-modules');
+        nitroPDFJSI = NitroModules.createHybridObject('PDFJSI');
+        console.log('[PDFJSI] Nitro hybrid created: PDFJSI');
+    } catch (error) {
+        nitroPDFJSI = null;
+        console.log('[PDFJSI] Nitro unavailable, using bridge:', error && error.message ? error.message : error);
+    }
+    return nitroPDFJSI;
+}
+
 /**
  * OPTIMIZATION: Performance timer with lazy evaluation (30% less overhead)
  */
@@ -90,6 +107,10 @@ class PDFJSIManager {
         
         // Defer initialization to prevent hooks from being called before React is ready
         this.initializationPromise = Promise.resolve().then(() => {
+            if (getNitroPDFJSI()) {
+                this.isJSIAvailable = true;
+                return true;
+            }
             return this.checkJSIAvailability();
         });
         return this.initializationPromise;
@@ -100,6 +121,11 @@ class PDFJSIManager {
      */
     async checkJSIAvailability() {
         try {
+            if (getNitroPDFJSI()) {
+                this.isJSIAvailable = true;
+                return true;
+            }
+
             let isAvailable = false;
             
             if (Platform.OS === 'android') {
@@ -144,7 +170,10 @@ class PDFJSIManager {
             console.log(`📱 PDFJSI: Rendering page ${pageNumber} at scale ${scale} for PDF ${pdfId}`);
             
             let result;
-            if (Platform.OS === 'android') {
+            const nitro = getNitroPDFJSI();
+            if (nitro) {
+                result = await nitro.renderPageDirect(pdfId, pageNumber, scale, base64Data);
+            } else if (Platform.OS === 'android') {
                 result = await PDFJSIManagerNative.renderPageDirect(pdfId, pageNumber, scale, base64Data);
             } else if (Platform.OS === 'ios') {
                 result = await RNPDFPdfViewManager.renderPageDirect(pdfId, pageNumber, scale, base64Data);
@@ -198,7 +227,10 @@ class PDFJSIManager {
             console.log(`📱 PDFJSI: Getting metrics for page ${pageNumber} of PDF ${pdfId}`);
             
             let metrics;
-            if (Platform.OS === 'android') {
+            const nitro = getNitroPDFJSI();
+            if (nitro) {
+                metrics = await nitro.getPageMetrics(pdfId, pageNumber);
+            } else if (Platform.OS === 'android') {
                 metrics = await PDFJSIManagerNative.getPageMetrics(pdfId, pageNumber);
             } else if (Platform.OS === 'ios') {
                 metrics = await RNPDFPdfViewManager.getPageMetrics(pdfId, pageNumber);
@@ -235,7 +267,10 @@ class PDFJSIManager {
             console.log(`📱 PDFJSI: Preloading pages ${startPage}-${endPage} for PDF ${pdfId}`);
             
             let success;
-            if (Platform.OS === 'android') {
+            const nitro = getNitroPDFJSI();
+            if (nitro) {
+                success = await nitro.preloadPagesDirect(pdfId, startPage, endPage);
+            } else if (Platform.OS === 'android') {
                 success = await PDFJSIManagerNative.preloadPagesDirect(pdfId, startPage, endPage);
             } else if (Platform.OS === 'ios') {
                 success = await RNPDFPdfViewManager.preloadPagesDirect(pdfId, startPage, endPage);
@@ -278,7 +313,10 @@ class PDFJSIManager {
             console.log(`📱 PDFJSI: Getting cache metrics for PDF ${pdfId}`);
             
             let metrics;
-            if (Platform.OS === 'android') {
+            const nitro = getNitroPDFJSI();
+            if (nitro) {
+                metrics = await nitro.getCacheMetrics(pdfId);
+            } else if (Platform.OS === 'android') {
                 metrics = await PDFJSIManagerNative.getCacheMetrics(pdfId);
             } else if (Platform.OS === 'ios') {
                 metrics = await RNPDFPdfViewManager.getCacheMetrics();
@@ -314,7 +352,10 @@ class PDFJSIManager {
             console.log(`📱 PDFJSI: Clearing cache type '${cacheType}' for PDF ${pdfId}`);
             
             let success;
-            if (Platform.OS === 'android') {
+            const nitro = getNitroPDFJSI();
+            if (nitro) {
+                success = await nitro.clearCacheDirect(pdfId, cacheType);
+            } else if (Platform.OS === 'android') {
                 success = await PDFJSIManagerNative.clearCacheDirect(pdfId, cacheType);
             } else if (Platform.OS === 'ios') {
                 success = await RNPDFPdfViewManager.clearCacheDirect(pdfId, cacheType);
@@ -351,7 +392,10 @@ class PDFJSIManager {
             console.log(`📱 PDFJSI: Optimizing memory for PDF ${pdfId}`);
             
             let success;
-            if (Platform.OS === 'android') {
+            const nitro = getNitroPDFJSI();
+            if (nitro) {
+                success = await nitro.optimizeMemory(pdfId);
+            } else if (Platform.OS === 'android') {
                 success = await PDFJSIManagerNative.optimizeMemory(pdfId);
             } else if (Platform.OS === 'ios') {
                 success = await RNPDFPdfViewManager.optimizeMemory(pdfId);
@@ -389,7 +433,10 @@ class PDFJSIManager {
             console.log(`📱 PDFJSI: Searching for '${searchTerm}' in pages ${startPage}-${endPage}`);
             
             let results;
-            if (Platform.OS === 'android') {
+            const nitro = getNitroPDFJSI();
+            if (nitro) {
+                results = await nitro.searchTextDirect(pdfId, searchTerm, startPage, endPage);
+            } else if (Platform.OS === 'android') {
                 results = await PDFJSIManagerNative.searchTextDirect(pdfId, searchTerm, startPage, endPage);
             } else if (Platform.OS === 'ios') {
                 results = await RNPDFPdfViewManager.searchTextDirect(pdfId, searchTerm, startPage, endPage);
@@ -433,7 +480,10 @@ class PDFJSIManager {
             console.log(`📱 PDFJSI: Getting performance metrics for PDF ${pdfId}`);
             
             let metrics;
-            if (Platform.OS === 'android') {
+            const nitro = getNitroPDFJSI();
+            if (nitro) {
+                metrics = await nitro.getPerformanceMetrics(pdfId);
+            } else if (Platform.OS === 'android') {
                 metrics = await PDFJSIManagerNative.getPerformanceMetrics(pdfId);
             } else if (Platform.OS === 'ios') {
                 metrics = await RNPDFPdfViewManager.getPerformanceMetricsDirect(pdfId);
@@ -470,7 +520,10 @@ class PDFJSIManager {
             console.log(`📱 PDFJSI: Setting render quality to ${quality} for PDF ${pdfId}`);
             
             let success;
-            if (Platform.OS === 'android') {
+            const nitro = getNitroPDFJSI();
+            if (nitro) {
+                success = await nitro.setRenderQuality(pdfId, quality);
+            } else if (Platform.OS === 'android') {
                 success = await PDFJSIManagerNative.setRenderQuality(pdfId, quality);
             } else if (Platform.OS === 'ios') {
                 success = await RNPDFPdfViewManager.setRenderQuality(pdfId, quality);
@@ -497,7 +550,10 @@ class PDFJSIManager {
             console.log(`📱 PDFJSI: Getting JSI stats`);
             
             let stats;
-            if (Platform.OS === 'android') {
+            const nitro = getNitroPDFJSI();
+            if (nitro) {
+                stats = await nitro.getJSIStats();
+            } else if (Platform.OS === 'android') {
                 stats = await EnhancedPdfJSIBridge.getJSIStats();
             } else if (Platform.OS === 'ios') {
                 stats = await RNPDFPdfViewManager.getJSIStats();
@@ -787,10 +843,25 @@ class PDFJSIManager {
      * Check 16KB page size support (Google Play requirement)
      * @returns {Promise<Object>} 16KB page size support status
      */
+    async registerPathForSearch(pdfId, path) {
+        const nitro = getNitroPDFJSI();
+        if (nitro) {
+            return nitro.registerPathForSearch(pdfId, path);
+        }
+        const bridge = PDFJSIManagerNative || RNPDFPdfViewManager;
+        if (bridge && typeof bridge.registerPathForSearch === 'function') {
+            return bridge.registerPathForSearch(pdfId, path);
+        }
+        return false;
+    }
+
     async check16KBSupport() {
         try {
             let result;
-            if (Platform.OS === 'android') {
+            const nitro = getNitroPDFJSI();
+            if (nitro) {
+                result = await nitro.check16KBSupport();
+            } else if (Platform.OS === 'android') {
                 result = await PDFJSIManagerNative.check16KBSupport();
             } else if (Platform.OS === 'ios') {
                 result = await RNPDFPdfViewManager.check16KBSupport();
@@ -856,6 +927,7 @@ export const {
     getPerformanceMetrics,
     setRenderQuality,
     getJSIStats,
+    registerPathForSearch,
     getPerformanceHistory,
     clearPerformanceHistory,
     lazyLoadPages,

@@ -51,7 +51,8 @@ const withPdfJsi: ConfigPlugin<PdfJsiPluginProps | void> = (config, props) => {
   console.log(
     '[react-native-pdf-jsi] Remember to install peer dependencies:\n' +
       '  - react-native-blob-util\n' +
-      '  - @react-native-async-storage/async-storage' +
+      '  - @react-native-async-storage/async-storage\n' +
+      '  - react-native-nitro-modules (required for the Nitro JSI path; the React Native bridge is used when it is not linked)' +
       (enableOcr
         ? '\n[react-native-pdf-jsi] OCR enabled (Android ML Kit; iOS uses Vision)'
         : '')

@@ -1,0 +1,23 @@
+{
+  "cxxNamespace": ["pdfjsi"],
+  "ios": {
+    "iosModuleName": "NitroPdfJsi"
+  },
+  "android": {
+    "androidNamespace": ["pdfjsi"],
+    "androidCxxLibName": "NitroPdfJsi"
+  },
+  "autolinking": {
+    "PDFJSI": {
+      "ios": {
+        "language": "c++",
+        "implementationClassName": "HybridPDFJSI"
+      },
+      "android": {
+        "language": "c++",
+        "implementationClassName": "HybridPDFJSI"
+      }
+    }
+  },
+  "ignorePaths": ["node_modules"]
+}

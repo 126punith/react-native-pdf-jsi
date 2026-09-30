@@ -10,6 +10,7 @@
  */
 
 import { NativeModules, Platform } from 'react-native';
+import { getNitroPDFJSI } from './PDFJSI';
 
 const { PDFTextModule, PDFExporter } = NativeModules;
 
@@ -17,6 +18,43 @@ let customOCREngine = null;
 
 function nativeAvailable() {
     return !!PDFTextModule;
+}
+
+function nitroPDF() {
+    return getNitroPDFJSI();
+}
+
+async function pageCountOf(filePath) {
+    const hybrid = nitroPDF();
+    if (hybrid) {
+        return hybrid.getPageCount(filePath);
+    }
+    if (!nativeAvailable()) {
+        throw new Error('PDFTextModule native module is not available');
+    }
+    return PDFTextModule.getPageCount(filePath);
+}
+
+async function textFromPage(filePath, pageIndex) {
+    const hybrid = nitroPDF();
+    if (hybrid) {
+        return (await hybrid.extractTextFromPage(filePath, pageIndex)) || '';
+    }
+    if (!nativeAvailable()) {
+        throw new Error('PDFTextModule native module is not available');
+    }
+    return (await PDFTextModule.extractTextFromPage(filePath, pageIndex)) || '';
+}
+
+async function pageSizeOf(filePath, pageIndex) {
+    const hybrid = nitroPDF();
+    if (hybrid) {
+        return hybrid.getPageSize(filePath, pageIndex);
+    }
+    if (!nativeAvailable() || !PDFTextModule.getPageSize) {
+        throw new Error('getPageSize is not available');
+    }
+    return PDFTextModule.getPageSize(filePath, pageIndex);
 }
 
 function objectToMap(obj) {
@@ -65,12 +103,16 @@ function imageRectToPdfRect(rectStr, imageWidth, imageHeight, pageWidthPt, pageH
 }
 
 async function exportPageImage(filePath, pageIndex0, dpi, format) {
+    const scale = Math.max(1, dpi / 72);
+    const hybrid = nitroPDF();
+    if (hybrid) {
+        return hybrid.exportPageToImage(filePath, pageIndex0, scale);
+    }
     if (!PDFExporter || !PDFExporter.exportPageToImage) {
         throw new Error(
             'PDFExporter.exportPageToImage is required for OCR. Native export module unavailable.'
         );
     }
-    const scale = Math.max(1, dpi / 72);
     return PDFExporter.exportPageToImage(filePath, pageIndex0, {
         format: format || 'jpeg',
         quality: 0.9,
@@ -112,7 +154,7 @@ async function runPageOCR(filePath, pageIndex0, ocrDpi, ocrFormat, ocrOptions) {
     if (customOCREngine && typeof customOCREngine.recognize === 'function') {
         const imagePath = await exportPageImage(filePath, pageIndex0, ocrDpi, ocrFormat);
         const result = await runOCROnImage(imagePath, ocrOptions);
-        const pageSize = await PDFTextModule.getPageSize(filePath, pageIndex0);
+        const pageSize = await pageSizeOf(filePath, pageIndex0);
         const imageWidth =
             result.imageWidth || Math.round((pageSize.width * ocrDpi) / 72);
         const imageHeight =
@@ -130,7 +172,7 @@ async function runPageOCR(filePath, pageIndex0, ocrDpi, ocrFormat, ocrOptions) {
     if (typeof PDFTextModule.recognizePage === 'function') {
         try {
             const result = await PDFTextModule.recognizePage(filePath, pageIndex0, opts);
-            const pageSize = await PDFTextModule.getPageSize(filePath, pageIndex0);
+            const pageSize = await pageSizeOf(filePath, pageIndex0);
             return {
                 text: result?.text ?? '',
                 blocks: result?.blocks ?? [],
@@ -147,7 +189,7 @@ async function runPageOCR(filePath, pageIndex0, ocrDpi, ocrFormat, ocrOptions) {
 
     const imagePath = await exportPageImage(filePath, pageIndex0, ocrDpi, ocrFormat);
     const result = await runOCROnImage(imagePath, ocrOptions);
-    const pageSize = await PDFTextModule.getPageSize(filePath, pageIndex0);
+            const pageSize = await pageSizeOf(filePath, pageIndex0);
     return {
         ...result,
         imagePath,
@@ -226,10 +268,7 @@ class PDFText {
     }
 
     static async getPageSize(filePath, pageIndex0) {
-        if (!nativeAvailable() || !PDFTextModule.getPageSize) {
-            throw new Error('getPageSize is not available');
-        }
-        return PDFTextModule.getPageSize(filePath, pageIndex0);
+        return pageSizeOf(filePath, pageIndex0);
     }
 
     /**
@@ -315,7 +354,7 @@ class PDFText {
         if (!filePath) {
             throw new Error('filePath is required');
         }
-        if (!nativeAvailable()) {
+        if (!nitroPDF() && !nativeAvailable()) {
             throw new Error('PDFTextModule native module is not available');
         }
 
@@ -331,7 +370,7 @@ class PDFText {
         } = options;
         const ocrOptions = normalizeOcrOptions(rawOcrOptions);
 
-        const pageCount = await PDFTextModule.getPageCount(filePath);
+        const pageCount = await pageCountOf(filePath);
         let indices;
         if (pages && pages.length) {
             indices = pages.map((p) => p - 1).filter((i) => i >= 0 && i < pageCount);
@@ -354,7 +393,7 @@ class PDFText {
             let ocrResult = null;
 
             if (mode === 'text' || mode === 'auto') {
-                text = await PDFTextModule.extractTextFromPage(filePath, pageIndex);
+                text = await textFromPage(filePath, pageIndex);
                 text = text || '';
             }
 
@@ -463,7 +502,7 @@ class PDFText {
         } = options;
         const ocrOptions = normalizeOcrOptions(rawOcrOptions);
 
-        const pageCount = await PDFTextModule.getPageCount(inputPath);
+        const pageCount = await pageCountOf(inputPath);
         let indices;
         if (pages && pages.length) {
             indices = pages.map((p) => p - 1).filter((i) => i >= 0 && i < pageCount);
@@ -486,14 +525,14 @@ class PDFText {
         try {
             for (let i = 0; i < indices.length; i++) {
                 const pageIndex = indices[i];
-                const pageSize = await PDFTextModule.getPageSize(inputPath, pageIndex);
+                const pageSize = await pageSizeOf(inputPath, pageIndex);
 
                 let text = '';
                 let blocks = [];
                 let usedMode = 'text';
 
                 if (mode === 'text' || mode === 'auto') {
-                    text = (await PDFTextModule.extractTextFromPage(inputPath, pageIndex)) || '';
+                    text = await textFromPage(inputPath, pageIndex);
                 }
 
                 const needsOcr =
@@ -569,14 +608,15 @@ class PDFText {
     }
 
     static async extractTextFromPage(filePath, pageNumber) {
-        if (!nativeAvailable()) {
-            throw new Error('PDFTextModule native module is not available');
-        }
-        const text = await PDFTextModule.extractTextFromPage(filePath, pageNumber);
-        return text || '';
+        return textFromPage(filePath, pageNumber);
     }
 
     static async extractTextFromPages(filePath, pageIndices) {
+        const hybrid = nitroPDF();
+        if (hybrid) {
+            const json = await hybrid.extractTextFromPages(filePath, JSON.stringify(pageIndices || []));
+            return objectToMap(JSON.parse(json));
+        }
         if (!nativeAvailable()) {
             throw new Error('PDFTextModule native module is not available');
         }
@@ -585,6 +625,11 @@ class PDFText {
     }
 
     static async extractAllText(filePath) {
+        const hybrid = nitroPDF();
+        if (hybrid) {
+            const json = await hybrid.extractAllText(filePath);
+            return objectToMap(JSON.parse(json));
+        }
         if (!nativeAvailable()) {
             throw new Error('PDFTextModule native module is not available');
         }
@@ -593,10 +638,7 @@ class PDFText {
     }
 
     static async getPageCount(filePath) {
-        if (!nativeAvailable()) {
-            throw new Error('PDFTextModule native module is not available');
-        }
-        return PDFTextModule.getPageCount(filePath);
+        return pageCountOf(filePath);
     }
 
     static async recognizeImage(imagePath, options = {}) {

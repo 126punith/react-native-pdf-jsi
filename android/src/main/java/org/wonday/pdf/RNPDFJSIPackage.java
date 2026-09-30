@@ -20,6 +20,14 @@ import com.facebook.react.uimanager.ViewManager;
 
 public class RNPDFJSIPackage implements ReactPackage {
 
+    static {
+        try {
+            com.facebook.soloader.SoLoader.loadLibrary("NitroPdfJsi");
+        } catch (UnsatisfiedLinkError e) {
+            // Nitro is built only for the new architecture. The bridge modules still load.
+        }
+    }
+
     @Override
     public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
         List<NativeModule> modules = new ArrayList<>();

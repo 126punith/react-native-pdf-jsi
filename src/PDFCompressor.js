@@ -11,6 +11,7 @@
 
 import { NativeModules, Platform } from 'react-native';
 import ReactNativeBlobUtil from 'react-native-blob-util';
+import { getNitroPDFJSI } from './PDFJSI';
 
 const { PDFExporter, StreamingPDFProcessor } = NativeModules;
 
@@ -339,6 +340,17 @@ export class PDFCompressor {
 
         try {
             // Use PDFExporter.compressPDF - the main native compression method
+            const nitro = getNitroPDFJSI();
+            if (nitro) {
+                console.log('📦 PDFCompressor: Calling Nitro compressPDF...');
+                const result = JSON.parse(await nitro.compressPDF(
+                    inputPath,
+                    outputPath,
+                    compressionLevel
+                ));
+                console.log('📦 PDFCompressor: Nitro compression result:', result);
+                return result;
+            }
             if (PDFExporter && typeof PDFExporter.compressPDF === 'function') {
                 console.log('📦 PDFCompressor: Calling PDFExporter.compressPDF...');
                 const result = await PDFExporter.compressPDF(

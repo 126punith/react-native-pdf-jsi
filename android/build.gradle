@@ -91,6 +91,7 @@ def isOcrEnabled() {
 
 if (isNewArchitectureEnabled()) {
     apply plugin: "com.facebook.react"
+    apply from: '../nitrogen/generated/android/NitroPdfJsi+autolinking.gradle'
 }
 
 def reactNativeArchitectures() {
@@ -105,12 +106,13 @@ android {
     }
     compileSdkVersion safeExtGet('compileSdkVersion', 35)
     
-    // 🚀 NDK Configuration for 16KB Page Size Support
-    // Use NDK r28.2 which provides proper 16KB page alignment toolchain
-    ndkVersion "28.2.13676358"
+    // Match the host app NDK so libc++_shared exports the same symbols.
+    // 16KB alignment is set with -Wl,-z,max-page-size=16384 in CMake.
+    ndkVersion safeExtGet("ndkVersion", "27.1.12297006")
 
     buildFeatures {
         buildConfig true
+        prefab true
     }
 
     defaultConfig {
@@ -126,8 +128,10 @@ android {
         
         externalNativeBuild {
             cmake {
-                cppFlags "-std=c++17", "-fexceptions", "-frtti", "-O3", "-ffast-math", "-funroll-loops"
-                arguments "-DANDROID_STL=c++_shared", "-DANDROID_PAGE_SIZE_AGNOSTIC=ON"
+                cppFlags "-fexceptions", "-frtti", "-O3", "-ffast-math", "-funroll-loops"
+                arguments "-DANDROID_STL=c++_shared",
+                    "-DANDROID_PAGE_SIZE_AGNOSTIC=ON",
+                    "-DBUILD_NITRO_PDF_JSI=${isNewArchitectureEnabled() ? "ON" : "OFF"}"
             }
         }
     }
@@ -158,7 +162,7 @@ android {
     // 🚀 JSI Native Build Configuration
     externalNativeBuild {
         cmake {
-            path "src/main/cpp/CMakeLists.txt"
+            path "CMakeLists.txt"
             version "3.22.1"
         }
     }
@@ -221,5 +225,9 @@ dependencies {
     // Optional on-device OCR (only when pdfJsiEnableOcr=true)
     if (isOcrEnabled()) {
         implementation 'com.google.mlkit:text-recognition:16.0.1'
+    }
+
+    if (isNewArchitectureEnabled()) {
+        implementation project(":react-native-nitro-modules")
     }
 }

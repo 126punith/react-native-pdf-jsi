@@ -75,12 +75,15 @@
         "@babel/core": "^7.20.2",
         "@babel/runtime": "^7.20.1",
         "@expo/config-plugins": "^9.0.0",
+        "nitrogen": "^0.37.1",
         "prop-types": "^15.7.2",
+        "react-native-nitro-modules": "^0.37.1",
         "typescript": "^5.0.0"
     },
     "scripts": {
         "build:plugin": "tsc -p plugin/tsconfig.json",
-        "prepublishOnly": "npm run build:plugin",
+        "nitrogen": "nitrogen",
+        "prepublishOnly": "npm run nitrogen && npm run build:plugin",
         "clean:for-publish": "node -e \"const fs=require('fs'),path=require('path');['android/.cxx','android/.gradle','android/build'].forEach(p=>{try{fs.rmSync(path.join(__dirname,p),{recursive:true});console.log('Removed',p);}catch(e){}})\"",
         "prepack": "npm run clean:for-publish"
     },
@@ -88,12 +91,16 @@
         "@react-native-async-storage/async-storage": ">=1.17.0",
         "react": "*",
         "react-native": "*",
-        "react-native-blob-util": ">=0.13.7"
+        "react-native-blob-util": ">=0.13.7",
+        "react-native-nitro-modules": "^0.37.1"
     },
     "files": [
         "android/",
         "ios/",
         "windows/",
+        "cpp/",
+        "nitrogen/",
+        "nitro.json",
         "src/",
         "plugin/",
         "app.plugin.js",

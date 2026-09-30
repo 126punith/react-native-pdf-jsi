@@ -62,6 +62,27 @@
  
  - (void)check16KBSupport:(RCTPromiseResolveBlock)resolve
                  rejecter:(RCTPromiseRejectBlock)reject;
- 
- @end
+
++ (BOOL)registerPathForSearchSync:(NSString *)pdfId path:(NSString *)path;
++ (NSArray<NSDictionary *> *)searchTextDirectSync:(NSString *)pdfId
+                                       searchTerm:(NSString *)searchTerm
+                                        startPage:(NSInteger)startPage
+                                          endPage:(NSInteger)endPage;
++ (NSString *)nitroPageMetrics:(NSString *)pdfId pageNumber:(NSInteger)pageNumber;
++ (NSString *)nitroRenderPage:(NSString *)pdfId pageNumber:(NSInteger)pageNumber scale:(double)scale;
++ (NSString *)nitroPageCount:(NSString *)filePath;
++ (NSString *)nitroPageSize:(NSString *)filePath pageIndex:(NSInteger)pageIndex;
++ (NSString *)nitroTextFromPage:(NSString *)filePath pageIndex:(NSInteger)pageIndex;
++ (NSString *)nitroTextFromPages:(NSString *)filePath pageIndicesJson:(NSString *)pageIndicesJson;
++ (NSString *)nitroAllText:(NSString *)filePath;
++ (NSString *)nitroExportPageToImage:(NSString *)filePath pageIndex:(NSInteger)pageIndex scale:(double)scale;
++ (NSString *)nitroExportToImages:(NSString *)filePath scale:(double)scale;
++ (NSString *)nitroMergePDFs:(NSString *)filePathsJson outputPath:(NSString *)outputPath;
++ (NSString *)nitroSplitPDF:(NSString *)filePath pageRangesJson:(NSString *)pageRangesJson outputDir:(NSString *)outputDir;
++ (NSString *)nitroExtractPages:(NSString *)filePath pageNumbersJson:(NSString *)pageNumbersJson outputPath:(NSString *)outputPath;
++ (BOOL)nitroRotatePage:(NSString *)filePath pageNumber:(NSInteger)pageNumber degrees:(NSInteger)degrees;
++ (BOOL)nitroDeletePage:(NSString *)filePath pageNumber:(NSInteger)pageNumber;
++ (NSString *)nitroCompressPDF:(NSString *)inputPath outputPath:(NSString *)outputPath compressionLevel:(int)compressionLevel;
+
+@end
  

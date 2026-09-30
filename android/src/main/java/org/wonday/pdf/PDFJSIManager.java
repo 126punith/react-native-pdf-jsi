@@ -54,10 +54,19 @@ public class PDFJSIManager extends ReactContextBaseJavaModule {
         } catch (UnsatisfiedLinkError e) {
             Log.e(TAG, "Failed to load PDF JSI native library", e);
         }
+        try {
+            SoLoader.loadLibrary("NitroPdfJsi");
+            Log.d(TAG, "Nitro PDF JSI library loaded");
+        } catch (UnsatisfiedLinkError e) {
+            Log.d(TAG, "NitroPdfJsi not available; using the React Native bridge");
+        }
     }
+
+    private static volatile PDFJSIManager sInstance;
     
     public PDFJSIManager(ReactApplicationContext reactContext) {
         super(reactContext);
+        sInstance = this;
         this.backgroundExecutor = Executors.newFixedThreadPool(2);
         
         Log.d(TAG, "PDFJSIManager: Initializing high-performance PDF JSI manager");
@@ -233,18 +242,34 @@ public class PDFJSIManager extends ReactContextBaseJavaModule {
         });
     }
 
+    public static boolean registerPathForSearchSync(String pdfId, String path) {
+        if (pdfId != null && !pdfId.isEmpty() && path != null && !path.isEmpty()) {
+            SearchRegistry.registerPath(pdfId, path);
+            return true;
+        }
+        return false;
+    }
+
+    public static WritableArray searchTextDirectArray(String pdfId, String searchTerm, int startPage, int endPage) {
+        PDFJSIManager manager = sInstance;
+        if (manager == null || searchTerm == null || searchTerm.isEmpty()) {
+            return Arguments.createArray();
+        }
+        String path = SearchRegistry.getPath(pdfId);
+        if (path == null || path.isEmpty()) {
+            Log.w(TAG, "No path registered for pdfId: " + pdfId + " - pass pdfId to Pdf view to enable search");
+            return Arguments.createArray();
+        }
+        return manager.searchInPdf(pdfId, path, searchTerm, startPage, endPage);
+    }
+
     /**
      * Register a path for search by pdfId. Called from JS when loadComplete fires so search works
      * even if the native view has not received pdfId yet. On Android the view also registers; this is for parity with iOS.
      */
     @ReactMethod
     public void registerPathForSearch(String pdfId, String path, Promise promise) {
-        if (pdfId != null && !pdfId.isEmpty() && path != null && !path.isEmpty()) {
-            SearchRegistry.registerPath(pdfId, path);
-            promise.resolve(true);
-        } else {
-            promise.resolve(false);
-        }
+        promise.resolve(registerPathForSearchSync(pdfId, path));
     }
     
     /**
@@ -264,14 +289,7 @@ public class PDFJSIManager extends ReactContextBaseJavaModule {
         backgroundExecutor.execute(() -> {
             try {
                 Log.d(TAG, "Searching text via JSI: '" + searchTerm + "' in pages " + startPage + "-" + endPage);
-                String path = SearchRegistry.getPath(pdfId);
-                if (path == null || path.isEmpty()) {
-                    Log.w(TAG, "No path registered for pdfId: " + pdfId + " - pass pdfId to Pdf view to enable search");
-                    promise.resolve(Arguments.createArray());
-                    return;
-                }
-                WritableArray results = searchInPdf(pdfId, path, searchTerm, startPage, endPage);
-                promise.resolve(results);
+                promise.resolve(searchTextDirectArray(pdfId, searchTerm, startPage, endPage));
             } catch (Exception e) {
                 Log.e(TAG, "Error searching text via JSI", e);
                 promise.reject("SEARCH_ERROR", e.getMessage());

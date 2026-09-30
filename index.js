@@ -28,7 +28,7 @@ import ReactNativeBlobUtil from 'react-native-blob-util'
 import {ViewPropTypes} from 'deprecated-react-native-prop-types';
 const SHA1 = require('crypto-js/sha1');
 import PdfView from './PdfView';
-import PDFJSI, { searchTextDirect } from './src/PDFJSI';
+import PDFJSI, { getNitroPDFJSI, searchTextDirect } from './src/PDFJSI';
 
 export default class Pdf extends Component {
 
@@ -146,7 +146,7 @@ export default class Pdf extends Component {
             if (this._mounted) {
                 this.setState({ jsiAvailable: isAvailable });
             }
-            if (isAvailable) {
+            if (getNitroPDFJSI()) {
                 console.log('🚀 PDFJSI: High-performance JSI mode enabled');
             } else {
                 console.log('📱 PDFJSI: Using standard bridge mode');
@@ -624,19 +624,14 @@ export default class Pdf extends Component {
                 }
                 // Register path for search (iOS: ensures SearchRegistry has path when pdfId may not reach native view)
                 if (this.props.pdfId && filePath) {
-                    const PDFJSIManager = NativeModules.PDFJSIManager;
-                    if (PDFJSIManager && typeof PDFJSIManager.registerPathForSearch === 'function') {
-                        if (__DEV__) {
-                            console.log('📌 [Pdf] Registering path for search:', this.props.pdfId, 'pathLength:', filePath.length);
-                        }
-                        PDFJSIManager.registerPathForSearch(this.props.pdfId, filePath).then(() => {
-                            if (__DEV__) console.log('✅ [Pdf] Path registered for search:', this.props.pdfId);
-                        }).catch((err) => {
-                            if (__DEV__) console.warn('⚠️ [Pdf] registerPathForSearch failed:', err);
-                        });
-                    } else if (__DEV__) {
-                        console.warn('⚠️ [Pdf] PDFJSIManager.registerPathForSearch not available');
+                    if (__DEV__) {
+                        console.log('📌 [Pdf] Registering path for search:', this.props.pdfId, 'pathLength:', filePath.length);
                     }
+                    Promise.resolve(PDFJSI.registerPathForSearch(this.props.pdfId, filePath)).then((registered) => {
+                        if (__DEV__) console.log('✅ [Pdf] Path registered for search:', this.props.pdfId, registered);
+                    }).catch((err) => {
+                        if (__DEV__) console.warn('⚠️ [Pdf] registerPathForSearch failed:', err);
+                    });
                 } else if (__DEV__) {
                     console.log('📌 [Pdf] Skip path registration: pdfId=', this.props.pdfId, 'hasPath=', !!filePath);
                 }

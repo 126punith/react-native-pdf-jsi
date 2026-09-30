@@ -18,12 +18,23 @@ Pod::Spec.new do |s|
   s.frameworks   = "PDFKit", "Vision"
 
   if fabric_enabled
-    s.platforms       = { ios: '11.0', tvos: '11.0' }
-    s.source_files    = 'ios/**/*.{h,m,mm,cpp}'
+    s.platforms       = { ios: '13.0', tvos: '13.0' }
+    s.source_files    = [
+      'ios/**/*.{h,m,mm,cpp}',
+      'cpp/**/*.{h,hpp,cpp,mm}',
+    ]
     s.requires_arc    = true
+    s.dependency 'React-jsi'
+    s.dependency 'React-callinvoker'
+    s.pod_target_xcconfig = {
+      'HEADER_SEARCH_PATHS' => '"$(PODS_TARGET_SRCROOT)/cpp" "$(PODS_TARGET_SRCROOT)/ios/RNPDFPdf" "$(PODS_TARGET_SRCROOT)/nitrogen/generated/shared/c++"'
+    }
     install_modules_dependencies(s)
+    load File.join(__dir__, 'nitrogen/generated/ios/NitroPdfJsi+autolinking.rb')
+    add_nitrogen_files(s)
 
   else
+    s.exclude_files = 'cpp/**/*'
     s.platform       = :ios, '8.0'
     s.source_files   = 'ios/**/*.{h,m,mm}'
     s.dependency     'React-Core'
