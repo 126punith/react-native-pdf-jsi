@@ -37,7 +37,7 @@ std::string platformTextFromPages(const std::string& filePath, const std::string
 std::string platformAllText(const std::string& filePath);
 std::string platformExportPageToImage(const std::string& filePath, int pageIndex, double scale);
 std::string platformExportToImages(const std::string& filePath, double scale);
-std::string platformMergePDFs(const std::string& filePathsJson, const std::string& outputPath);
+std::string platformMergePDFs(const std::vector<std::string>& filePaths, const std::string& outputPath);
 std::string platformSplitPDF(const std::string& filePath, const std::string& pageRangesJson, const std::string& outputDir);
 std::string platformExtractPages(const std::string& filePath, const std::string& pageNumbersJson, const std::string& outputPath);
 bool platformRotatePage(const std::string& filePath, int pageNumber, int degrees);

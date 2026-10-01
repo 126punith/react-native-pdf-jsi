@@ -19,7 +19,7 @@ std::string pdfiumTextFromPages(const std::string& filePath, const std::string& 
 std::string pdfiumAllText(const std::string& filePath);
 std::string pdfiumExportPage(const std::string& filePath, int pageIndex, double scale);
 std::string pdfiumExportAll(const std::string& filePath, double scale);
-std::string pdfiumMerge(const std::string& filePathsJson, const std::string& outputPath);
+std::string pdfiumMerge(const std::vector<std::string>& filePaths, const std::string& outputPath);
 std::string pdfiumSplit(const std::string& filePath, const std::string& pageRangesJson, const std::string& outputDir);
 std::string pdfiumExtract(const std::string& filePath, const std::string& pageNumbersJson, const std::string& outputPath);
 bool pdfiumRotate(const std::string& filePath, int pageNumber, int degrees);

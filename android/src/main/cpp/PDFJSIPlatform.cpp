@@ -81,9 +81,9 @@ std::string platformExportToImages(const std::string& filePath, double scale) {
     return pdfiumExportAll(filePath, scale);
 }
 
-std::string platformMergePDFs(const std::string& filePathsJson, const std::string& outputPath) {
+std::string platformMergePDFs(const std::vector<std::string>& filePaths, const std::string& outputPath) {
     logCpp("mergePdfs");
-    return pdfiumMerge(filePathsJson, outputPath);
+    return pdfiumMerge(filePaths, outputPath);
 }
 
 std::string platformSplitPDF(const std::string& filePath, const std::string& pageRangesJson, const std::string& outputDir) {

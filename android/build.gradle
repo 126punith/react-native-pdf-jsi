@@ -233,8 +233,22 @@ dependencies {
 
 if (isNewArchitectureEnabled()) {
     tasks.configureEach { task ->
-        if (task.name.contains("configureCMake") || task.name.contains("buildCMake")) {
+        if (task.name.contains("configureCMake") || task.name.contains("buildCMake")
+                || task.name.startsWith("externalNativeBuildClean")) {
             task.dependsOn(":react-native-nitro-modules:prepareHeaders")
+        }
+    }
+
+    // Nitro's clean deletes android/build/headers/nitromodules, then this
+    // module's ninja clean reconfigures CMake and rejects the missing prefab
+    // include path. Recreate the headers after that clean.
+    gradle.projectsEvaluated {
+        def nitroProject = rootProject.findProject(":react-native-nitro-modules")
+        if (nitroProject == null) {
+            return
+        }
+        nitroProject.tasks.named("prepareHeaders").configure {
+            mustRunAfter(nitroProject.tasks.named("clean"))
         }
     }
 }

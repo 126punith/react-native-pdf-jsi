@@ -100,7 +100,7 @@ export interface PDFJSI
   extractAllText(filePath: string): Promise<string>;
   exportPageToImage(filePath: string, pageIndex: number, scale: number): Promise<string>;
   exportToImages(filePath: string, scale: number): Promise<string>;
-  mergePDFs(filePathsJson: string, outputPath: string): Promise<string>;
+  mergePDFs(filePaths: string[], outputPath: string): Promise<string>;
   splitPDF(filePath: string, pageRangesJson: string, outputDir: string): Promise<string>;
   extractPages(filePath: string, pageNumbersJson: string, outputPath: string): Promise<string>;
   rotatePage(filePath: string, pageNumber: number, degrees: number): Promise<boolean>;

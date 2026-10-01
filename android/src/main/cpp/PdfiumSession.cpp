@@ -784,21 +784,31 @@ std::string pdfiumExportAll(const std::string& filePath, double scale) {
     return out.str();
 }
 
-std::string pdfiumMerge(const std::string& filePathsJson, const std::string& outputPath) {
+std::string pdfiumMerge(const std::vector<std::string>& filePaths, const std::string& outputPath) {
     std::lock_guard<std::mutex> lock(gMutex);
-    const std::vector<std::string> paths = parseStringArray(filePathsJson);
+    const std::vector<std::string>& paths = filePaths;
     if (paths.size() < 2) {
         throw std::runtime_error("At least 2 PDF files are required for merging");
     }
+    ensureLibraryLocked();
     FPDF_DOCUMENT merged = FPDF_CreateNewDocument();
     if (merged == nullptr) {
         throw std::runtime_error("Failed to create merged PDF");
     }
     try {
-        for (const std::string& path : paths) {
-            FPDF_DOCUMENT source = loadLocked(normalizePath(path));
-            if (FPDF_ImportPages(merged, source, nullptr, 0) == 0) {
-                throw std::runtime_error("Failed to import pages from " + path);
+        for (const std::string& rawPath : paths) {
+            const std::string path = normalizePath(rawPath);
+            FPDF_DOCUMENT source = loadLocked(path);
+            const int count = FPDF_GetPageCount(source);
+            if (count <= 0) {
+                throw std::runtime_error("PDF has no pages: " + path);
+            }
+            for (int page = 0; page < count; page++) {
+                const int pageIndex = page;
+                const int insertAt = FPDF_GetPageCount(merged);
+                if (FPDF_ImportPagesByIndex(merged, source, &pageIndex, 1, insertAt) == 0) {
+                    throw std::runtime_error("Failed to import page " + std::to_string(page + 1) + " from " + path);
+                }
             }
         }
         std::string output = outputPath;
@@ -823,6 +833,8 @@ std::string pdfiumSplit(const std::string& filePath, const std::string& pageRang
     const std::string directory = outputDir.empty() ? parentDirectory(path) : normalizePath(outputDir);
     mkdir(directory.c_str(), 0755);
     const std::vector<PageRange> ranges = parseRanges(pageRangesJson);
+    const auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
     std::ostringstream out;
     out << '[';
     for (size_t index = 0; index < ranges.size(); index++) {
@@ -831,8 +843,8 @@ std::string pdfiumSplit(const std::string& filePath, const std::string& pageRang
             throw std::runtime_error("Failed to create split PDF");
         }
         const std::string range = std::to_string(ranges[index].start + 1) + "-" + std::to_string(ranges[index].end + 1);
+        const std::string output = directory + "/split-" + std::to_string(ranges[index].start) + "-" + std::to_string(ranges[index].end) + "-" + std::to_string(stamp) + ".pdf";
         const FPDF_BOOL imported = FPDF_ImportPages(piece, source, range.c_str(), 0);
-        const std::string output = directory + "/split-" + std::to_string(ranges[index].start) + "-" + std::to_string(ranges[index].end) + ".pdf";
         if (imported == 0) {
             FPDF_CloseDocument(piece);
             throw std::runtime_error("Failed to split pages " + range);

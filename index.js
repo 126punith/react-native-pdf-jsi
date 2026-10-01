@@ -208,6 +208,34 @@ export default class Pdf extends Component {
 
     }
 
+    _publishPdfPath = async (sourcePath, extraState = {}) => {
+        const filename = sourcePath.split('/').pop();
+        const documentDir = ReactNativeBlobUtil.fs.dirs.DocumentDir;
+        const stablePath = documentDir + '/' + filename;
+        let path = sourcePath;
+        try {
+            if (sourcePath !== stablePath) {
+                const dirExists = await ReactNativeBlobUtil.fs.exists(documentDir);
+                if (!dirExists) {
+                    await ReactNativeBlobUtil.fs.mkdir(documentDir);
+                }
+                const alreadyCopied = await ReactNativeBlobUtil.fs.exists(stablePath);
+                if (alreadyCopied) {
+                    await ReactNativeBlobUtil.fs.unlink(stablePath);
+                }
+                await ReactNativeBlobUtil.fs.cp(sourcePath, stablePath);
+                path = stablePath;
+            }
+        } catch (error) {
+            console.warn('Failed to copy PDF into app files, using source path:', error);
+            path = sourcePath;
+        }
+        this.downloadedFilePath = path;
+        if (this._mounted) {
+            this.setState({path, isDownloaded: true, ...extraState});
+        }
+    };
+
     _loadFromSource = (newSource) => {
 
         const source = Image.resolveAssetSource(newSource) || {};
@@ -226,11 +254,7 @@ export default class Pdf extends Component {
                 .stat(cacheFile)
                 .then(stats => {
                     if (!Boolean(source.expiration) || (source.expiration * 1000 + stats.lastModified) > (new Date().getTime())) {
-                        // Store in instance variable immediately for onLoadComplete callback
-                        this.downloadedFilePath = cacheFile;
-                        if (this._mounted) {
-                            this.setState({path: cacheFile, isDownloaded: true});
-                        }
+                        this._publishPdfPath(cacheFile);
                     } else {
                         // cache expirated then reload it
                         this._prepareFile(source);
@@ -267,11 +291,7 @@ export default class Pdf extends Component {
                     ReactNativeBlobUtil.fs
                         .cp(uri, cacheFile)
                         .then(() => {
-                            // Store in instance variable immediately for onLoadComplete callback
-                            this.downloadedFilePath = cacheFile;
-                            if (this._mounted) {
-                                this.setState({path: cacheFile, isDownloaded: true, progress: 1});
-                            }
+                            this._publishPdfPath(cacheFile, {progress: 1});
                         })
                         .catch(async (error) => {
                             this._unlinkFile(cacheFile);
@@ -282,11 +302,7 @@ export default class Pdf extends Component {
                     ReactNativeBlobUtil.fs
                         .writeFile(cacheFile, data, 'base64')
                         .then(() => {
-                            // Store in instance variable immediately for onLoadComplete callback
-                            this.downloadedFilePath = cacheFile;
-                            if (this._mounted) {
-                                this.setState({path: cacheFile, isDownloaded: true, progress: 1});
-                            }
+                            this._publishPdfPath(cacheFile, {progress: 1});
                         })
                         .catch(async (error) => {
                             this._unlinkFile(cacheFile);
@@ -295,14 +311,7 @@ export default class Pdf extends Component {
                 } else {
                     // Local file path
                     const localPath = decodeURIComponent(uri.replace(/file:\/\//i, ''));
-                    // Store in instance variable immediately for onLoadComplete callback
-                    this.downloadedFilePath = localPath;
-                    if (this._mounted) {
-                       this.setState({
-                            path: localPath,
-                            isDownloaded: true,
-                        });
-                    }
+                    this._publishPdfPath(localPath);
                 }
             } else {
                 this._onError(new Error('no pdf source!'));
@@ -398,12 +407,7 @@ export default class Pdf extends Component {
                 ReactNativeBlobUtil.fs
                     .cp(tempCacheFile, cacheFile)
                     .then(() => {
-                        // Store in instance variable immediately for onLoadComplete callback
-                        // This ensures path is available even if state hasn't updated yet
-                        this.downloadedFilePath = cacheFile;
-                        if (this._mounted) {
-                            this.setState({path: cacheFile, isDownloaded: true, progress: 1});
-                        }
+                        this._publishPdfPath(cacheFile, {progress: 1});
                         this._unlinkFile(tempCacheFile);
                     })
                     .catch(async (error) => {

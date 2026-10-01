@@ -11,6 +11,7 @@ if(BUILD_NITRO_PDF_JSI)
     add_library(pdfium SHARED IMPORTED)
     # pdfiumandroid already packages libpdfium.so for the Java viewer.
     # This copy keeps a different SONAME so both can load in one process.
+    # libpdfn.so must not export _Unwind_*; those symbols belong to libc++_shared.
     set_target_properties(pdfium PROPERTIES
         IMPORTED_LOCATION ${PDFIUM_ROOT}/lib/${ANDROID_ABI}/libpdfn.so
         INTERFACE_INCLUDE_DIRECTORIES ${PDFIUM_ROOT}/include

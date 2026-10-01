@@ -355,6 +355,58 @@ On iOS, the path is registered when the document loads (local file only); you ca
 
 Native text extraction, optional OCR, searchable PDFs, and highlight helpers.
 
+#### Merge, split, and extract
+
+Pdfium reads local files only. `ExportManager` is the integration point: it accepts local paths and `http://` / `https://` URLs, downloads each URL into the app cache, then merges the local files through Nitro.
+
+Use the path from `onLoadComplete`. A remote `source.uri` is downloaded and copied into the app files directory before that callback runs, so the second argument is a filesystem path you can pass to merge, split, and extract.
+
+```jsx
+import Pdf, { ExportManager } from 'react-native-pdf-jsi';
+import { NativeModules } from 'react-native';
+
+let pdfFilePath = '';
+
+<Pdf
+  source={{ uri: 'https://example.com/open.pdf', cache: true }}
+  onLoadComplete={(pages, path) => {
+    pdfFilePath = path;
+  }}
+/>
+
+// Append a PDF the user picks. Android only: copies the selection into app files.
+const pickedPath = await NativeModules.FileManager.pickPdf();
+const mergedPath = await ExportManager.mergePDFs([pdfFilePath, pickedPath]);
+
+// Append a PDF from a URL. ExportManager downloads it, then merges.
+const fromUrl = await ExportManager.mergePDFs([
+  pdfFilePath,
+  'https://example.com/other.pdf',
+]);
+
+// Optional output path. An empty or omitted path writes
+// merged-<timestamp>.pdf next to the first file.
+await ExportManager.mergePDFs([pdfFilePath, pickedPath], outputPath);
+```
+
+`mergePDFs` needs at least two inputs. Each entry is either an absolute local path or an `http(s)` URL. The returned string is the merged file inside app storage. Copy it to public Downloads yourself if the user should see it in the system files app.
+
+Split and extract take 1-based page numbers. Split ranges are a flat list of pairs.
+
+```jsx
+const parts = await ExportManager.splitPDF(pdfFilePath, [1, 10, 11, 21]);
+const extracted = await ExportManager.extractPages(pdfFilePath, [1, 5, 21]);
+```
+
+When Nitro is available, `ExportManager` calls the `PDFJSI` hybrid. `mergePDFs` there takes a `string[]` of local paths only. Do not `JSON.stringify` the array. Pass an empty string for `outputPath` to let native choose the file name.
+
+```jsx
+import { NitroModules } from 'react-native-nitro-modules';
+
+const pdf = NitroModules.createHybridObject('PDFJSI');
+const mergedPath = await pdf.mergePDFs([localA, localB], '');
+```
+
 **See [README_OCR.md](README_OCR.md) for how OCR works and the full API.**
 
 ```jsx
