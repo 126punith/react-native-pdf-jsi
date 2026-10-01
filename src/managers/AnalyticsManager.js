@@ -177,7 +177,10 @@ export class AnalyticsManager {
         score += (progress.percentage || 0) * 0.4;
 
         // Bookmarks contribute 30 points
-        const bookmarkScore = Math.min((bookmarks.length / progress.totalPages) * 100, 30);
+        const totalPages = progress.totalPages || 0;
+        const bookmarkScore = totalPages > 0
+            ? Math.min((bookmarks.length / totalPages) * 100, 30)
+            : 0;
         score += bookmarkScore;
 
         // Session frequency contributes 30 points

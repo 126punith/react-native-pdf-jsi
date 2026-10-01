@@ -7,9 +7,19 @@ project(react-native-pdf-jsi)
 add_subdirectory(src/main/cpp)
 
 if(BUILD_NITRO_PDF_JSI)
+    set(PDFIUM_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/third_party/pdfium)
+    add_library(pdfium SHARED IMPORTED)
+    # pdfiumandroid already packages libpdfium.so for the Java viewer.
+    # This copy keeps a different SONAME so both can load in one process.
+    set_target_properties(pdfium PROPERTIES
+        IMPORTED_LOCATION ${PDFIUM_ROOT}/lib/${ANDROID_ABI}/libpdfn.so
+        INTERFACE_INCLUDE_DIRECTORIES ${PDFIUM_ROOT}/include
+    )
+
     add_library(NitroPdfJsi SHARED
         src/main/cpp/cpp-adapter.cpp
         src/main/cpp/PDFJSIPlatform.cpp
+        src/main/cpp/PdfiumSession.cpp
         ../cpp/HybridPDFJSI.cpp
     )
 
@@ -21,9 +31,12 @@ if(BUILD_NITRO_PDF_JSI)
     target_include_directories(NitroPdfJsi PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/main/cpp
+        ${PDFIUM_ROOT}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/stb
     )
 
     target_link_options(NitroPdfJsi PRIVATE "-Wl,-z,max-page-size=16384")
+    target_link_libraries(NitroPdfJsi pdfium log)
 
     include(${CMAKE_SOURCE_DIR}/../nitrogen/generated/android/NitroPdfJsi+autolinking.cmake)
 endif()

@@ -70,7 +70,6 @@ public class PDFJSIManager extends ReactContextBaseJavaModule {
         this.backgroundExecutor = Executors.newFixedThreadPool(2);
         
         Log.d(TAG, "PDFJSIManager: Initializing high-performance PDF JSI manager");
-        initializeJSI(reactContext);
     }
     
     @Override

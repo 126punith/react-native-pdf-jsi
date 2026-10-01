@@ -177,7 +177,6 @@ android {
             // 🚀 Add JSI Java sources
             srcDirs += ["src/main/java"]
         }
-        jniLibs.srcDirs = ['src/main/jniLibs']
     }
 
     lintOptions {
@@ -229,5 +228,13 @@ dependencies {
 
     if (isNewArchitectureEnabled()) {
         implementation project(":react-native-nitro-modules")
+    }
+}
+
+if (isNewArchitectureEnabled()) {
+    tasks.configureEach { task ->
+        if (task.name.contains("configureCMake") || task.name.contains("buildCMake")) {
+            task.dependsOn(":react-native-nitro-modules:prepareHeaders")
+        }
     }
 }
