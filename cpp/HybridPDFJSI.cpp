@@ -97,6 +97,7 @@ std::shared_ptr<Promise<CacheMetrics>> HybridPDFJSI::getCacheMetrics(const std::
 std::shared_ptr<Promise<bool>> HybridPDFJSI::clearCacheDirect(
     const std::string& pdfId,
     const std::string& /*cacheType*/) {
+    platformReleaseDocument(pdfId);
     std::lock_guard<std::mutex> lock(cacheMutex_);
     caches_.erase(pdfId);
     return Promise<bool>::resolved(true);

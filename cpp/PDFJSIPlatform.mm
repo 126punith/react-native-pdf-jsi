@@ -7,6 +7,10 @@
 
 namespace margelo::nitro::pdfjsi {
 
+void initPdfiumLibrary() {}
+
+void platformReleaseDocument(const std::string&) {}
+
 bool platformRegisterPathForSearch(const std::string& pdfId, const std::string& path) {
     NSString* pdfIdString = [NSString stringWithUTF8String:pdfId.c_str()];
     NSString* pathString = [NSString stringWithUTF8String:path.c_str()];

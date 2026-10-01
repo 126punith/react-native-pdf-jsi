@@ -24,7 +24,8 @@ struct PlatformRenderInfo {
     std::string error;
 };
 
-void cachePdfNitroOpsClass();
+void initPdfiumLibrary();
+void platformReleaseDocument(const std::string& pdfId);
 bool platformRegisterPathForSearch(const std::string& pdfId, const std::string& path);
 std::vector<SearchResult> platformSearchTextDirect(const std::string& pdfId, const std::string& searchTerm, int startPage, int endPage);
 PlatformPageGeometry platformPageMetrics(const std::string& pdfId, int pageNumber);
