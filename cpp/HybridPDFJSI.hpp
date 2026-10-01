@@ -30,7 +30,7 @@ public:
     std::shared_ptr<Promise<std::string>> extractAllText(const std::string& filePath) override;
     std::shared_ptr<Promise<std::string>> exportPageToImage(const std::string& filePath, double pageIndex, double scale) override;
     std::shared_ptr<Promise<std::string>> exportToImages(const std::string& filePath, double scale) override;
-    std::shared_ptr<Promise<std::string>> mergePDFs(const std::string& filePathsJson, const std::string& outputPath) override;
+    std::shared_ptr<Promise<std::string>> mergePDFs(const std::vector<std::string>& filePaths, const std::string& outputPath) override;
     std::shared_ptr<Promise<std::string>> splitPDF(const std::string& filePath, const std::string& pageRangesJson, const std::string& outputDir) override;
     std::shared_ptr<Promise<std::string>> extractPages(const std::string& filePath, const std::string& pageNumbersJson, const std::string& outputPath) override;
     std::shared_ptr<Promise<bool>> rotatePage(const std::string& filePath, double pageNumber, double degrees) override;

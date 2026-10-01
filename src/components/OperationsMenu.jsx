@@ -6,6 +6,7 @@ import React, {useState} from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -25,6 +26,9 @@ const OperationsMenu = ({
 }) => {
   const [processing, setProcessing] = useState(false);
   const [operationStatus, setOperationStatus] = useState('');
+  const [mergeUrl, setMergeUrl] = useState(
+    'https://www.w3.org/WAI/WCAG22/working-examples/pdf-links/links.pdf',
+  );
 
   const handleOperation = async (operation, params) => {
     try {
@@ -62,7 +66,7 @@ const OperationsMenu = ({
   };
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} height={500}>
+    <BottomSheet visible={visible} onClose={onClose} height={620}>
       <View style={styles.container}>
         <Text style={styles.title}>PDF Operations</Text>
 
@@ -118,24 +122,47 @@ const OperationsMenu = ({
 
             <TouchableOpacity
               style={styles.operationCard}
-              onPress={() =>
-                Alert.alert(
-                  'Merge PDFs',
-                  'This feature requires multiple PDF files.\n\nWould work with file picker in production.',
-                  [{text: 'OK'}]
-                )
-              }>
+              onPress={() => handleOperation('merge')}>
               <View style={[styles.iconContainer, {backgroundColor: '#FEF3C7'}]}>
                 <Text style={styles.operationIcon}>📑</Text>
               </View>
               <View style={styles.operationContent}>
                 <Text style={styles.operationTitle}>Merge PDFs</Text>
                 <Text style={styles.operationDescription}>
-                  Combine multiple PDF files (requires file picker)
+                  Choose another PDF to append
                 </Text>
               </View>
               <Text style={styles.arrow}>›</Text>
             </TouchableOpacity>
+
+            <View style={styles.urlCard}>
+              <Text style={styles.operationTitle}>Merge from URL</Text>
+              <Text style={styles.operationDescription}>
+                Download a PDF link, then append it
+              </Text>
+              <TextInput
+                style={styles.urlInput}
+                value={mergeUrl}
+                onChangeText={setMergeUrl}
+                placeholder="https://example.com/file.pdf"
+                placeholderTextColor="#9CA3AF"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+              />
+              <TouchableOpacity
+                style={styles.urlButton}
+                onPress={() => {
+                  const url = mergeUrl.trim();
+                  if (!url) {
+                    Alert.alert('Merge from URL', 'Enter a PDF URL');
+                    return;
+                  }
+                  handleOperation('merge', {url});
+                }}>
+                <Text style={styles.urlButtonText}>Download and merge</Text>
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.infoBox}>
               <Text style={styles.infoIcon}>💡</Text>
@@ -225,6 +252,37 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: '#1E40AF',
+  },
+  urlCard: {
+    backgroundColor: '#F9FAFB',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  urlInput: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#1F2937',
+    backgroundColor: '#FFFFFF',
+  },
+  urlButton: {
+    marginTop: 12,
+    backgroundColor: '#6366F1',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  urlButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
 

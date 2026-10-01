@@ -92,7 +92,7 @@ namespace margelo::nitro::pdfjsi {
       virtual std::shared_ptr<Promise<std::string>> extractAllText(const std::string& filePath) = 0;
       virtual std::shared_ptr<Promise<std::string>> exportPageToImage(const std::string& filePath, double pageIndex, double scale) = 0;
       virtual std::shared_ptr<Promise<std::string>> exportToImages(const std::string& filePath, double scale) = 0;
-      virtual std::shared_ptr<Promise<std::string>> mergePDFs(const std::string& filePathsJson, const std::string& outputPath) = 0;
+      virtual std::shared_ptr<Promise<std::string>> mergePDFs(const std::vector<std::string>& filePaths, const std::string& outputPath) = 0;
       virtual std::shared_ptr<Promise<std::string>> splitPDF(const std::string& filePath, const std::string& pageRangesJson, const std::string& outputDir) = 0;
       virtual std::shared_ptr<Promise<std::string>> extractPages(const std::string& filePath, const std::string& pageNumbersJson, const std::string& outputPath) = 0;
       virtual std::shared_ptr<Promise<bool>> rotatePage(const std::string& filePath, double pageNumber, double degrees) = 0;

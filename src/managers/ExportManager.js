@@ -12,7 +12,9 @@
  */
 
 import { NativeModules, Platform, Share } from 'react-native';
+import ReactNativeBlobUtil from 'react-native-blob-util';
 import PDFTextExtractor from '../utils/PDFTextExtractor';
+import { getNitroPDFJSI } from '../PDFJSI';
 
 const { PDFExporter } = NativeModules;
 
@@ -269,13 +271,44 @@ export class ExportManager {
      * @param {string} outputPath - Output file path
      * @returns {Promise<string>} Path to merged PDF
      */
+    async resolveMergePath(filePath) {
+        if (typeof filePath !== 'string' || filePath.trim() === '') {
+            throw new Error('Merge path must be a file path or http(s) URL');
+        }
+        const trimmed = filePath.trim();
+        if (!/^https?:\/\//i.test(trimmed)) {
+            return trimmed;
+        }
+        const dest = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/merge-url-${Date.now()}.pdf`;
+        console.log('📤 ExportManager: Downloading merge URL', trimmed);
+        const response = await ReactNativeBlobUtil.config({ path: dest }).fetch('GET', trimmed);
+        const saved = response.path();
+        console.log('📤 ExportManager: Downloaded merge URL to', saved);
+        return saved;
+    }
+
     async mergePDFs(filePaths, outputPath = null) {
         // All features enabled by default
         console.log(`📤 ExportManager: Merging ${filePaths.length} PDFs...`);
 
         try {
+            const localPaths = [];
+            for (const filePath of filePaths) {
+                localPaths.push(await this.resolveMergePath(filePath));
+            }
+            const started = performance.now();
+            const nitro = getNitroPDFJSI();
+            if (nitro && typeof nitro.mergePDFs === 'function') {
+                console.log('📱 [ExportManager] Calling Nitro mergePDFs...', localPaths);
+                const mergedPath = await nitro.mergePDFs(localPaths, outputPath || '');
+                const ms = performance.now() - started;
+                console.log(`[PERF] mergePDFs ${ms.toFixed(2)}ms`, { files: filePaths.length });
+                console.log('📤 ExportManager: Merged to:', mergedPath);
+                return mergedPath;
+            }
+
             if (this.isNativeAvailable) {
-                const mergedPath = await PDFExporter.mergePDFs(filePaths, outputPath);
+                const mergedPath = await PDFExporter.mergePDFs(localPaths, outputPath);
                 console.log('📤 ExportManager: Merged to:', mergedPath);
                 return mergedPath;
             } else {
@@ -303,6 +336,24 @@ export class ExportManager {
         });
 
         try {
+            const started = performance.now();
+            const nitro = getNitroPDFJSI();
+            if (nitro && typeof nitro.splitPDF === 'function') {
+                const pairs = [];
+                for (let i = 0; i + 1 < ranges.length; i += 2) {
+                    pairs.push([Number(ranges[i]) - 1, Number(ranges[i + 1]) - 1]);
+                }
+                const rangesJson = JSON.stringify(pairs);
+                console.log('📱 [ExportManager] Calling Nitro splitPDF...', rangesJson);
+                const raw = await nitro.splitPDF(filePath, rangesJson, outputDir || '');
+                const splitPaths = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                const ms = performance.now() - started;
+                console.log(`[PERF] splitPDF ${ms.toFixed(2)}ms`, { files: splitPaths.length });
+                console.log(`✅ [ExportManager] splitPDF - SUCCESS - Split into ${splitPaths.length} files`);
+                console.log('📁 [ExportManager] Split files:', splitPaths);
+                return splitPaths;
+            }
+
             // All features enabled by default
             if (this.isNativeAvailable) {
                 console.log('📱 [ExportManager] Calling native PDFExporter.splitPDF...');
@@ -348,11 +399,23 @@ export class ExportManager {
         });
 
         try {
+            const started = performance.now();
+            const pageIndices = pages.map(p => p - 1);
+            const nitro = getNitroPDFJSI();
+            if (nitro && typeof nitro.extractPages === 'function') {
+                const pagesJson = JSON.stringify(pageIndices);
+                console.log('📱 [ExportManager] Calling Nitro extractPages...', pagesJson);
+                const extractedPath = await nitro.extractPages(filePath, pagesJson, outputPath || '');
+                const ms = performance.now() - started;
+                console.log(`[PERF] extractPages ${ms.toFixed(2)}ms`, { pages: pageIndices.length });
+                console.log('✅ [ExportManager] extractPages - SUCCESS', {
+                    extractedPath
+                });
+                return extractedPath;
+            }
+
             // All features enabled by default
             if (this.isNativeAvailable) {
-                // Convert to 0-indexed
-                const pageIndices = pages.map(p => p - 1);
-                
                 console.log('📱 [ExportManager] Calling native PDFExporter.extractPages...');
                 console.log('📱 [ExportManager] Parameters:', {
                     pageIndices,

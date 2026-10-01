@@ -135,8 +135,18 @@ std::string platformExportToImages(const std::string& filePath, double scale) {
     return requireOk([PDFJSIManager nitroExportToImages:[NSString stringWithUTF8String:filePath.c_str()] scale:scale]);
 }
 
-std::string platformMergePDFs(const std::string& filePathsJson, const std::string& outputPath) {
-    return requireOk([PDFJSIManager nitroMergePDFs:[NSString stringWithUTF8String:filePathsJson.c_str()] outputPath:[NSString stringWithUTF8String:outputPath.c_str()]]);
+std::string platformMergePDFs(const std::vector<std::string>& filePaths, const std::string& outputPath) {
+    NSMutableArray* paths = [NSMutableArray arrayWithCapacity:filePaths.size()];
+    for (const std::string& path : filePaths) {
+        [paths addObject:[NSString stringWithUTF8String:path.c_str()]];
+    }
+    NSError* error = nil;
+    NSData* data = [NSJSONSerialization dataWithJSONObject:paths options:0 error:&error];
+    if (data == nil) {
+        throw std::runtime_error("Failed to encode merge paths");
+    }
+    NSString* json = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+    return requireOk([PDFJSIManager nitroMergePDFs:json outputPath:[NSString stringWithUTF8String:outputPath.c_str()]]);
 }
 
 std::string platformSplitPDF(const std::string& filePath, const std::string& pageRangesJson, const std::string& outputDir) {

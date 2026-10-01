@@ -50,6 +50,13 @@ public class PDFExporter extends ReactContextBaseJavaModule {
      * @param extension File extension (png, jpeg, pdf)
      * @return Filename with timestamp (e.g., "filename_page_1_20251102_181059.png")
      */
+    private String normalizePath(String filePath) {
+        if (filePath != null && filePath.startsWith("file://")) {
+            return filePath.substring(7);
+        }
+        return filePath;
+    }
+
     private String generateTimestampedFileName(String baseName, int pageNum, String extension) {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US);
         String timestamp = sdf.format(new Date());
@@ -407,54 +414,7 @@ public class PDFExporter extends ReactContextBaseJavaModule {
     @ReactMethod
     public void splitPDF(String filePath, ReadableArray pageRanges, String outputDir, Promise promise) {
         try {
-            // 🔍 DEEP DEBUG: Inspect incoming parameters
-            Log.i(TAG, "🔍 [DEBUG] ========== SPLIT PDF DEBUG START ==========");
-            Log.i(TAG, "🔍 [DEBUG] filePath type: " + (filePath != null ? filePath.getClass().getName() : "null"));
-            Log.i(TAG, "🔍 [DEBUG] filePath value: " + filePath);
-            Log.i(TAG, "🔍 [DEBUG] pageRanges type: " + (pageRanges != null ? pageRanges.getClass().getName() : "null"));
-            Log.i(TAG, "🔍 [DEBUG] pageRanges size: " + (pageRanges != null ? pageRanges.size() : "null"));
-            Log.i(TAG, "🔍 [DEBUG] outputDir type: " + (outputDir != null ? outputDir.getClass().getName() : "null"));
-            Log.i(TAG, "🔍 [DEBUG] outputDir value: " + outputDir);
-            
-            // Inspect each element in pageRanges
-            if (pageRanges != null) {
-                for (int i = 0; i < pageRanges.size(); i++) {
-                    try {
-                        Log.i(TAG, "🔍 [DEBUG] pageRanges[" + i + "] type: " + pageRanges.getType(i));
-                        
-                        // Try to get as array
-                        try {
-                            ReadableArray range = pageRanges.getArray(i);
-                            Log.i(TAG, "🔍 [DEBUG] pageRanges[" + i + "] is Array, size: " + range.size());
-                            if (range.size() >= 2) {
-                                Log.i(TAG, "🔍 [DEBUG] pageRanges[" + i + "][0] = " + range.getInt(0));
-                                Log.i(TAG, "🔍 [DEBUG] pageRanges[" + i + "][1] = " + range.getInt(1));
-                            }
-                        } catch (Exception e) {
-                            Log.e(TAG, "🔍 [DEBUG] pageRanges[" + i + "] NOT an array: " + e.getMessage());
-                        }
-                        
-                        // Try to get as map
-                        try {
-                            ReadableMap rangeMap = pageRanges.getMap(i);
-                            Log.i(TAG, "🔍 [DEBUG] pageRanges[" + i + "] is Map");
-                            if (rangeMap.hasKey("start") && rangeMap.hasKey("end")) {
-                                Log.i(TAG, "🔍 [DEBUG] pageRanges[" + i + "].start = " + rangeMap.getInt("start"));
-                                Log.i(TAG, "🔍 [DEBUG] pageRanges[" + i + "].end = " + rangeMap.getInt("end"));
-                            }
-                        } catch (Exception e) {
-                            Log.e(TAG, "🔍 [DEBUG] pageRanges[" + i + "] NOT a map: " + e.getMessage());
-                        }
-                        
-                    } catch (Exception e) {
-                        Log.e(TAG, "🔍 [DEBUG] Error inspecting pageRanges[" + i + "]: " + e.getMessage());
-                    }
-                }
-            }
-            
-            Log.i(TAG, "🔍 [DEBUG] ========== SPLIT PDF DEBUG END ==========");
-            
-            // Original code continues...
+            filePath = normalizePath(filePath);
             Log.i(TAG, "✂️ [SPLIT] splitPDF - START - file: " + filePath + ", ranges: " + pageRanges.size());
 
             if (filePath == null || filePath.isEmpty()) {

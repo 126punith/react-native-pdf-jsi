@@ -1,30 +1,39 @@
 package org.wonday.pdf;
 
+import android.app.Activity;
 import android.app.DownloadManager;
 import android.content.Intent;
 import android.net.Uri;
 import android.util.Log;
 
+import com.facebook.react.bridge.ActivityEventListener;
+import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.WritableMap;
-import com.facebook.react.bridge.Arguments;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 /**
  * FileManager - Native module for file operations like opening folders
  */
-public class FileManager extends ReactContextBaseJavaModule {
+public class FileManager extends ReactContextBaseJavaModule implements ActivityEventListener {
     private static final String TAG = "FileManager";
     private static final String FOLDER_NAME = "PDFDemoApp";
+    private static final int PICK_PDF_REQUEST = 47291;
     private final ReactApplicationContext reactContext;
+    private Promise pickPromise;
 
     public FileManager(ReactApplicationContext reactContext) {
         super(reactContext);
         this.reactContext = reactContext;
+        reactContext.addActivityEventListener(this);
     }
 
     @Override
@@ -213,6 +222,79 @@ public class FileManager extends ReactContextBaseJavaModule {
             Log.e(TAG, "[PERF] [getFileSize]   Message: " + e.getMessage());
             promise.reject("FILE_SIZE_ERROR", e.getMessage());
         }
+    }
+
+    /**
+     * Open the system picker and copy the chosen PDF into app files.
+     */
+    @ReactMethod
+    public void pickPdf(Promise promise) {
+        Activity activity = reactContext.getCurrentActivity();
+        if (activity == null) {
+            promise.reject("NO_ACTIVITY", "No current activity");
+            return;
+        }
+        if (pickPromise != null) {
+            promise.reject("PICK_IN_PROGRESS", "A PDF picker is already open");
+            return;
+        }
+        pickPromise = promise;
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("application/pdf");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            activity.startActivityForResult(intent, PICK_PDF_REQUEST);
+        } catch (Exception e) {
+            pickPromise = null;
+            Log.e(TAG, "Failed to open PDF picker", e);
+            promise.reject("PICK_FAILED", e.getMessage());
+        }
+    }
+
+    @Override
+    public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
+        if (requestCode != PICK_PDF_REQUEST || pickPromise == null) {
+            return;
+        }
+        Promise promise = pickPromise;
+        pickPromise = null;
+        if (resultCode != Activity.RESULT_OK || data == null || data.getData() == null) {
+            promise.reject("PICK_CANCELLED", "PDF selection was cancelled");
+            return;
+        }
+        try {
+            String path = copyPickedPdf(data.getData());
+            Log.i(TAG, "Picked PDF copied to " + path);
+            promise.resolve(path);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to copy picked PDF", e);
+            promise.reject("PICK_COPY_FAILED", e.getMessage());
+        }
+    }
+
+    @Override
+    public void onNewIntent(Intent intent) {
+    }
+
+    @Override
+    public void onUserLeaveHint(Activity activity) {
+    }
+
+    private String copyPickedPdf(Uri uri) throws IOException {
+        File dest = new File(reactContext.getFilesDir(), "merge-picked-" + System.currentTimeMillis() + ".pdf");
+        try (InputStream in = reactContext.getContentResolver().openInputStream(uri);
+             OutputStream out = new FileOutputStream(dest)) {
+            if (in == null) {
+                throw new IOException("Unable to open selected PDF");
+            }
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+        }
+        return dest.getAbsolutePath();
     }
 }
 

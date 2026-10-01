@@ -220,9 +220,9 @@ std::shared_ptr<Promise<std::string>> HybridPDFJSI::exportToImages(const std::st
     });
 }
 
-std::shared_ptr<Promise<std::string>> HybridPDFJSI::mergePDFs(const std::string& filePathsJson, const std::string& outputPath) {
-    return Promise<std::string>::async([filePathsJson, outputPath]() {
-        return platformMergePDFs(filePathsJson, outputPath);
+std::shared_ptr<Promise<std::string>> HybridPDFJSI::mergePDFs(const std::vector<std::string>& filePaths, const std::string& outputPath) {
+    return Promise<std::string>::async([filePaths, outputPath]() {
+        return platformMergePDFs(filePaths, outputPath);
     });
 }
 
