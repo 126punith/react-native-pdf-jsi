@@ -15,7 +15,8 @@
 #include <fbjni/fbjni.h>
 #include <NitroModules/HybridObjectRegistry.hpp>
 
-#include "HybridPDFJSI.hpp"
+#include "HybridPdfLibrary.hpp"
+#include "HybridPdfDocument.hpp"
 
 namespace margelo::nitro::pdfjsi {
 
@@ -36,12 +37,21 @@ void registerAllNatives() {
 
   // Register Nitro Hybrid Objects
   HybridObjectRegistry::registerHybridObjectConstructor(
-    "PDFJSI",
+    "PdfLibrary",
     []() -> std::shared_ptr<HybridObject> {
-      static_assert(std::is_default_constructible_v<HybridPDFJSI>,
-                    "The HybridObject \"HybridPDFJSI\" is not default-constructible! "
+      static_assert(std::is_default_constructible_v<HybridPdfLibrary>,
+                    "The HybridObject \"HybridPdfLibrary\" is not default-constructible! "
                     "Create a public constructor that takes zero arguments to be able to autolink this HybridObject.");
-      return std::make_shared<HybridPDFJSI>();
+      return std::make_shared<HybridPdfLibrary>();
+    }
+  );
+  HybridObjectRegistry::registerHybridObjectConstructor(
+    "PdfDocument",
+    []() -> std::shared_ptr<HybridObject> {
+      static_assert(std::is_default_constructible_v<HybridPdfDocument>,
+                    "The HybridObject \"HybridPdfDocument\" is not default-constructible! "
+                    "Create a public constructor that takes zero arguments to be able to autolink this HybridObject.");
+      return std::make_shared<HybridPdfDocument>();
     }
   );
 }

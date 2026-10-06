@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Platform } from 'react-native';
-import PDFJSI from '../PDFJSI';
+import PDFJSI, { openPdf } from '../PDFJSI';
 
 /**
  * Hook for PDF JSI functionality
@@ -70,12 +70,13 @@ export const usePDFJSI = (options = {}) => {
     /**
      * Render page with JSI or fallback
      */
-    const renderPage = useCallback(async (pdfId, pageNumber, scale, base64Data) => {
+    const renderPage = useCallback(async (path, pageNumber, scale) => {
         const startTime = performance.now();
         
         try {
             if (isJSIAvailable) {
-                const result = await PDFJSI.renderPageDirect(pdfId, pageNumber, scale, base64Data);
+                await openPdf(path);
+                const result = await PDFJSI.renderPageDirect(path, pageNumber, scale);
                 
                 const endTime = performance.now();
                 const renderTime = endTime - startTime;
@@ -86,7 +87,7 @@ export const usePDFJSI = (options = {}) => {
                         operation: 'renderPage',
                         duration: renderTime,
                         timestamp: Date.now(),
-                        pdfId,
+                        pdfId: path,
                         pageNumber,
                         scale,
                         mode: 'JSI'
@@ -107,7 +108,7 @@ export const usePDFJSI = (options = {}) => {
                     operation: 'renderPage',
                     duration: renderTime,
                     timestamp: Date.now(),
-                    pdfId,
+                    pdfId: path,
                     pageNumber,
                     scale,
                     mode: 'JSI_ERROR',
@@ -122,10 +123,11 @@ export const usePDFJSI = (options = {}) => {
     /**
      * Get page metrics
      */
-    const getPageMetrics = useCallback(async (pdfId, pageNumber) => {
+    const getPageMetrics = useCallback(async (path, pageNumber) => {
         try {
             if (isJSIAvailable) {
-                return await PDFJSI.getPageMetrics(pdfId, pageNumber);
+                await openPdf(path);
+                return PDFJSI.getPageMetrics(path, pageNumber);
             } else {
                 throw new Error('JSI not available');
             }
@@ -141,6 +143,7 @@ export const usePDFJSI = (options = {}) => {
     const preloadPages = useCallback(async (pdfId, startPage, endPage) => {
         try {
             if (isJSIAvailable) {
+                await openPdf(pdfId);
                 return await PDFJSI.preloadPagesDirect(pdfId, startPage, endPage);
             } else {
                 throw new Error('JSI not available');
@@ -157,6 +160,7 @@ export const usePDFJSI = (options = {}) => {
     const searchText = useCallback(async (pdfId, searchTerm, startPage, endPage) => {
         try {
             if (isJSIAvailable) {
+                await openPdf(pdfId);
                 return await PDFJSI.searchTextDirect(pdfId, searchTerm, startPage, endPage);
             } else {
                 throw new Error('JSI not available');
@@ -170,10 +174,11 @@ export const usePDFJSI = (options = {}) => {
     /**
      * Get cache metrics
      */
-    const getCacheMetrics = useCallback(async (pdfId) => {
+    const getCacheMetrics = useCallback(async (path) => {
         try {
             if (isJSIAvailable) {
-                return await PDFJSI.getCacheMetrics(pdfId);
+                await openPdf(path);
+                return PDFJSI.getCacheMetrics(path);
             } else {
                 throw new Error('JSI not available');
             }
@@ -186,10 +191,11 @@ export const usePDFJSI = (options = {}) => {
     /**
      * Clear cache
      */
-    const clearCache = useCallback(async (pdfId, cacheType = 'all') => {
+    const clearCache = useCallback(async (path) => {
         try {
             if (isJSIAvailable) {
-                return await PDFJSI.clearCacheDirect(pdfId, cacheType);
+                await openPdf(path);
+                return PDFJSI.clearCacheDirect(path);
             } else {
                 throw new Error('JSI not available');
             }
@@ -202,10 +208,11 @@ export const usePDFJSI = (options = {}) => {
     /**
      * Optimize memory
      */
-    const optimizeMemory = useCallback(async (pdfId) => {
+    const optimizeMemory = useCallback(async (path) => {
         try {
             if (isJSIAvailable) {
-                return await PDFJSI.optimizeMemory(pdfId);
+                await openPdf(path);
+                return PDFJSI.optimizeMemory(path);
             } else {
                 throw new Error('JSI not available');
             }
@@ -218,10 +225,11 @@ export const usePDFJSI = (options = {}) => {
     /**
      * Set render quality
      */
-    const setRenderQuality = useCallback(async (pdfId, quality) => {
+    const setRenderQuality = useCallback(async (path, quality) => {
         try {
             if (isJSIAvailable) {
-                return await PDFJSI.setRenderQuality(pdfId, quality);
+                await openPdf(path);
+                return PDFJSI.setRenderQuality(path, quality);
             } else {
                 throw new Error('JSI not available');
             }
@@ -234,10 +242,11 @@ export const usePDFJSI = (options = {}) => {
     /**
      * Update performance metrics
      */
-    const updatePerformanceMetrics = useCallback(async (pdfId) => {
+    const updatePerformanceMetrics = useCallback(async (path) => {
         try {
             if (isJSIAvailable) {
-                const metrics = await PDFJSI.getPerformanceMetrics(pdfId);
+                await openPdf(path);
+                const metrics = PDFJSI.getPerformanceMetrics(path);
                 setPerformanceMetrics(metrics);
                 return metrics;
             }
@@ -297,6 +306,7 @@ export const usePDFJSI = (options = {}) => {
     const lazyLoadPages = useCallback(async (pdfId, currentPage, preloadRadius = 3, totalPages = null) => {
         try {
             if (isJSIAvailable) {
+                await openPdf(pdfId);
                 return await PDFJSI.lazyLoadPages(pdfId, currentPage, preloadRadius, totalPages);
             } else {
                 throw new Error('JSI not available');
@@ -313,6 +323,7 @@ export const usePDFJSI = (options = {}) => {
     const progressiveLoadPages = useCallback(async (pdfId, startPage = 1, batchSize = 5, onProgress = null) => {
         try {
             if (isJSIAvailable) {
+                await openPdf(pdfId);
                 return await PDFJSI.progressiveLoadPages(pdfId, startPage, batchSize, onProgress);
             } else {
                 throw new Error('JSI not available');
@@ -329,6 +340,7 @@ export const usePDFJSI = (options = {}) => {
     const smartCacheFrequentPages = useCallback(async (pdfId, frequentPages = []) => {
         try {
             if (isJSIAvailable) {
+                await openPdf(pdfId);
                 return await PDFJSI.smartCacheFrequentPages(pdfId, frequentPages);
             } else {
                 throw new Error('JSI not available');

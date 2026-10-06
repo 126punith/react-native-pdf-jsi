@@ -8,14 +8,24 @@
     "androidCxxLibName": "NitroPdfJsi"
   },
   "autolinking": {
-    "PDFJSI": {
+    "PdfLibrary": {
       "ios": {
-        "language": "c++",
-        "implementationClassName": "HybridPDFJSI"
+        "language": "swift",
+        "implementationClassName": "HybridPdfLibrary"
       },
       "android": {
         "language": "c++",
-        "implementationClassName": "HybridPDFJSI"
+        "implementationClassName": "HybridPdfLibrary"
+      }
+    },
+    "PdfDocument": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridPdfDocument"
+      },
+      "android": {
+        "language": "c++",
+        "implementationClassName": "HybridPdfDocument"
       }
     }
   },

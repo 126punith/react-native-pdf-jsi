@@ -8,10 +8,50 @@
 #pragma once
 
 // Forward declarations of C++ defined types
-
+// Forward declaration of `CacheMetrics` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct CacheMetrics; }
+// Forward declaration of `HybridPdfDocumentSpec` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { class HybridPdfDocumentSpec; }
+// Forward declaration of `HybridPdfLibrarySpec` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { class HybridPdfLibrarySpec; }
+// Forward declaration of `JSIStats` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct JSIStats; }
+// Forward declaration of `KB16Support` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct KB16Support; }
+// Forward declaration of `PageMetrics` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PageMetrics; }
+// Forward declaration of `PageSize` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PageSize; }
+// Forward declaration of `PdfCacheInfo` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfCacheInfo; }
+// Forward declaration of `PdfCacheStats` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfCacheStats; }
+// Forward declaration of `PerformanceMetrics` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PerformanceMetrics; }
+// Forward declaration of `RenderResult` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct RenderResult; }
+// Forward declaration of `SearchResult` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct SearchResult; }
 
 // Include C++ defined types
-
+#include "CacheMetrics.hpp"
+#include "HybridPdfDocumentSpec.hpp"
+#include "HybridPdfLibrarySpec.hpp"
+#include "JSIStats.hpp"
+#include "KB16Support.hpp"
+#include "PageMetrics.hpp"
+#include "PageSize.hpp"
+#include "PdfCacheInfo.hpp"
+#include "PdfCacheStats.hpp"
+#include "PerformanceMetrics.hpp"
+#include "RenderResult.hpp"
+#include "SearchResult.hpp"
+#include <NitroModules/Promise.hpp>
+#include <NitroModules/Result.hpp>
+#include <exception>
+#include <memory>
+#include <string>
+#include <vector>
 
 // C++ helpers for Swift
 #include "NitroPdfJsi-Swift-Cxx-Bridge.hpp"
@@ -23,7 +63,10 @@
 #include <NitroModules/DateToChronoDate.hpp>
 
 // Forward declarations of Swift defined types
-
+// Forward declaration of `HybridPdfDocumentSpec_cxx` to properly resolve imports.
+namespace NitroPdfJsi { class HybridPdfDocumentSpec_cxx; }
+// Forward declaration of `HybridPdfLibrarySpec_cxx` to properly resolve imports.
+namespace NitroPdfJsi { class HybridPdfLibrarySpec_cxx; }
 
 // Include Swift defined types
 #if __has_include("NitroPdfJsi-Swift.h")

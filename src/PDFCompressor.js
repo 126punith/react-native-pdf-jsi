@@ -9,11 +9,9 @@
  * @version 1.0.0
  */
 
-import { NativeModules, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import ReactNativeBlobUtil from 'react-native-blob-util';
-import { getNitroPDFJSI } from './PDFJSI';
-
-const { PDFExporter, StreamingPDFProcessor } = NativeModules;
+import { getPdfLibrary } from './PDFJSI';
 
 /**
  * Compression presets for different use cases
@@ -100,11 +98,7 @@ export class PDFCompressor {
      */
     _checkNativeAvailability() {
         // Check if PDFExporter module exists and has the compressPDF method
-        const hasCompressPDF = PDFExporter && typeof PDFExporter.compressPDF === 'function';
-        console.log('📦 PDFCompressor: Checking native availability...');
-        console.log('📦 PDFCompressor: PDFExporter exists:', !!PDFExporter);
-        console.log('📦 PDFCompressor: PDFExporter.compressPDF exists:', hasCompressPDF);
-        return hasCompressPDF;
+        return typeof getPdfLibrary().compressPDF === 'function';
     }
 
     /**
@@ -340,33 +334,14 @@ export class PDFCompressor {
 
         try {
             // Use PDFExporter.compressPDF - the main native compression method
-            const nitro = getNitroPDFJSI();
-            if (nitro) {
-                console.log('📦 PDFCompressor: Calling Nitro compressPDF...');
-                const result = JSON.parse(await nitro.compressPDF(
-                    inputPath,
-                    outputPath,
-                    compressionLevel
-                ));
-                console.log('📦 PDFCompressor: Nitro compression result:', result);
-                return result;
-            }
-            if (PDFExporter && typeof PDFExporter.compressPDF === 'function') {
-                console.log('📦 PDFCompressor: Calling PDFExporter.compressPDF...');
-                const result = await PDFExporter.compressPDF(
-                    inputPath, 
-                    outputPath, 
-                    compressionLevel
-                );
-                console.log('📦 PDFCompressor: Native compression result:', result);
-                return result;
-            } else {
-                // Native module not available - use fallback
-                console.warn('📦 PDFCompressor: PDFExporter.compressPDF not available, using fallback');
-                console.warn('📦 PDFCompressor: PDFExporter available:', !!PDFExporter);
-                console.warn('📦 PDFCompressor: PDFExporter.compressPDF:', PDFExporter ? typeof PDFExporter.compressPDF : 'N/A');
-                return this._compressFallback(inputPath, outputPath, compressionLevel, onProgress);
-            }
+            console.log('📦 PDFCompressor: Calling Nitro compressPDF...');
+            const result = JSON.parse(await getPdfLibrary().compressPDF(
+                inputPath,
+                outputPath,
+                compressionLevel
+            ));
+            console.log('📦 PDFCompressor: Nitro compression result:', result);
+            return result;
         } catch (error) {
             console.error('📦 PDFCompressor: Native compression failed:', error);
             throw error;

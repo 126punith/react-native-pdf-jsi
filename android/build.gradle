@@ -71,14 +71,6 @@ def getReactNativeMinorVersion() {
     return REACT_NATIVE_MINOR_VERSION
 }
 
-def isNewArchitectureEnabled() {
-    // To opt-in for the New Architecture, you can either:
-    // - Set `newArchEnabled` to true inside the `gradle.properties` file
-    // - Invoke gradle with `-newArchEnabled=true`
-    // - Set an environment variable `ORG_GRADLE_PROJECT_newArchEnabled=true`
-    return project.hasProperty("newArchEnabled") && project.newArchEnabled == "true"
-}
-
 // Optional on-device OCR (ML Kit). Enable via:
 //   pdfJsiEnableOcr=true in gradle.properties
 // or Expo config plugin: ["react-native-pdf-jsi", { "ocr": true }]
@@ -89,10 +81,8 @@ def isOcrEnabled() {
     return value != null && value.toString().toBoolean()
 }
 
-if (isNewArchitectureEnabled()) {
-    apply plugin: "com.facebook.react"
-    apply from: '../nitrogen/generated/android/NitroPdfJsi+autolinking.gradle'
-}
+apply plugin: "com.facebook.react"
+apply from: '../nitrogen/generated/android/NitroPdfJsi+autolinking.gradle'
 
 def reactNativeArchitectures() {
     def value = project.getProperties().get("reactNativeArchitectures")
@@ -118,7 +108,7 @@ android {
     defaultConfig {
         minSdkVersion safeExtGet('minSdkVersion', 21)
         targetSdkVersion safeExtGet('targetSdkVersion', 35)
-        buildConfigField("boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString())
+        buildConfigField("boolean", "IS_NEW_ARCHITECTURE_ENABLED", "true")
         buildConfigField("boolean", "PDF_JSI_OCR_ENABLED", isOcrEnabled().toString())
         
         // 🚀 JSI Configuration with 16KB Page Support
@@ -130,8 +120,7 @@ android {
             cmake {
                 cppFlags "-fexceptions", "-frtti", "-O3", "-ffast-math", "-funroll-loops"
                 arguments "-DANDROID_STL=c++_shared",
-                    "-DANDROID_PAGE_SIZE_AGNOSTIC=ON",
-                    "-DBUILD_NITRO_PDF_JSI=${isNewArchitectureEnabled() ? "ON" : "OFF"}"
+                    "-DANDROID_PAGE_SIZE_AGNOSTIC=ON"
             }
         }
     }
@@ -169,12 +158,6 @@ android {
 
     sourceSets.main {
         java {
-            if (!isNewArchitectureEnabled()) {
-                srcDirs += [
-                    "src/paper/java",
-                ]
-            }
-            // 🚀 Add JSI Java sources
             srcDirs += ["src/main/java"]
         }
     }
@@ -202,11 +185,7 @@ android {
 }
 
 dependencies {
-    if (isNewArchitectureEnabled() && getReactNativeMinorVersion() < 71) {
-        implementation project(":ReactAndroid")
-    } else {
-        implementation 'com.facebook.react:react-native:+'
-    }
+    implementation 'com.facebook.react:react-native:+'
     // NOTE: The original repo at com.github.barteksc is abandoned by the maintainer; there will be no more updates coming from that repo.
     // The repo from zacharee is based on PdfiumAndroidKt, a much newer fork of PdfiumAndroid, with better maintenance and updated native libraries.
     // Keep viewer at a Java 17-compatible version; exclude bundled PdfiumAndroid
@@ -226,13 +205,10 @@ dependencies {
         implementation 'com.google.mlkit:text-recognition:16.0.1'
     }
 
-    if (isNewArchitectureEnabled()) {
-        implementation project(":react-native-nitro-modules")
-    }
+    implementation project(":react-native-nitro-modules")
 }
 
-if (isNewArchitectureEnabled()) {
-    tasks.configureEach { task ->
+tasks.configureEach { task ->
         if (task.name.contains("configureCMake") || task.name.contains("buildCMake")
                 || task.name.startsWith("externalNativeBuildClean")) {
             task.dependsOn(":react-native-nitro-modules:prepareHeaders")
@@ -251,4 +227,3 @@ if (isNewArchitectureEnabled()) {
             mustRunAfter(nitroProject.tasks.named("clean"))
         }
     }
-}

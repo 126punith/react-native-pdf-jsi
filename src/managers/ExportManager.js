@@ -11,12 +11,10 @@
  * @version 1.0.0
  */
 
-import { NativeModules, Platform, Share } from 'react-native';
+import { Platform, Share } from 'react-native';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import PDFTextExtractor from '../utils/PDFTextExtractor';
-import { getNitroPDFJSI } from '../PDFJSI';
-
-const { PDFExporter } = NativeModules;
+import { getPdfLibrary, openPdf } from '../PDFJSI';
 
 /**
  * Export formats supported
@@ -43,12 +41,12 @@ export const ExportQuality = {
  */
 export class ExportManager {
     constructor() {
-        this.isNativeAvailable = !!PDFExporter;
+        this.isNativeAvailable = true;
         
         if (!this.isNativeAvailable) {
             console.warn('📤 ExportManager: Native module not available - using fallback methods');
         } else {
-            console.log('📤 ExportManager: Initialized (version ' + PDFExporter.VERSION + ')');
+            console.log('📤 ExportManager: Initialized (version 5.0.0)');
         }
     }
 
@@ -183,14 +181,8 @@ export class ExportManager {
         try {
             if (this.isNativeAvailable) {
                 // Use native exporter
-                const images = await PDFExporter.exportToImages(filePath, {
-                    pages: pages || [],
-                    format,
-                    quality,
-                    width,
-                    height,
-                    scale
-                });
+                const raw = await (await openPdf(filePath)).exportToImages(scale);
+                const images = typeof raw === 'string' ? JSON.parse(raw) : raw;
 
                 console.log(`📤 ExportManager: Exported ${images.length} images`);
                 return images;
@@ -239,11 +231,7 @@ export class ExportManager {
                     scale
                 });
                 
-                const imagePath = await PDFExporter.exportPageToImage(filePath, pageNumber - 1, {
-                    format,
-                    quality: this._normalizeQuality(quality),
-                    scale
-                });
+                const imagePath = await (await openPdf(filePath)).exportPageToImage(pageNumber - 1, scale);
 
                 console.log('✅ [ExportManager] exportPageToImage - SUCCESS', {
                     outputPath: imagePath
@@ -297,7 +285,7 @@ export class ExportManager {
                 localPaths.push(await this.resolveMergePath(filePath));
             }
             const started = performance.now();
-            const nitro = getNitroPDFJSI();
+            const nitro = getPdfLibrary();
             if (nitro && typeof nitro.mergePDFs === 'function') {
                 console.log('📱 [ExportManager] Calling Nitro mergePDFs...', localPaths);
                 const mergedPath = await nitro.mergePDFs(localPaths, outputPath || '');
@@ -308,7 +296,7 @@ export class ExportManager {
             }
 
             if (this.isNativeAvailable) {
-                const mergedPath = await PDFExporter.mergePDFs(localPaths, outputPath);
+                const mergedPath = await getPdfLibrary().mergePDFs(localPaths, outputPath || '');
                 console.log('📤 ExportManager: Merged to:', mergedPath);
                 return mergedPath;
             } else {
@@ -337,7 +325,7 @@ export class ExportManager {
 
         try {
             const started = performance.now();
-            const nitro = getNitroPDFJSI();
+            const nitro = getPdfLibrary();
             if (nitro && typeof nitro.splitPDF === 'function') {
                 const pairs = [];
                 for (let i = 0; i + 1 < ranges.length; i += 2) {
@@ -361,12 +349,12 @@ export class ExportManager {
                 
                 // Android requires 3 arguments (filePath, ranges, outputDir)
                 // iOS only requires 2 arguments (filePath, ranges)
-                let splitPaths;
-                if (Platform.OS === 'android') {
-                    splitPaths = await PDFExporter.splitPDF(filePath, ranges, null);
-                } else {
-                    splitPaths = await PDFExporter.splitPDF(filePath, ranges);
+                const pairs = [];
+                for (let i = 0; i + 1 < ranges.length; i += 2) {
+                    pairs.push([Number(ranges[i]) - 1, Number(ranges[i + 1]) - 1]);
                 }
+                const rawSplit = await getPdfLibrary().splitPDF(filePath, JSON.stringify(pairs), outputDir || '');
+                const splitPaths = typeof rawSplit === 'string' ? JSON.parse(rawSplit) : rawSplit;
                 
                 console.log(`✅ [ExportManager] splitPDF - SUCCESS - Split into ${splitPaths.length} files`);
                 console.log('📁 [ExportManager] Split files:', splitPaths);
@@ -401,7 +389,7 @@ export class ExportManager {
         try {
             const started = performance.now();
             const pageIndices = pages.map(p => p - 1);
-            const nitro = getNitroPDFJSI();
+            const nitro = getPdfLibrary();
             if (nitro && typeof nitro.extractPages === 'function') {
                 const pagesJson = JSON.stringify(pageIndices);
                 console.log('📱 [ExportManager] Calling Nitro extractPages...', pagesJson);
@@ -422,7 +410,7 @@ export class ExportManager {
                     outputPath: outputPath || 'auto-generated'
                 });
                 
-                const extractedPath = await PDFExporter.extractPages(filePath, pageIndices, outputPath);
+                const extractedPath = await getPdfLibrary().extractPages(filePath, JSON.stringify(pageIndices), outputPath || '');
                 
                 console.log('✅ [ExportManager] extractPages - SUCCESS', {
                     extractedPath
@@ -452,7 +440,11 @@ export class ExportManager {
 
         try {
             if (this.isNativeAvailable) {
-                const rotatedPath = await PDFExporter.rotatePages(filePath, rotations, outputPath);
+                const document = await openPdf(filePath);
+                for (const [page, degrees] of Object.entries(rotations || {})) {
+                    await document.rotatePage(Number(page) - 1, Number(degrees));
+                }
+                const rotatedPath = filePath;
                 console.log('📤 ExportManager: Rotated PDF saved to:', rotatedPath);
                 return rotatedPath;
             } else {
@@ -478,8 +470,12 @@ export class ExportManager {
         try {
             if (this.isNativeAvailable) {
                 // Convert to 0-indexed
-                const pageIndices = pages.map(p => p - 1);
-                const newPath = await PDFExporter.deletePages(filePath, pageIndices, outputPath);
+                const document = await openPdf(filePath);
+                const pageIndices = pages.map(p => p - 1).sort((a, b) => b - a);
+                for (const pageIndex of pageIndices) {
+                    await document.deletePage(pageIndex);
+                }
+                const newPath = filePath;
                 console.log('📤 ExportManager: New PDF saved to:', newPath);
                 return newPath;
             } else {
@@ -677,7 +673,7 @@ export class ExportManager {
         return {
             isAvailable: this.isNativeAvailable,
             platform: Platform.OS,
-            version: PDFExporter?.VERSION || 'N/A',
+            version: '5.0.0',
             capabilities: this.getCapabilities()
         };
     }
