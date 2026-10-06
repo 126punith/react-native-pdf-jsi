@@ -20,10 +20,10 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <memory>
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
-#include <unordered_map>
 #include <vector>
 
 #include <sys/stat.h>
@@ -32,10 +32,10 @@ namespace margelo::nitro::pdfjsi {
 
 namespace {
 
-std::mutex gMutex;
-bool gLibraryReady = false;
-std::unordered_map<std::string, std::string> gPdfIdToPath;
-std::unordered_map<std::string, FPDF_DOCUMENT> gDocuments;
+// PDFium allows only one call at a time (fpdfview.h). This lock covers those
+// calls and nothing else — file IO happens after it is released.
+std::mutex gPdfiumMutex;
+std::once_flag gInitOnce;
 
 std::string normalizePath(const std::string& filePath) {
     const std::string prefix = "file://";
@@ -45,43 +45,33 @@ std::string normalizePath(const std::string& filePath) {
     return filePath;
 }
 
-void ensureLibraryLocked() {
-    if (!gLibraryReady) {
-        FPDF_InitLibrary();
-        gLibraryReady = true;
-    }
+void ensureLibrary() {
+    std::call_once(gInitOnce, []() { FPDF_InitLibrary(); });
 }
 
-void closePathLocked(const std::string& path) {
-    const auto document = gDocuments.find(path);
-    if (document == gDocuments.end()) {
-        return;
-    }
-    FPDF_CloseDocument(document->second);
-    gDocuments.erase(document);
-}
+void ensureParent(const std::string& path);
 
-void dropIfUnusedLocked(const std::string& path) {
-    for (const auto& entry : gPdfIdToPath) {
-        if (entry.second == path) {
-            return;
-        }
-    }
-    closePathLocked(path);
-}
-
-FPDF_DOCUMENT loadLocked(const std::string& path) {
-    ensureLibraryLocked();
-    const auto existing = gDocuments.find(path);
-    if (existing != gDocuments.end()) {
-        return existing->second;
-    }
+FPDF_DOCUMENT loadFresh(const std::string& path) {
+    ensureLibrary();
     FPDF_DOCUMENT document = FPDF_LoadDocument(path.c_str(), nullptr);
     if (document == nullptr) {
         throw std::runtime_error("Failed to open PDF: " + path);
     }
-    gDocuments.emplace(path, document);
     return document;
+}
+
+void writeBytes(const std::string& path, const std::vector<unsigned char>& bytes) {
+    ensureParent(path);
+    FILE* file = std::fopen(path.c_str(), "wb");
+    if (file == nullptr) {
+        throw std::runtime_error("Failed to write " + path);
+    }
+    const size_t written = bytes.empty() ? 0 : std::fwrite(bytes.data(), 1, bytes.size(), file);
+    std::fclose(file);
+    if (written != bytes.size()) {
+        std::remove(path.c_str());
+        throw std::runtime_error("Failed to write " + path);
+    }
 }
 
 int clampPage(FPDF_DOCUMENT document, int pageIndex) {
@@ -506,19 +496,25 @@ struct FileWriter : FPDF_FILEWRITE {
     }
 };
 
-void saveDocument(FPDF_DOCUMENT document, const std::string& path) {
-    ensureParent(path);
-    FILE* file = std::fopen(path.c_str(), "wb");
-    if (file == nullptr) {
-        throw std::runtime_error("Failed to write " + path);
-    }
-    FileWriter writer(file);
-    const FPDF_BOOL saved = FPDF_SaveAsCopy(document, &writer, FPDF_NO_INCREMENTAL);
-    std::fclose(file);
-    if (saved == 0) {
-        std::remove(path.c_str());
+std::vector<unsigned char> saveToMemory(FPDF_DOCUMENT document) {
+    struct MemWriter : FPDF_FILEWRITE {
+        std::vector<unsigned char> bytes;
+        MemWriter() {
+            version = 1;
+            WriteBlock = &writeBlock;
+        }
+        static int writeBlock(FPDF_FILEWRITE* self, const void* data, unsigned long size) {
+            auto* writer = static_cast<MemWriter*>(self);
+            const auto* src = static_cast<const unsigned char*>(data);
+            writer->bytes.insert(writer->bytes.end(), src, src + size);
+            return 1;
+        }
+    };
+    MemWriter writer;
+    if (FPDF_SaveAsCopy(document, &writer, FPDF_NO_INCREMENTAL) == 0) {
         throw std::runtime_error("Failed to save PDF");
     }
+    return std::move(writer.bytes);
 }
 
 std::string parentDirectory(const std::string& path) {
@@ -539,50 +535,68 @@ std::string fileName(const std::string& path) {
 
 } // namespace
 
-void pdfiumInit() {
-    std::lock_guard<std::mutex> lock(gMutex);
-    ensureLibraryLocked();
+struct OpenPdf::Impl {
+    std::mutex mutex;
+    std::string path;
+    FPDF_DOCUMENT document = nullptr;
+    int pageCount = 0;
+    bool closed = false;
+
+    FPDF_DOCUMENT requireDocument() {
+        if (closed || document == nullptr) {
+            throw std::runtime_error("PDF document is closed");
+        }
+        return document;
+    }
+};
+
+OpenPdf::OpenPdf(std::string path) : impl_(std::make_unique<Impl>()) {
+    impl_->path = normalizePath(path);
+    std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
+    impl_->document = loadFresh(impl_->path);
+    impl_->pageCount = FPDF_GetPageCount(impl_->document);
 }
 
-void pdfiumRelease(const std::string& pdfId) {
-    std::lock_guard<std::mutex> lock(gMutex);
-    const auto mapped = gPdfIdToPath.find(pdfId);
-    if (mapped == gPdfIdToPath.end()) {
+OpenPdf::~OpenPdf() {
+    close();
+}
+
+const std::string& OpenPdf::path() const {
+    return impl_->path;
+}
+
+int OpenPdf::pageCount() const {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    return impl_->pageCount;
+}
+
+void OpenPdf::close() {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    if (impl_->closed) {
         return;
     }
-    const std::string path = mapped->second;
-    gPdfIdToPath.erase(mapped);
-    dropIfUnusedLocked(path);
+    impl_->closed = true;
+    if (impl_->document != nullptr) {
+        std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
+        FPDF_CloseDocument(impl_->document);
+        impl_->document = nullptr;
+    }
 }
 
-bool pdfiumRegister(const std::string& pdfId, const std::string& path) {
-    std::lock_guard<std::mutex> lock(gMutex);
-    if (pdfId.empty() || path.empty()) {
-        return false;
-    }
-    const std::string normalized = normalizePath(path);
-    loadLocked(normalized);
-    const auto previous = gPdfIdToPath.find(pdfId);
-    if (previous != gPdfIdToPath.end() && previous->second != normalized) {
-        const std::string oldPath = previous->second;
-        previous->second = normalized;
-        dropIfUnusedLocked(oldPath);
-    } else {
-        gPdfIdToPath[pdfId] = normalized;
-    }
-    return true;
+PageSize OpenPdf::pageSize(int pageIndex) {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
+    const PageSizePoints size = pageGeometry(impl_->requireDocument(), pageIndex);
+    return PageSize(size.width, size.height);
 }
 
-PlatformPageGeometry pdfiumPageMetrics(const std::string& pdfId, int pageNumber) {
-    std::lock_guard<std::mutex> lock(gMutex);
+PlatformPageGeometry OpenPdf::pageMetrics(int pageNumber) {
     PlatformPageGeometry geometry;
-    const auto mapped = gPdfIdToPath.find(pdfId);
-    if (mapped == gPdfIdToPath.end()) {
-        geometry.error = "No PDF path registered for " + pdfId;
-        return geometry;
-    }
     try {
-        const PageSizePoints size = pageGeometry(loadLocked(mapped->second), std::max(0, pageNumber - 1));
+        std::lock_guard<std::mutex> lock(impl_->mutex);
+        std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
+        const int pageIndex = std::max(0, pageNumber);
+        const PageSizePoints size = pageGeometry(impl_->requireDocument(), pageIndex);
         geometry.ok = true;
         geometry.width = size.width;
         geometry.height = size.height;
@@ -593,30 +607,55 @@ PlatformPageGeometry pdfiumPageMetrics(const std::string& pdfId, int pageNumber)
     return geometry;
 }
 
-std::vector<SearchResult> pdfiumSearch(
-    const std::string& pdfId,
-    const std::string& searchTerm,
-    int startPage,
-    int endPage) {
-    std::lock_guard<std::mutex> lock(gMutex);
+PlatformRenderInfo OpenPdf::renderPage(int pageNumber, double scale) {
+    PlatformRenderInfo info;
+    try {
+        std::lock_guard<std::mutex> lock(impl_->mutex);
+        std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
+        FPDF_DOCUMENT document = impl_->requireDocument();
+        const int pageIndex = std::max(0, pageNumber);
+        const PageSizePoints size = pageGeometry(document, pageIndex);
+        const double safeScale = scale > 0 ? scale : 1.0;
+        const int width = std::max(1, static_cast<int>(std::lround(size.width * safeScale)));
+        const int height = std::max(1, static_cast<int>(std::lround(size.height * safeScale)));
+        BitmapGuard bitmap;
+        bitmap.bitmap = FPDFBitmap_Create(width, height, 1);
+        PageGuard page;
+        page.page = FPDF_LoadPage(document, pageIndex);
+        if (bitmap.bitmap == nullptr || page.page == nullptr) {
+            throw std::runtime_error("Failed to render page");
+        }
+        FPDFBitmap_FillRect(bitmap.bitmap, 0, 0, width, height, 0xFFFFFFFF);
+        const auto started = std::chrono::steady_clock::now();
+        FPDF_RenderPageBitmap(bitmap.bitmap, page.page, 0, 0, width, height, 0, FPDF_ANNOT);
+        const auto elapsed = std::chrono::steady_clock::now() - started;
+        info.ok = true;
+        info.width = width;
+        info.height = height;
+        info.renderTimeMs = std::chrono::duration<double, std::milli>(elapsed).count();
+    } catch (const std::exception& error) {
+        info.error = error.what();
+    }
+    return info;
+}
+
+std::vector<SearchResult> OpenPdf::search(const std::string& searchTerm, int startPage, int endPage) {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
     std::vector<SearchResult> results;
     if (searchTerm.empty()) {
         return results;
     }
-    const auto mapped = gPdfIdToPath.find(pdfId);
-    if (mapped == gPdfIdToPath.end()) {
-        return results;
-    }
-    FPDF_DOCUMENT document = loadLocked(mapped->second);
+    FPDF_DOCUMENT document = impl_->requireDocument();
     const int pageCount = FPDF_GetPageCount(document);
-    int from = std::max(1, startPage);
-    int to = std::min(endPage, pageCount);
+    int from = std::max(0, startPage);
+    int to = std::min(endPage, pageCount - 1);
     if (to < from) {
         std::swap(from, to);
     }
     const std::vector<unsigned short> needle = utf8ToUtf16(searchTerm);
-    for (int pageNumber = from; pageNumber <= to; pageNumber++) {
-        FPDF_PAGE page = FPDF_LoadPage(document, pageNumber - 1);
+    for (int pageIndex = from; pageIndex <= to; pageIndex++) {
+        FPDF_PAGE page = FPDF_LoadPage(document, pageIndex);
         if (page == nullptr) {
             continue;
         }
@@ -646,7 +685,7 @@ std::vector<SearchResult> pdfiumSearch(
                         rect = std::to_string(left) + "," + std::to_string(top) + "," + std::to_string(right) + "," + std::to_string(bottom);
                     }
                 }
-                results.emplace_back(static_cast<double>(pageNumber), snippet, rect);
+                results.emplace_back(static_cast<double>(pageIndex), snippet, rect);
             }
             FPDFText_FindClose(finder);
         }
@@ -656,61 +695,16 @@ std::vector<SearchResult> pdfiumSearch(
     return results;
 }
 
-PlatformRenderInfo pdfiumRenderPage(const std::string& pdfId, int pageNumber, double scale) {
-    std::lock_guard<std::mutex> lock(gMutex);
-    PlatformRenderInfo info;
-    const auto mapped = gPdfIdToPath.find(pdfId);
-    if (mapped == gPdfIdToPath.end()) {
-        info.error = "No PDF path registered for " + pdfId;
-        return info;
-    }
-    try {
-        FPDF_DOCUMENT document = loadLocked(mapped->second);
-        const int pageIndex = std::max(0, pageNumber - 1);
-        const PageSizePoints size = pageGeometry(document, pageIndex);
-        const double safeScale = scale > 0 ? scale : 1.0;
-        const int width = std::max(1, static_cast<int>(std::lround(size.width * safeScale)));
-        const int height = std::max(1, static_cast<int>(std::lround(size.height * safeScale)));
-        BitmapGuard bitmap;
-        bitmap.bitmap = FPDFBitmap_Create(width, height, 1);
-        PageGuard page;
-        page.page = FPDF_LoadPage(document, pageIndex);
-        if (bitmap.bitmap == nullptr || page.page == nullptr) {
-            throw std::runtime_error("Failed to render page");
-        }
-        FPDFBitmap_FillRect(bitmap.bitmap, 0, 0, width, height, 0xFFFFFFFF);
-        const auto started = std::chrono::steady_clock::now();
-        FPDF_RenderPageBitmap(bitmap.bitmap, page.page, 0, 0, width, height, 0, FPDF_ANNOT);
-        const auto elapsed = std::chrono::steady_clock::now() - started;
-        info.ok = true;
-        info.width = width;
-        info.height = height;
-        info.renderTimeMs = std::chrono::duration<double, std::milli>(elapsed).count();
-    } catch (const std::exception& error) {
-        info.error = error.what();
-    }
-    return info;
+std::string OpenPdf::textFromPage(int pageIndex) {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
+    return textOnPage(impl_->requireDocument(), pageIndex);
 }
 
-double pdfiumPageCount(const std::string& filePath) {
-    std::lock_guard<std::mutex> lock(gMutex);
-    return static_cast<double>(FPDF_GetPageCount(loadLocked(normalizePath(filePath))));
-}
-
-PageSize pdfiumPageSize(const std::string& filePath, int pageIndex) {
-    std::lock_guard<std::mutex> lock(gMutex);
-    const PageSizePoints size = pageGeometry(loadLocked(normalizePath(filePath)), pageIndex);
-    return PageSize(size.width, size.height);
-}
-
-std::string pdfiumTextFromPage(const std::string& filePath, int pageIndex) {
-    std::lock_guard<std::mutex> lock(gMutex);
-    return textOnPage(loadLocked(normalizePath(filePath)), pageIndex);
-}
-
-std::string pdfiumTextFromPages(const std::string& filePath, const std::string& pageIndicesJson) {
-    std::lock_guard<std::mutex> lock(gMutex);
-    FPDF_DOCUMENT document = loadLocked(normalizePath(filePath));
+std::string OpenPdf::textFromPages(const std::string& pageIndicesJson) {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
+    FPDF_DOCUMENT document = impl_->requireDocument();
     const std::vector<int> indices = parseIntArray(pageIndicesJson);
     std::ostringstream out;
     out << '{';
@@ -724,9 +718,10 @@ std::string pdfiumTextFromPages(const std::string& filePath, const std::string& 
     return out.str();
 }
 
-std::string pdfiumAllText(const std::string& filePath) {
-    std::lock_guard<std::mutex> lock(gMutex);
-    FPDF_DOCUMENT document = loadLocked(normalizePath(filePath));
+std::string OpenPdf::allText() {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
+    FPDF_DOCUMENT document = impl_->requireDocument();
     const int count = FPDF_GetPageCount(document);
     std::ostringstream out;
     out << '{';
@@ -740,202 +735,241 @@ std::string pdfiumAllText(const std::string& filePath) {
     return out.str();
 }
 
-std::string pdfiumExportPage(const std::string& filePath, int pageIndex, double scale) {
-    std::lock_guard<std::mutex> lock(gMutex);
-    const std::string path = normalizePath(filePath);
-    FPDF_DOCUMENT document = loadLocked(path);
-    const std::vector<unsigned char> jpeg = renderJpeg(document, pageIndex, scale, 90);
-    const std::string output = parentDirectory(path) + "/" + fileName(path) + "-page-" + std::to_string(pageIndex) + ".jpg";
-    ensureParent(output);
-    FILE* file = std::fopen(output.c_str(), "wb");
-    if (file == nullptr) {
-        throw std::runtime_error("Failed to write " + output);
+std::string OpenPdf::exportPage(int pageIndex, double scale) {
+    std::vector<unsigned char> jpeg;
+    std::string output;
+    {
+        std::lock_guard<std::mutex> lock(impl_->mutex);
+        std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
+        FPDF_DOCUMENT document = impl_->requireDocument();
+        jpeg = renderJpeg(document, pageIndex, scale, 90);
+        output = parentDirectory(impl_->path) + "/" + fileName(impl_->path) + "-page-" + std::to_string(pageIndex) + ".jpg";
     }
-    const size_t written = std::fwrite(jpeg.data(), 1, jpeg.size(), file);
-    std::fclose(file);
-    if (written != jpeg.size()) {
-        throw std::runtime_error("Failed to write " + output);
-    }
+    writeBytes(output, jpeg);
     return output;
 }
 
-std::string pdfiumExportAll(const std::string& filePath, double scale) {
-    std::lock_guard<std::mutex> lock(gMutex);
-    const std::string path = normalizePath(filePath);
-    FPDF_DOCUMENT document = loadLocked(path);
-    const int count = FPDF_GetPageCount(document);
+std::string OpenPdf::exportAll(double scale) {
+    std::vector<std::pair<std::string, std::vector<unsigned char>>> pages;
+    {
+        std::lock_guard<std::mutex> lock(impl_->mutex);
+        std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
+        FPDF_DOCUMENT document = impl_->requireDocument();
+        const int count = FPDF_GetPageCount(document);
+        pages.reserve(static_cast<size_t>(count));
+        for (int index = 0; index < count; index++) {
+            const std::string output = parentDirectory(impl_->path) + "/" + fileName(impl_->path) + "-page-" + std::to_string(index) + ".jpg";
+            pages.emplace_back(output, renderJpeg(document, index, scale, 90));
+        }
+    }
     std::ostringstream out;
     out << '[';
-    for (int index = 0; index < count; index++) {
-        const std::vector<unsigned char> jpeg = renderJpeg(document, index, scale, 90);
-        const std::string output = parentDirectory(path) + "/" + fileName(path) + "-page-" + std::to_string(index) + ".jpg";
-        FILE* file = std::fopen(output.c_str(), "wb");
-        if (file == nullptr) {
-            throw std::runtime_error("Failed to write " + output);
-        }
-        std::fwrite(jpeg.data(), 1, jpeg.size(), file);
-        std::fclose(file);
+    for (size_t index = 0; index < pages.size(); index++) {
+        writeBytes(pages[index].first, pages[index].second);
         if (index > 0) {
             out << ',';
         }
-        out << '"' << jsonEscape(output) << '"';
+        out << '"' << jsonEscape(pages[index].first) << '"';
     }
     out << ']';
     return out.str();
 }
 
+bool OpenPdf::rotate(int pageNumber, int degrees) {
+    std::vector<unsigned char> bytes;
+    std::string path;
+    {
+        std::lock_guard<std::mutex> lock(impl_->mutex);
+        std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
+        FPDF_DOCUMENT document = impl_->requireDocument();
+        if (pageNumber < 0 || pageNumber >= FPDF_GetPageCount(document)) {
+            return false;
+        }
+        const int turns = ((degrees % 360) + 360) % 360 / 90;
+        FPDF_PAGE page = FPDF_LoadPage(document, pageNumber);
+        if (page == nullptr) {
+            return false;
+        }
+        FPDFPage_SetRotation(page, turns);
+        FPDFPage_GenerateContent(page);
+        FPDF_ClosePage(page);
+        bytes = saveToMemory(document);
+        path = impl_->path;
+    }
+    const std::string temp = path + ".rotate.tmp";
+    writeBytes(temp, bytes);
+    if (std::rename(temp.c_str(), path.c_str()) != 0) {
+        std::remove(temp.c_str());
+        return false;
+    }
+    return true;
+}
+
+bool OpenPdf::removePage(int pageNumber) {
+    std::vector<unsigned char> bytes;
+    std::string path;
+    int nextCount = 0;
+    {
+        std::lock_guard<std::mutex> lock(impl_->mutex);
+        std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
+        FPDF_DOCUMENT document = impl_->requireDocument();
+        if (pageNumber < 0 || pageNumber >= FPDF_GetPageCount(document)) {
+            return false;
+        }
+        FPDFPage_Delete(document, pageNumber);
+        nextCount = FPDF_GetPageCount(document);
+        bytes = saveToMemory(document);
+        path = impl_->path;
+        impl_->pageCount = nextCount;
+    }
+    const std::string temp = path + ".delete.tmp";
+    writeBytes(temp, bytes);
+    if (std::rename(temp.c_str(), path.c_str()) != 0) {
+        std::remove(temp.c_str());
+        return false;
+    }
+    return true;
+}
+
+void pdfiumInit() {
+    std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
+    ensureLibrary();
+}
+
 std::string pdfiumMerge(const std::vector<std::string>& filePaths, const std::string& outputPath) {
-    std::lock_guard<std::mutex> lock(gMutex);
-    const std::vector<std::string>& paths = filePaths;
-    if (paths.size() < 2) {
-        throw std::runtime_error("At least 2 PDF files are required for merging");
-    }
-    ensureLibraryLocked();
-    FPDF_DOCUMENT merged = FPDF_CreateNewDocument();
-    if (merged == nullptr) {
-        throw std::runtime_error("Failed to create merged PDF");
-    }
-    try {
-        for (const std::string& rawPath : paths) {
-            const std::string path = normalizePath(rawPath);
-            FPDF_DOCUMENT source = loadLocked(path);
-            const int count = FPDF_GetPageCount(source);
-            if (count <= 0) {
-                throw std::runtime_error("PDF has no pages: " + path);
-            }
-            for (int page = 0; page < count; page++) {
-                const int pageIndex = page;
-                const int insertAt = FPDF_GetPageCount(merged);
-                if (FPDF_ImportPagesByIndex(merged, source, &pageIndex, 1, insertAt) == 0) {
-                    throw std::runtime_error("Failed to import page " + std::to_string(page + 1) + " from " + path);
+    std::vector<unsigned char> bytes;
+    std::string output;
+    {
+        std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
+        if (filePaths.size() < 2) {
+            throw std::runtime_error("At least 2 PDF files are required for merging");
+        }
+        FPDF_DOCUMENT merged = FPDF_CreateNewDocument();
+        if (merged == nullptr) {
+            throw std::runtime_error("Failed to create merged PDF");
+        }
+        std::vector<FPDF_DOCUMENT> sources;
+        try {
+            for (const std::string& rawPath : filePaths) {
+                const std::string path = normalizePath(rawPath);
+                FPDF_DOCUMENT source = loadFresh(path);
+                sources.push_back(source);
+                const int count = FPDF_GetPageCount(source);
+                if (count <= 0) {
+                    throw std::runtime_error("PDF has no pages: " + path);
+                }
+                for (int page = 0; page < count; page++) {
+                    const int pageIndex = page;
+                    const int insertAt = FPDF_GetPageCount(merged);
+                    if (FPDF_ImportPagesByIndex(merged, source, &pageIndex, 1, insertAt) == 0) {
+                        throw std::runtime_error("Failed to import page " + std::to_string(page + 1) + " from " + path);
+                    }
                 }
             }
+            output = outputPath.empty()
+                ? parentDirectory(normalizePath(filePaths[0])) + "/merged-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".pdf"
+                : normalizePath(outputPath);
+            bytes = saveToMemory(merged);
+            FPDF_CloseDocument(merged);
+            for (FPDF_DOCUMENT source : sources) {
+                FPDF_CloseDocument(source);
+            }
+        } catch (...) {
+            FPDF_CloseDocument(merged);
+            for (FPDF_DOCUMENT source : sources) {
+                FPDF_CloseDocument(source);
+            }
+            throw;
         }
-        std::string output = outputPath;
-        if (output.empty()) {
-            output = parentDirectory(normalizePath(paths[0])) + "/merged-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".pdf";
-        } else {
-            output = normalizePath(output);
-        }
-        saveDocument(merged, output);
-        FPDF_CloseDocument(merged);
-        return output;
-    } catch (...) {
-        FPDF_CloseDocument(merged);
-        throw;
     }
+    writeBytes(output, bytes);
+    return output;
 }
 
 std::string pdfiumSplit(const std::string& filePath, const std::string& pageRangesJson, const std::string& outputDir) {
-    std::lock_guard<std::mutex> lock(gMutex);
-    const std::string path = normalizePath(filePath);
-    FPDF_DOCUMENT source = loadLocked(path);
-    const std::string directory = outputDir.empty() ? parentDirectory(path) : normalizePath(outputDir);
-    mkdir(directory.c_str(), 0755);
-    const std::vector<PageRange> ranges = parseRanges(pageRangesJson);
-    const auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
+    std::vector<std::pair<std::string, std::vector<unsigned char>>> pieces;
+    {
+        std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
+        const std::string path = normalizePath(filePath);
+        FPDF_DOCUMENT source = loadFresh(path);
+        try {
+            const std::string directory = outputDir.empty() ? parentDirectory(path) : normalizePath(outputDir);
+            const std::vector<PageRange> ranges = parseRanges(pageRangesJson);
+            const auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            for (const PageRange& range : ranges) {
+                FPDF_DOCUMENT piece = FPDF_CreateNewDocument();
+                if (piece == nullptr) {
+                    throw std::runtime_error("Failed to create split PDF");
+                }
+                const std::string pageRange = std::to_string(range.start + 1) + "-" + std::to_string(range.end + 1);
+                const std::string output = directory + "/split-" + std::to_string(range.start) + "-" + std::to_string(range.end) + "-" + std::to_string(stamp) + ".pdf";
+                if (FPDF_ImportPages(piece, source, pageRange.c_str(), 0) == 0) {
+                    FPDF_CloseDocument(piece);
+                    throw std::runtime_error("Failed to split pages " + pageRange);
+                }
+                pieces.emplace_back(output, saveToMemory(piece));
+                FPDF_CloseDocument(piece);
+            }
+            FPDF_CloseDocument(source);
+        } catch (...) {
+            FPDF_CloseDocument(source);
+            throw;
+        }
+    }
     std::ostringstream out;
     out << '[';
-    for (size_t index = 0; index < ranges.size(); index++) {
-        FPDF_DOCUMENT piece = FPDF_CreateNewDocument();
-        if (piece == nullptr) {
-            throw std::runtime_error("Failed to create split PDF");
-        }
-        const std::string range = std::to_string(ranges[index].start + 1) + "-" + std::to_string(ranges[index].end + 1);
-        const std::string output = directory + "/split-" + std::to_string(ranges[index].start) + "-" + std::to_string(ranges[index].end) + "-" + std::to_string(stamp) + ".pdf";
-        const FPDF_BOOL imported = FPDF_ImportPages(piece, source, range.c_str(), 0);
-        if (imported == 0) {
-            FPDF_CloseDocument(piece);
-            throw std::runtime_error("Failed to split pages " + range);
-        }
-        saveDocument(piece, output);
-        FPDF_CloseDocument(piece);
+    for (size_t index = 0; index < pieces.size(); index++) {
+        writeBytes(pieces[index].first, pieces[index].second);
         if (index > 0) {
             out << ',';
         }
-        out << '"' << jsonEscape(output) << '"';
+        out << '"' << jsonEscape(pieces[index].first) << '"';
     }
     out << ']';
     return out.str();
 }
 
 std::string pdfiumExtract(const std::string& filePath, const std::string& pageNumbersJson, const std::string& outputPath) {
-    std::lock_guard<std::mutex> lock(gMutex);
-    const std::string path = normalizePath(filePath);
-    FPDF_DOCUMENT source = loadLocked(path);
-    const std::vector<int> pages = parseIntArray(pageNumbersJson);
-    FPDF_DOCUMENT extracted = FPDF_CreateNewDocument();
-    if (extracted == nullptr) {
-        throw std::runtime_error("Failed to create extracted PDF");
-    }
-    try {
-        for (int pageIndex : pages) {
-            if (pageIndex < 0 || pageIndex >= FPDF_GetPageCount(source)) {
-                continue;
-            }
-            const std::string range = std::to_string(pageIndex + 1);
-            if (FPDF_ImportPages(extracted, source, range.c_str(), 0) == 0) {
-                throw std::runtime_error("Failed to extract page " + range);
-            }
+    std::vector<unsigned char> bytes;
+    std::string output;
+    {
+        std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
+        const std::string path = normalizePath(filePath);
+        FPDF_DOCUMENT source = loadFresh(path);
+        FPDF_DOCUMENT extracted = FPDF_CreateNewDocument();
+        if (extracted == nullptr) {
+            FPDF_CloseDocument(source);
+            throw std::runtime_error("Failed to create extracted PDF");
         }
-        std::string output = outputPath.empty()
-            ? parentDirectory(path) + "/extract-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".pdf"
-            : normalizePath(outputPath);
-        saveDocument(extracted, output);
-        FPDF_CloseDocument(extracted);
-        return output;
-    } catch (...) {
-        FPDF_CloseDocument(extracted);
-        throw;
+        try {
+            const std::vector<int> pages = parseIntArray(pageNumbersJson);
+            for (int pageIndex : pages) {
+                if (pageIndex < 0 || pageIndex >= FPDF_GetPageCount(source)) {
+                    continue;
+                }
+                const std::string range = std::to_string(pageIndex + 1);
+                if (FPDF_ImportPages(extracted, source, range.c_str(), 0) == 0) {
+                    throw std::runtime_error("Failed to extract page " + range);
+                }
+            }
+            output = outputPath.empty()
+                ? parentDirectory(path) + "/extract-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".pdf"
+                : normalizePath(outputPath);
+            bytes = saveToMemory(extracted);
+            FPDF_CloseDocument(extracted);
+            FPDF_CloseDocument(source);
+        } catch (...) {
+            FPDF_CloseDocument(extracted);
+            FPDF_CloseDocument(source);
+            throw;
+        }
     }
-}
-
-bool pdfiumRotate(const std::string& filePath, int pageNumber, int degrees) {
-    std::lock_guard<std::mutex> lock(gMutex);
-    const std::string path = normalizePath(filePath);
-    FPDF_DOCUMENT document = loadLocked(path);
-    if (pageNumber < 0 || pageNumber >= FPDF_GetPageCount(document)) {
-        return false;
-    }
-    const int turns = ((degrees % 360) + 360) % 360 / 90;
-    FPDF_PAGE page = FPDF_LoadPage(document, pageNumber);
-    if (page == nullptr) {
-        return false;
-    }
-    FPDFPage_SetRotation(page, turns);
-    FPDFPage_GenerateContent(page);
-    FPDF_ClosePage(page);
-    const std::string temp = path + ".rotate.tmp";
-    saveDocument(document, temp);
-    closePathLocked(path);
-    if (std::rename(temp.c_str(), path.c_str()) != 0) {
-        std::remove(temp.c_str());
-        return false;
-    }
-    return true;
-}
-
-bool pdfiumDelete(const std::string& filePath, int pageNumber) {
-    std::lock_guard<std::mutex> lock(gMutex);
-    const std::string path = normalizePath(filePath);
-    FPDF_DOCUMENT document = loadLocked(path);
-    if (pageNumber < 0 || pageNumber >= FPDF_GetPageCount(document)) {
-        return false;
-    }
-    FPDFPage_Delete(document, pageNumber);
-    const std::string temp = path + ".delete.tmp";
-    saveDocument(document, temp);
-    closePathLocked(path);
-    if (std::rename(temp.c_str(), path.c_str()) != 0) {
-        std::remove(temp.c_str());
-        return false;
-    }
-    return true;
+    writeBytes(output, bytes);
+    return output;
 }
 
 std::string pdfiumCompress(const std::string& inputPath, const std::string& outputPath, int compressionLevel) {
-    std::lock_guard<std::mutex> lock(gMutex);
     const auto started = std::chrono::steady_clock::now();
     const std::string input = normalizePath(inputPath);
     const long long originalSize = fileSizeOf(input);
@@ -948,40 +982,33 @@ std::string pdfiumCompress(const std::string& inputPath, const std::string& outp
     const int level = std::max(0, std::min(9, compressionLevel));
     const double scale = 1.0 - (static_cast<double>(level) / 9.0) * 0.55;
     const int jpegQuality = static_cast<int>(std::lround(92.0 - (static_cast<double>(level) / 9.0) * 57.0));
-    __android_log_print(
-        ANDROID_LOG_DEBUG,
-        "StreamingPDFProcessor",
-        "compressPDFStreaming: PDF-aware recompress level=%d scale=%.2f jpeg=%d: %s -> %s",
-        level,
-        scale,
-        jpegQuality,
-        fileName(input).c_str(),
-        fileName(output).c_str());
-
-    FPDF_DOCUMENT source = loadLocked(input);
-    FPDF_DOCUMENT compressed = FPDF_CreateNewDocument();
-    if (compressed == nullptr) {
-        throw std::runtime_error("Failed to create compressed PDF");
+    std::vector<unsigned char> bytes;
+    {
+        std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
+        FPDF_DOCUMENT source = loadFresh(input);
+        FPDF_DOCUMENT compressed = FPDF_CreateNewDocument();
+        if (compressed == nullptr) {
+            FPDF_CloseDocument(source);
+            throw std::runtime_error("Failed to create compressed PDF");
+        }
+        try {
+            const int count = FPDF_GetPageCount(source);
+            for (int index = 0; index < count; index++) {
+                const PageSizePoints size = pageGeometry(source, index);
+                const std::vector<unsigned char> jpeg = renderJpeg(source, index, scale, jpegQuality);
+                addJpegPage(compressed, jpeg, size.width, size.height);
+            }
+            bytes = saveToMemory(compressed);
+            FPDF_CloseDocument(compressed);
+            FPDF_CloseDocument(source);
+        } catch (...) {
+            FPDF_CloseDocument(compressed);
+            FPDF_CloseDocument(source);
+            throw;
+        }
     }
     const std::string temp = output + ".recompress.tmp";
-    try {
-        const int count = FPDF_GetPageCount(source);
-        for (int index = 0; index < count; index++) {
-            const PageSizePoints size = pageGeometry(source, index);
-            const std::vector<unsigned char> jpeg = renderJpeg(source, index, scale, jpegQuality);
-            addJpegPage(compressed, jpeg, size.width, size.height);
-        }
-        saveDocument(compressed, temp);
-        FPDF_CloseDocument(compressed);
-        compressed = nullptr;
-    } catch (...) {
-        if (compressed != nullptr) {
-            FPDF_CloseDocument(compressed);
-        }
-        std::remove(temp.c_str());
-        throw;
-    }
-
+    writeBytes(temp, bytes);
     long long compressedSize = fileSizeOf(temp);
     if (compressedSize <= 0 || compressedSize >= originalSize) {
         std::remove(temp.c_str());
@@ -993,7 +1020,6 @@ std::string pdfiumCompress(const std::string& inputPath, const std::string& outp
         std::remove(temp.c_str());
         throw std::runtime_error("Failed to move compressed PDF");
     }
-
     const auto elapsed = std::chrono::steady_clock::now() - started;
     const long long duration = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
     const double ratio = originalSize > 0 ? static_cast<double>(compressedSize) / static_cast<double>(originalSize) : 1.0;

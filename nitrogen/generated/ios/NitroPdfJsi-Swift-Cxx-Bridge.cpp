@@ -8,10 +8,115 @@
 #include "NitroPdfJsi-Swift-Cxx-Bridge.hpp"
 
 // Include C++ implementation defined types
-
+#include "HybridPdfDocumentSpecSwift.hpp"
+#include "HybridPdfLibrarySpecSwift.hpp"
+#include "NitroPdfJsi-Swift-Cxx-Umbrella.hpp"
+#include <NitroModules/NitroDefines.hpp>
 
 namespace margelo::nitro::pdfjsi::bridge::swift {
 
+  // pragma MARK: std::function<void(const RenderResult& /* result */)>
+  Func_void_RenderResult create_Func_void_RenderResult(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroPdfJsi::Func_void_RenderResult::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const RenderResult& result) mutable -> void {
+      swiftClosure.call(result);
+    };
+  }
   
+  // pragma MARK: std::function<void(const std::exception_ptr& /* error */)>
+  Func_void_std__exception_ptr create_Func_void_std__exception_ptr(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroPdfJsi::Func_void_std__exception_ptr::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const std::exception_ptr& error) mutable -> void {
+      swiftClosure.call(error);
+    };
+  }
+  
+  // pragma MARK: std::function<void(bool /* result */)>
+  Func_void_bool create_Func_void_bool(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroPdfJsi::Func_void_bool::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](bool result) mutable -> void {
+      swiftClosure.call(result);
+    };
+  }
+  
+  // pragma MARK: std::function<void(const std::vector<SearchResult>& /* result */)>
+  Func_void_std__vector_SearchResult_ create_Func_void_std__vector_SearchResult_(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroPdfJsi::Func_void_std__vector_SearchResult_::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const std::vector<SearchResult>& result) mutable -> void {
+      swiftClosure.call(result);
+    };
+  }
+  
+  // pragma MARK: std::function<void(const std::string& /* result */)>
+  Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroPdfJsi::Func_void_std__string::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const std::string& result) mutable -> void {
+      swiftClosure.call(result);
+    };
+  }
+  
+  // pragma MARK: std::shared_ptr<HybridPdfDocumentSpec>
+  std::shared_ptr<HybridPdfDocumentSpec> create_std__shared_ptr_HybridPdfDocumentSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
+    NitroPdfJsi::HybridPdfDocumentSpec_cxx swiftPart = NitroPdfJsi::HybridPdfDocumentSpec_cxx::fromUnsafe(swiftUnsafePointer);
+    return std::make_shared<margelo::nitro::pdfjsi::HybridPdfDocumentSpecSwift>(swiftPart);
+  }
+  void* NON_NULL get_std__shared_ptr_HybridPdfDocumentSpec_(std__shared_ptr_HybridPdfDocumentSpec_ cppType) {
+    std::shared_ptr<margelo::nitro::pdfjsi::HybridPdfDocumentSpecSwift> swiftWrapper = std::dynamic_pointer_cast<margelo::nitro::pdfjsi::HybridPdfDocumentSpecSwift>(cppType);
+    #ifdef NITRO_DEBUG
+    if (swiftWrapper == nullptr) [[unlikely]] {
+      throw std::runtime_error("Class \"HybridPdfDocumentSpec\" is not implemented in Swift!");
+    }
+    #endif
+    NitroPdfJsi::HybridPdfDocumentSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
+    return swiftPart.toUnsafe();
+  }
+  
+  // pragma MARK: std::function<void(const std::shared_ptr<HybridPdfDocumentSpec>& /* result */)>
+  Func_void_std__shared_ptr_HybridPdfDocumentSpec_ create_Func_void_std__shared_ptr_HybridPdfDocumentSpec_(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroPdfJsi::Func_void_std__shared_ptr_HybridPdfDocumentSpec_::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const std::shared_ptr<HybridPdfDocumentSpec>& result) mutable -> void {
+      swiftClosure.call(result);
+    };
+  }
+  
+  // pragma MARK: std::function<void(const PdfCacheInfo& /* result */)>
+  Func_void_PdfCacheInfo create_Func_void_PdfCacheInfo(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroPdfJsi::Func_void_PdfCacheInfo::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const PdfCacheInfo& result) mutable -> void {
+      swiftClosure.call(result);
+    };
+  }
+  
+  // pragma MARK: std::function<void(double /* result */)>
+  Func_void_double create_Func_void_double(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroPdfJsi::Func_void_double::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](double result) mutable -> void {
+      swiftClosure.call(result);
+    };
+  }
+  
+  // pragma MARK: std::function<void(const PdfCacheStats& /* result */)>
+  Func_void_PdfCacheStats create_Func_void_PdfCacheStats(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroPdfJsi::Func_void_PdfCacheStats::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const PdfCacheStats& result) mutable -> void {
+      swiftClosure.call(result);
+    };
+  }
+  
+  // pragma MARK: std::shared_ptr<HybridPdfLibrarySpec>
+  std::shared_ptr<HybridPdfLibrarySpec> create_std__shared_ptr_HybridPdfLibrarySpec_(void* NON_NULL swiftUnsafePointer) noexcept {
+    NitroPdfJsi::HybridPdfLibrarySpec_cxx swiftPart = NitroPdfJsi::HybridPdfLibrarySpec_cxx::fromUnsafe(swiftUnsafePointer);
+    return std::make_shared<margelo::nitro::pdfjsi::HybridPdfLibrarySpecSwift>(swiftPart);
+  }
+  void* NON_NULL get_std__shared_ptr_HybridPdfLibrarySpec_(std__shared_ptr_HybridPdfLibrarySpec_ cppType) {
+    std::shared_ptr<margelo::nitro::pdfjsi::HybridPdfLibrarySpecSwift> swiftWrapper = std::dynamic_pointer_cast<margelo::nitro::pdfjsi::HybridPdfLibrarySpecSwift>(cppType);
+    #ifdef NITRO_DEBUG
+    if (swiftWrapper == nullptr) [[unlikely]] {
+      throw std::runtime_error("Class \"HybridPdfLibrarySpec\" is not implemented in Swift!");
+    }
+    #endif
+    NitroPdfJsi::HybridPdfLibrarySpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
+    return swiftPart.toUnsafe();
+  }
 
 } // namespace margelo::nitro::pdfjsi::bridge::swift

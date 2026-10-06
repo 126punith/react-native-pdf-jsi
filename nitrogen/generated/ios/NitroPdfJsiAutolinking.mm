@@ -7,10 +7,11 @@
 
 #import <Foundation/Foundation.h>
 #import <NitroModules/HybridObjectRegistry.hpp>
-
+#import "NitroPdfJsi-Swift-Cxx-Umbrella.hpp"
 #import <type_traits>
 
-#include "HybridPDFJSI.hpp"
+#include "HybridPdfLibrarySpecSwift.hpp"
+#include "HybridPdfDocumentSpecSwift.hpp"
 
 @interface NitroPdfJsiAutolinking : NSObject
 @end
@@ -22,12 +23,17 @@
   using namespace margelo::nitro::pdfjsi;
 
   HybridObjectRegistry::registerHybridObjectConstructor(
-    "PDFJSI",
+    "PdfLibrary",
     []() -> std::shared_ptr<HybridObject> {
-      static_assert(std::is_default_constructible_v<HybridPDFJSI>,
-                    "The HybridObject \"HybridPDFJSI\" is not default-constructible! "
-                    "Create a public constructor that takes zero arguments to be able to autolink this HybridObject.");
-      return std::make_shared<HybridPDFJSI>();
+      std::shared_ptr<HybridPdfLibrarySpec> hybridObject = NitroPdfJsi::NitroPdfJsiAutolinking::createPdfLibrary();
+      return hybridObject;
+    }
+  );
+  HybridObjectRegistry::registerHybridObjectConstructor(
+    "PdfDocument",
+    []() -> std::shared_ptr<HybridObject> {
+      std::shared_ptr<HybridPdfDocumentSpec> hybridObject = NitroPdfJsi::NitroPdfJsiAutolinking::createPdfDocument();
+      return hybridObject;
     }
   );
 }

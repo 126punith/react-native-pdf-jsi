@@ -11,25 +11,11 @@
  * - LRU eviction
  */
 
-import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
-
-const { PDFJSIManager } = NativeModules;
+import { getPdfLibrary } from '../PDFJSI';
 
 // Event emitter for progress updates
 // Safely create event emitter only if the module supports event listeners
-let eventEmitter = null;
-if (PDFJSIManager) {
-    try {
-        // Check if NativeEventEmitter is available and the module supports events
-        if (typeof NativeEventEmitter !== 'undefined' && 
-            (typeof PDFJSIManager.addListener === 'function' || typeof PDFJSIManager.removeListeners === 'function')) {
-            eventEmitter = new NativeEventEmitter(PDFJSIManager);
-        }
-    } catch (error) {
-        console.warn('[CacheManager] Failed to create NativeEventEmitter:', error);
-        eventEmitter = null;
-    }
-}
+const eventEmitter = null;
 
 class CacheManager {
     constructor() {
@@ -76,40 +62,19 @@ class CacheManager {
 
         try {
             // Platform-specific implementation
-            if (Platform.OS === 'android') {
-                // Android: Use native PDFNativeCacheManager with streaming decoder
-                const result = await PDFJSIManager.storePDFBase64({
-                    base64: base64,
-                    identifier: identifier || this._generateIdentifier(base64),
-                    maxAge: maxAge,
-                    maxSize: maxSize,
-                    withProgress: !!onProgress
-                });
-
-                return {
-                    cacheId: result.cacheId,
-                    filePath: result.filePath,
-                    fileSize: result.fileSize,
-                    createdAt: result.createdAt || Date.now()
-                };
-            } else if (Platform.OS === 'ios') {
-                // iOS: Similar implementation (to be added)
-                const result = await PDFJSIManager.storePDFBase64({
-                    base64: base64,
-                    identifier: identifier || this._generateIdentifier(base64),
-                    maxAge: maxAge,
-                    maxSize: maxSize
-                });
-
-                return {
-                    cacheId: result.cacheId,
-                    filePath: result.filePath,
-                    fileSize: result.fileSize,
-                    createdAt: result.createdAt || Date.now()
-                };
-            } else {
-                throw new Error(`Platform ${Platform.OS} not supported`);
+            const result = await getPdfLibrary().storeCachedPdf(
+                base64,
+                identifier || this._generateIdentifier(base64)
+            );
+            if (onProgress) {
+                onProgress(1);
             }
+            return {
+                cacheId: result.cacheId,
+                filePath: result.filePath,
+                fileSize: result.fileSize,
+                createdAt: Date.now()
+            };
         } catch (error) {
             console.error('[CacheManager] Failed to store base64 PDF:', error);
             throw error;
@@ -133,19 +98,17 @@ class CacheManager {
         }
 
         try {
-            const result = await PDFJSIManager.getCachedPDF(identifier);
-            
-            if (!result || result.expired) {
+            const filePath = await getPdfLibrary().cachedPdfPath(identifier);
+            if (!filePath) {
                 return null;
             }
-
             return {
-                cacheId: result.cacheId,
-                filePath: result.filePath,
-                fileSize: result.fileSize,
-                createdAt: result.createdAt,
-                lastAccessed: result.lastAccessed,
-                expired: result.expired
+                cacheId: identifier,
+                filePath,
+                fileSize: 0,
+                createdAt: Date.now(),
+                lastAccessed: Date.now(),
+                expired: false
             };
         } catch (error) {
             console.warn('[CacheManager] Failed to get cached PDF:', error);
@@ -176,7 +139,7 @@ class CacheManager {
         }
 
         try {
-            await PDFJSIManager.removeCachedPDF(identifier);
+            await getPdfLibrary().removeCachedPdf(identifier);
             return true;
         } catch (error) {
             console.warn('[CacheManager] Failed to remove cached PDF:', error);
@@ -191,7 +154,7 @@ class CacheManager {
      */
     async clear() {
         try {
-            await PDFJSIManager.clearPDFCache();
+            await getPdfLibrary().clearPdfCache();
         } catch (error) {
             console.error('[CacheManager] Failed to clear cache:', error);
             throw error;
@@ -205,8 +168,7 @@ class CacheManager {
      */
     async clearExpired() {
         try {
-            const result = await PDFJSIManager.clearExpiredPDFs();
-            return result.removedCount || 0;
+            return await getPdfLibrary().clearExpiredPdfs();
         } catch (error) {
             console.warn('[CacheManager] Failed to clear expired:', error);
             return 0;
@@ -220,14 +182,14 @@ class CacheManager {
      */
     async getStats() {
         try {
-            const stats = await PDFJSIManager.getPDFCacheStats();
+            const stats = await getPdfLibrary().pdfCacheStats();
             return {
-                totalSize: stats.totalSize || 0,
+                totalSize: stats.totalBytes || 0,
                 fileCount: stats.fileCount || 0,
-                hitRate: stats.hitRate || 0,
-                cacheHits: stats.cacheHits || 0,
-                cacheMisses: stats.cacheMisses || 0,
-                averageLoadTime: stats.averageLoadTimeMs || 0
+                hitRate: stats.hitRatio || 0,
+                cacheHits: 0,
+                cacheMisses: 0,
+                averageLoadTime: 0
             };
         } catch (error) {
             console.warn('[CacheManager] Failed to get stats:', error);

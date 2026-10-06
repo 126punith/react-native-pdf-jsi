@@ -61,49 +61,82 @@ export interface PageSize {
   height: number;
 }
 
+export interface PdfCacheInfo {
+  cacheId: string;
+  filePath: string;
+  fileSize: number;
+}
+
+export interface PdfCacheStats {
+  fileCount: number;
+  totalBytes: number;
+  hitRatio: number;
+}
+
 /**
- * C++ HybridObject for PDF operations. Nitrogen generates the JSI bindings;
- * HybridPDFJSI implements this interface.
+ * An open PDF. Cheap reads are synchronous. Rendering, search, text
+ * extraction, OCR, and file export stay async because they do real work.
+ * Android implements this in C++; iOS implements it in Swift (PDFKit).
  */
-export interface PDFJSI
-  extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
-  renderPageDirect(
-    pdfId: string,
-    pageNumber: number,
-    scale: number,
-    base64Data: string
-  ): Promise<RenderResult>;
-  getPageMetrics(pdfId: string, pageNumber: number): Promise<PageMetrics>;
-  preloadPagesDirect(
-    pdfId: string,
-    startPage: number,
-    endPage: number
-  ): Promise<boolean>;
-  getCacheMetrics(pdfId: string): Promise<CacheMetrics>;
-  clearCacheDirect(pdfId: string, cacheType: string): Promise<boolean>;
-  optimizeMemory(pdfId: string): Promise<boolean>;
-  searchTextDirect(
-    pdfId: string,
-    searchTerm: string,
+export interface PdfDocument
+  extends HybridObject<{ ios: 'swift'; android: 'c++' }> {
+  readonly pageCount: number;
+  readonly path: string;
+  pageSize(index: number): PageSize;
+  pageMetrics(index: number): PageMetrics;
+  readonly cacheMetrics: CacheMetrics;
+  readonly performanceMetrics: PerformanceMetrics;
+  setRenderQuality(quality: number): void;
+  clearCache(): void;
+  optimizeMemory(): void;
+  renderPage(index: number, scale: number): Promise<RenderResult>;
+  preloadPages(startPage: number, endPage: number): Promise<boolean>;
+  searchText(
+    term: string,
     startPage: number,
     endPage: number
   ): Promise<SearchResult[]>;
-  getPerformanceMetrics(pdfId: string): Promise<PerformanceMetrics>;
-  setRenderQuality(pdfId: string, quality: number): Promise<boolean>;
-  check16KBSupport(): Promise<KB16Support>;
-  getJSIStats(): Promise<JSIStats>;
-  registerPathForSearch(pdfId: string, path: string): Promise<boolean>;
-  getPageCount(filePath: string): Promise<number>;
-  getPageSize(filePath: string, pageIndex: number): Promise<PageSize>;
-  extractTextFromPage(filePath: string, pageIndex: number): Promise<string>;
-  extractTextFromPages(filePath: string, pageIndicesJson: string): Promise<string>;
-  extractAllText(filePath: string): Promise<string>;
-  exportPageToImage(filePath: string, pageIndex: number, scale: number): Promise<string>;
-  exportToImages(filePath: string, scale: number): Promise<string>;
+  extractText(index: number): Promise<string>;
+  extractTextFromPages(pageIndicesJson: string): Promise<string>;
+  extractAllText(): Promise<string>;
+  recognizeText(index: number, fast: boolean): Promise<string>;
+  exportPageToImage(index: number, scale: number): Promise<string>;
+  exportToImages(scale: number): Promise<string>;
+  rotatePage(pageNumber: number, degrees: number): Promise<boolean>;
+  deletePage(pageNumber: number): Promise<boolean>;
+  close(): void;
+}
+
+/**
+ * Process-wide PDF entry point. `open` is the only way to get a document
+ * handle — there is no pdfId registry on this API.
+ */
+export interface PdfLibrary
+  extends HybridObject<{ ios: 'swift'; android: 'c++' }> {
+  open(path: string): Promise<PdfDocument>;
+  readonly jsiStats: JSIStats;
+  readonly kb16Support: KB16Support;
+  readonly ocrAvailable: boolean;
   mergePDFs(filePaths: string[], outputPath: string): Promise<string>;
-  splitPDF(filePath: string, pageRangesJson: string, outputDir: string): Promise<string>;
-  extractPages(filePath: string, pageNumbersJson: string, outputPath: string): Promise<string>;
-  rotatePage(filePath: string, pageNumber: number, degrees: number): Promise<boolean>;
-  deletePage(filePath: string, pageNumber: number): Promise<boolean>;
-  compressPDF(inputPath: string, outputPath: string, compressionLevel: number): Promise<string>;
+  splitPDF(
+    filePath: string,
+    pageRangesJson: string,
+    outputDir: string
+  ): Promise<string>;
+  extractPages(
+    filePath: string,
+    pageNumbersJson: string,
+    outputPath: string
+  ): Promise<string>;
+  compressPDF(
+    inputPath: string,
+    outputPath: string,
+    compressionLevel: number
+  ): Promise<string>;
+  storeCachedPdf(base64: string, identifier: string): Promise<PdfCacheInfo>;
+  cachedPdfPath(identifier: string): Promise<string>;
+  removeCachedPdf(identifier: string): Promise<boolean>;
+  clearPdfCache(): Promise<boolean>;
+  clearExpiredPdfs(): Promise<number>;
+  pdfCacheStats(): Promise<PdfCacheStats>;
 }

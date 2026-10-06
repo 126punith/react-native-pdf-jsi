@@ -9,52 +9,30 @@
  * @author Punith M
  */
 
-import { NativeModules, Platform } from 'react-native';
-import { getNitroPDFJSI } from './PDFJSI';
-
-const { PDFTextModule, PDFExporter } = NativeModules;
+import { Platform } from 'react-native';
+import { openPdf, getPdfLibrary } from './PDFJSI';
 
 let customOCREngine = null;
 
 function nativeAvailable() {
-    return !!PDFTextModule;
+    return true;
 }
 
-function nitroPDF() {
-    return getNitroPDFJSI();
+async function withDocument(filePath, fn) {
+    const document = await openPdf(filePath);
+    return fn(document);
 }
 
 async function pageCountOf(filePath) {
-    const hybrid = nitroPDF();
-    if (hybrid) {
-        return hybrid.getPageCount(filePath);
-    }
-    if (!nativeAvailable()) {
-        throw new Error('PDFTextModule native module is not available');
-    }
-    return PDFTextModule.getPageCount(filePath);
+    return withDocument(filePath, (document) => document.pageCount);
 }
 
 async function textFromPage(filePath, pageIndex) {
-    const hybrid = nitroPDF();
-    if (hybrid) {
-        return (await hybrid.extractTextFromPage(filePath, pageIndex)) || '';
-    }
-    if (!nativeAvailable()) {
-        throw new Error('PDFTextModule native module is not available');
-    }
-    return (await PDFTextModule.extractTextFromPage(filePath, pageIndex)) || '';
+    return withDocument(filePath, (document) => document.extractText(pageIndex));
 }
 
 async function pageSizeOf(filePath, pageIndex) {
-    const hybrid = nitroPDF();
-    if (hybrid) {
-        return hybrid.getPageSize(filePath, pageIndex);
-    }
-    if (!nativeAvailable() || !PDFTextModule.getPageSize) {
-        throw new Error('getPageSize is not available');
-    }
-    return PDFTextModule.getPageSize(filePath, pageIndex);
+    return withDocument(filePath, (document) => document.pageSize(pageIndex));
 }
 
 function objectToMap(obj) {
@@ -102,29 +80,13 @@ function imageRectToPdfRect(rectStr, imageWidth, imageHeight, pageWidthPt, pageH
     return `${left},${pdfTop},${right},${pdfBottom}`;
 }
 
-async function exportPageImage(filePath, pageIndex0, dpi, format) {
+async function exportPageImage(filePath, pageIndex0, dpi) {
     const scale = Math.max(1, dpi / 72);
-    const hybrid = nitroPDF();
-    if (hybrid) {
-        return hybrid.exportPageToImage(filePath, pageIndex0, scale);
-    }
-    if (!PDFExporter || !PDFExporter.exportPageToImage) {
-        throw new Error(
-            'PDFExporter.exportPageToImage is required for OCR. Native export module unavailable.'
-        );
-    }
-    return PDFExporter.exportPageToImage(filePath, pageIndex0, {
-        format: format || 'jpeg',
-        quality: 0.9,
-        scale,
-    });
+    return withDocument(filePath, (document) => document.exportPageToImage(pageIndex0, scale));
 }
 
-async function runNativeOCR(imagePath, ocrOptions = {}) {
-    if (!PDFTextModule || !PDFTextModule.recognizeImage) {
-        throw new Error('Native OCR is not available on this platform/build');
-    }
-    return PDFTextModule.recognizeImage(imagePath, ocrOptions);
+async function runNativeOCR() {
+    throw new Error('Image-path OCR was removed in 5.0. Use PDFText.recognizePage(filePath, pageIndex).');
 }
 
 async function runOCROnImage(imagePath, ocrOptions = {}) {
@@ -169,9 +131,12 @@ async function runPageOCR(filePath, pageIndex0, ocrDpi, ocrFormat, ocrOptions) {
         };
     }
 
-    if (typeof PDFTextModule.recognizePage === 'function') {
+    if (getPdfLibrary().ocrAvailable) {
         try {
-            const result = await PDFTextModule.recognizePage(filePath, pageIndex0, opts);
+            const text = await withDocument(filePath, (document) =>
+                document.recognizeText(pageIndex0, !!opts.fast)
+            );
+            const result = { text, blocks: [], engine: 'ocr' };
             const pageSize = await pageSizeOf(filePath, pageIndex0);
             return {
                 text: result?.text ?? '',
@@ -232,39 +197,25 @@ class PDFText {
 
     static async isOCRAvailable() {
         if (customOCREngine) return true;
-        if (!PDFTextModule?.isOCRAvailable) return false;
         try {
-            return !!(await PDFTextModule.isOCRAvailable());
+            return !!getPdfLibrary().ocrAvailable;
         } catch {
             return false;
         }
     }
 
     static async getCapabilities() {
-        const base = {
-            textExtraction: nativeAvailable(),
-            ocr: false,
+        const ocr = await PDFText.isOCRAvailable();
+        return {
+            textExtraction: true,
+            ocr,
             customEngineSupported: true,
             customEngineRegistered: !!customOCREngine,
-            recognizePage: false,
+            recognizePage: ocr,
             searchablePdf: false,
             platform: Platform.OS,
-            ocrBuildEnabled: false,
+            ocrBuildEnabled: ocr,
         };
-        if (!PDFTextModule?.getCapabilities) {
-            return base;
-        }
-        try {
-            const caps = await PDFTextModule.getCapabilities();
-            return {
-                ...base,
-                ...caps,
-                ocr: !!(caps?.ocr || customOCREngine),
-                customEngineRegistered: !!customOCREngine,
-            };
-        } catch {
-            return base;
-        }
     }
 
     static async getPageSize(filePath, pageIndex0) {
@@ -354,8 +305,8 @@ class PDFText {
         if (!filePath) {
             throw new Error('filePath is required');
         }
-        if (!nitroPDF() && !nativeAvailable()) {
-            throw new Error('PDFTextModule native module is not available');
+        if (!nativeAvailable()) {
+            throw new Error('PDF text extraction is not available');
         }
 
         const {
@@ -483,12 +434,7 @@ class PDFText {
      */
     static async makeSearchablePDF(inputPath, options = {}) {
         if (!inputPath) throw new Error('inputPath is required');
-        if (!nativeAvailable()) {
-            throw new Error('PDFTextModule native module is not available');
-        }
-        if (typeof PDFTextModule.createSearchablePDF !== 'function') {
-            throw new Error('createSearchablePDF is not available on this build');
-        }
+        throw new Error('createSearchablePDF was removed in 5.0. Use recognizePage and assemble the PDF in JS.');
 
         const {
             outputPath = null,
@@ -590,9 +536,9 @@ class PDFText {
                 }
             }
 
-            const nativeResult = await PDFTextModule.createSearchablePDF(payload, outPath);
+            throw new Error('createSearchablePDF was removed in 5.0');
             return {
-                outputPath: nativeResult?.outputPath || outPath,
+                outputPath: outPath,
                 stats: {
                     totalPages: indices.length,
                     pagesNative,
@@ -612,29 +558,15 @@ class PDFText {
     }
 
     static async extractTextFromPages(filePath, pageIndices) {
-        const hybrid = nitroPDF();
-        if (hybrid) {
-            const json = await hybrid.extractTextFromPages(filePath, JSON.stringify(pageIndices || []));
-            return objectToMap(JSON.parse(json));
-        }
-        if (!nativeAvailable()) {
-            throw new Error('PDFTextModule native module is not available');
-        }
-        const obj = await PDFTextModule.extractTextFromPages(filePath, pageIndices);
-        return objectToMap(obj);
+        const json = await withDocument(filePath, (document) =>
+            document.extractTextFromPages(JSON.stringify(pageIndices || []))
+        );
+        return objectToMap(JSON.parse(json));
     }
 
     static async extractAllText(filePath) {
-        const hybrid = nitroPDF();
-        if (hybrid) {
-            const json = await hybrid.extractAllText(filePath);
-            return objectToMap(JSON.parse(json));
-        }
-        if (!nativeAvailable()) {
-            throw new Error('PDFTextModule native module is not available');
-        }
-        const obj = await PDFTextModule.extractAllText(filePath);
-        return objectToMap(obj);
+        const json = await withDocument(filePath, (document) => document.extractAllText());
+        return objectToMap(JSON.parse(json));
     }
 
     static async getPageCount(filePath) {

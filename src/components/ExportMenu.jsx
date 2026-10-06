@@ -11,11 +11,9 @@ import {
   ActivityIndicator,
   Share,
   Alert,
-  NativeModules,
 } from 'react-native';
 import BottomSheet from './BottomSheet';
-
-const {FileManager} = NativeModules;
+import FileManager from '../managers/FileManager';
 
 const ExportMenu = ({
   visible,

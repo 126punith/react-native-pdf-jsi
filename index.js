@@ -18,7 +18,6 @@ import {
     StyleSheet,
     Image,
     Text,
-    NativeModules,
     requireNativeComponent
 } from 'react-native';
 // Codegen component variables - will be loaded lazily to prevent hooks errors
@@ -27,8 +26,7 @@ let PdfViewCommands = null;
 import ReactNativeBlobUtil from 'react-native-blob-util'
 import {ViewPropTypes} from 'deprecated-react-native-prop-types';
 const SHA1 = require('crypto-js/sha1');
-import PdfView from './PdfView';
-import PDFJSI, { getNitroPDFJSI, searchTextDirect } from './src/PDFJSI';
+import PDFJSI, { checkJSIAvailability, searchTextDirect } from './src/PDFJSI';
 
 export default class Pdf extends Component {
 
@@ -131,8 +129,6 @@ export default class Pdf extends Component {
         // Store downloaded file path in instance variable for immediate access
         // This ensures path is available when onLoadComplete fires, even before state updates
         this.downloadedFilePath = '';
-        // Stable per-instance id for JSI calls when props.pdfId is not set (#13 / setPage)
-        this._instancePdfId = `pdf_inst_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
         this.lastRNBFTask = null;
         this.pdfJSI = PDFJSI;
@@ -146,10 +142,8 @@ export default class Pdf extends Component {
             if (this._mounted) {
                 this.setState({ jsiAvailable: isAvailable });
             }
-            if (getNitroPDFJSI()) {
-                console.log('🚀 PDFJSI: High-performance JSI mode enabled');
-            } else {
-                console.log('📱 PDFJSI: Using standard bridge mode');
+            if (checkJSIAvailability()) {
+                console.log('🚀 PDFJSI: Nitro mode enabled');
             }
         } catch (error) {
             console.warn('PDFJSI: Failed to initialize JSI', error);
@@ -447,19 +441,6 @@ export default class Pdf extends Component {
             throw new Error('Specified pageNumber is not a number');
         }
         
-        // Use JSI only with a stable id (props.pdfId or per-mount instance id — not a new random id per call)
-        const pdfIdForJsi = this.props.pdfId || this._instancePdfId;
-        if (this.state.jsiAvailable && this.state.path && pdfIdForJsi) {
-            try {
-                this.pdfJSI.setCurrentPage(pdfIdForJsi, pageNumber);
-                if (__DEV__) {
-                    console.log(`🚀 JSI: Set page ${pageNumber} for PDF ${pdfIdForJsi}`);
-                }
-            } catch (error) {
-                console.warn('JSI setPage failed, falling back to standard method:', error);
-            }
-        }
-        
         if (!!global?.nativeFabricUIManager ) {
             if (this._root) {
                 // Lazy load PdfViewCommands if not already loaded
@@ -487,12 +468,6 @@ export default class Pdf extends Component {
 
     // 🚀 JSI Enhanced Methods
     
-    generatePdfId = () => {
-        // Generate a unique ID for this PDF instance
-        return `pdf_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    };
-
-    // Enhanced page rendering with JSI
     renderPageWithJSI = async (pageNumber, scale = 1.0) => {
         if (!this.state.jsiAvailable || !this.state.path) {
             console.warn('JSI not available, using standard rendering');
@@ -500,12 +475,11 @@ export default class Pdf extends Component {
         }
 
         try {
-            const pdfId = this.generatePdfId();
+            await this.pdfJSI.openPdf(this.state.path);
             const result = await this.pdfJSI.renderPageDirect(
-                pdfId,
+                this.state.path,
                 pageNumber,
-                scale,
-                this.state.path
+                scale
             );
             console.log(`🚀 JSI: Rendered page ${pageNumber} in ${result.renderTimeMs}ms`);
             return result;
@@ -517,13 +491,13 @@ export default class Pdf extends Component {
 
     // Get page metrics via JSI
     getPageMetricsWithJSI = async (pageNumber) => {
-        if (!this.state.jsiAvailable) {
+        if (!this.state.jsiAvailable || !this.state.path) {
             return null;
         }
 
         try {
-            const pdfId = this.generatePdfId();
-            return await this.pdfJSI.getPageMetrics(pdfId, pageNumber);
+            await this.pdfJSI.openPdf(this.state.path);
+            return this.pdfJSI.getPageMetrics(this.state.path, pageNumber);
         } catch (error) {
             console.error('JSI getPageMetrics failed:', error);
             return null;
@@ -537,8 +511,8 @@ export default class Pdf extends Component {
         }
 
         try {
-            const pdfId = this.generatePdfId();
-            const success = await this.pdfJSI.preloadPagesDirect(pdfId, startPage, endPage);
+            await this.pdfJSI.openPdf(this.state.path);
+            const success = await this.pdfJSI.preloadPagesDirect(this.state.path, startPage, endPage);
             console.log(`🚀 JSI: Preloaded pages ${startPage}-${endPage}: ${success}`);
             return success;
         } catch (error) {
@@ -549,13 +523,13 @@ export default class Pdf extends Component {
 
     // Get JSI performance metrics
     getJSIPerformanceMetrics = async () => {
-        if (!this.state.jsiAvailable) {
+        if (!this.state.jsiAvailable || !this.state.path) {
             return null;
         }
 
         try {
-            const pdfId = this.generatePdfId();
-            return await this.pdfJSI.getPerformanceMetrics(pdfId);
+            await this.pdfJSI.openPdf(this.state.path);
+            return this.pdfJSI.getPerformanceMetrics(this.state.path);
         } catch (error) {
             console.error('JSI getPerformanceMetrics failed:', error);
             return null;
@@ -626,19 +600,6 @@ export default class Pdf extends Component {
                 if (!filePath || filePath.trim() === '') {
                     filePath = this.downloadedFilePath || this.state.path || '';
                 }
-                // Register path for search (iOS: ensures SearchRegistry has path when pdfId may not reach native view)
-                if (this.props.pdfId && filePath) {
-                    if (__DEV__) {
-                        console.log('📌 [Pdf] Registering path for search:', this.props.pdfId, 'pathLength:', filePath.length);
-                    }
-                    Promise.resolve(PDFJSI.registerPathForSearch(this.props.pdfId, filePath)).then((registered) => {
-                        if (__DEV__) console.log('✅ [Pdf] Path registered for search:', this.props.pdfId, registered);
-                    }).catch((err) => {
-                        if (__DEV__) console.warn('⚠️ [Pdf] registerPathForSearch failed:', err);
-                    });
-                } else if (__DEV__) {
-                    console.log('📌 [Pdf] Skip path registration: pdfId=', this.props.pdfId, 'hasPath=', !!filePath);
-                }
                 // Log path extraction for debugging
                 if (__DEV__) {
                     console.log('📁 [Pdf] loadComplete - Path extraction:', {
@@ -693,7 +654,7 @@ export default class Pdf extends Component {
     };
 
     render() {
-        if (Platform.OS === "android" || Platform.OS === "ios" || Platform.OS === "windows") {
+        if (Platform.OS === "android" || Platform.OS === "ios") {
                 return (
                     <View style={[this.props.style,{overflow: 'hidden'}]}>
                         {!this.state.isDownloaded?
@@ -704,36 +665,13 @@ export default class Pdf extends Component {
                                     ? this.props.renderActivityIndicator(this.state.progress)
                                     : <Text>{`${(this.state.progress * 100).toFixed(2)}%`}</Text>}
                             </View>):(
-                                Platform.OS === "android" || Platform.OS === "windows"?(
-                                        <PdfCustom
-                                            ref={component => (this._root = component)}
-                                            {...this.props}
-                                            style={[{flex:1,backgroundColor: '#EEE'}, this.props.style]}
-                                            path={this.state.path}
-                                            onChange={this._onChange}
-                                        />
-                                    ):(
-                                        this.props.usePDFKit ?(
-                                                <PdfCustom
-                                                    ref={component => (this._root = component)}
-                                                    {...this.props}
-                                                    style={[{backgroundColor: '#EEE',overflow: 'hidden'}, this.props.style]}
-                                                    path={this.state.path}
-                                                    onChange={this._onChange}
-                                                />
-                                            ):(<PdfView
-                                                {...this.props}
-                                                style={[{backgroundColor: '#EEE',overflow: 'hidden'}, this.props.style]}
-                                                path={this.state.path}
-                                                page={this.props.page}
-                                                onLoadComplete={this.props.onLoadComplete}
-                                                onPageChanged={this.props.onPageChanged}
-                                                onError={this._onError}
-                                                onPageSingleTap={this.props.onPageSingleTap}
-                                                onScaleChanged={this.props.onScaleChanged}
-                                                onPressLink={this.props.onPressLink}
-                                            />)
-                                    )
+                                <PdfCustom
+                                    ref={component => (this._root = component)}
+                                    {...this.props}
+                                    style={[{flex:1,backgroundColor: '#EEE',overflow: 'hidden'}, this.props.style]}
+                                    path={this.state.path}
+                                    onChange={this._onChange}
+                                />
                                 )}
                     </View>);
         } else {
@@ -759,10 +697,6 @@ if (Platform.OS === "android" || Platform.OS === "ios") {
             nativeOnly: {path: true, onChange: true},
         });
     }
-}  else if (Platform.OS === "windows") {
-    var PdfCustom = requireNativeComponent('RCTPdf', Pdf, {
-        nativeOnly: {path: true, onChange: true},
-    })
 }
 
 const styles = StyleSheet.create({

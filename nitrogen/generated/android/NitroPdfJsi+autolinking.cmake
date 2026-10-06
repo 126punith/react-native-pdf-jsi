@@ -33,7 +33,8 @@ target_sources(
   # Autolinking Setup
   ../nitrogen/generated/android/NitroPdfJsiOnLoad.cpp
   # Shared Nitrogen C++ sources
-  ../nitrogen/generated/shared/c++/HybridPDFJSISpec.cpp
+  ../nitrogen/generated/shared/c++/HybridPdfDocumentSpec.cpp
+  ../nitrogen/generated/shared/c++/HybridPdfLibrarySpec.cpp
   # Android-specific Nitrogen C++ sources
   
 )

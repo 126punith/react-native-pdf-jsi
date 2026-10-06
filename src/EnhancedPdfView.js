@@ -9,7 +9,7 @@
 import React, { Component } from 'react';
 import { Platform, Alert } from 'react-native';
 import Pdf from '../index';
-import PDFJSI from './PDFJSI';
+import PDFJSI, { openPdf } from './PDFJSI';
 
 export default class EnhancedPdfView extends Component {
     constructor(props) {
@@ -61,6 +61,23 @@ export default class EnhancedPdfView extends Component {
         }
     }
     
+    sourcePath() {
+        const { source } = this.props;
+        if (typeof source === 'string') {
+            return source;
+        }
+        if (source && typeof source.uri === 'string') {
+            return source.uri;
+        }
+        throw new Error('A file path is required. Open the PDF with openPdf(path) before reading it.');
+    }
+
+    async ensureOpen() {
+        const path = this.sourcePath();
+        await openPdf(path);
+        return path;
+    }
+
     /**
      * Render PDF page using JSI (high-performance)
      */
@@ -70,21 +87,8 @@ export default class EnhancedPdfView extends Component {
         }
         
         try {
-            const { source } = this.props;
-            let base64Data = '';
-            
-            // Handle different source types
-            if (typeof source === 'string') {
-                // Assume it's a URL or file path
-                base64Data = source;
-            } else if (source && source.uri) {
-                base64Data = source.uri;
-            } else {
-                throw new Error('Invalid PDF source');
-            }
-            
-            const pdfId = `pdf_${Date.now()}`;
-            const result = await PDFJSI.renderPageDirect(pdfId, pageNumber, scale, base64Data);
+            const path = await this.ensureOpen();
+            const result = await PDFJSI.renderPageDirect(path, pageNumber, scale);
             
             if (result.success) {
                 return result.data;
@@ -107,14 +111,8 @@ export default class EnhancedPdfView extends Component {
         }
         
         try {
-            const pdfId = `pdf_${Date.now()}`;
-            const result = await PDFJSI.getPageMetrics(pdfId, pageNumber);
-            
-            if (result.success) {
-                return result.data;
-            } else {
-                throw new Error(result.error || 'Failed to get page metrics');
-            }
+            const path = await this.ensureOpen();
+            return PDFJSI.getPageMetrics(path, pageNumber);
             
         } catch (error) {
             console.error('📱 EnhancedPdfView: JSI metrics error:', error);
@@ -131,8 +129,8 @@ export default class EnhancedPdfView extends Component {
         }
         
         try {
-            const pdfId = `pdf_${Date.now()}`;
-            const success = await PDFJSI.preloadPagesDirect(pdfId, startPage, endPage);
+            const path = await this.ensureOpen();
+            const success = await PDFJSI.preloadPagesDirect(path, startPage, endPage);
             
             if (success) {
                 console.log(`📱 EnhancedPdfView: Preloaded pages ${startPage}-${endPage} via JSI`);
@@ -157,8 +155,8 @@ export default class EnhancedPdfView extends Component {
         }
         
         try {
-            const pdfId = `pdf_${Date.now()}`;
-            const results = await PDFJSI.searchTextDirect(pdfId, searchTerm, startPage, endPage);
+            const path = await this.ensureOpen();
+            const results = await PDFJSI.searchTextDirect(path, searchTerm, startPage, endPage);
             
             console.log(`📱 EnhancedPdfView: Found ${results.length} matches for '${searchTerm}' via JSI`);
             return results;
@@ -174,8 +172,8 @@ export default class EnhancedPdfView extends Component {
      */
     async getPerformanceMetrics() {
         try {
-            const pdfId = `pdf_${Date.now()}`;
-            const metrics = await PDFJSI.getPerformanceMetrics(pdfId);
+            const path = await this.ensureOpen();
+            const metrics = PDFJSI.getPerformanceMetrics(path);
             return metrics;
         } catch (error) {
             console.error('📱 EnhancedPdfView: Error getting performance metrics:', error);
@@ -201,8 +199,8 @@ export default class EnhancedPdfView extends Component {
      */
     async clearCache(cacheType = 'all') {
         try {
-            const pdfId = `pdf_${Date.now()}`;
-            const success = await PDFJSI.clearCacheDirect(pdfId, cacheType);
+            const path = await this.ensureOpen();
+            const success = PDFJSI.clearCacheDirect(path);
             
             if (success) {
                 console.log(`📱 EnhancedPdfView: Cache cleared successfully (${cacheType})`);
@@ -220,8 +218,8 @@ export default class EnhancedPdfView extends Component {
      */
     async optimizeMemory() {
         try {
-            const pdfId = `pdf_${Date.now()}`;
-            const success = await PDFJSI.optimizeMemory(pdfId);
+            const path = await this.ensureOpen();
+            const success = PDFJSI.optimizeMemory(path);
             
             if (success) {
                 console.log('📱 EnhancedPdfView: Memory optimized successfully');
@@ -239,8 +237,8 @@ export default class EnhancedPdfView extends Component {
      */
     async setRenderQuality(quality) {
         try {
-            const pdfId = `pdf_${Date.now()}`;
-            const success = await PDFJSI.setRenderQuality(pdfId, quality);
+            const path = await this.ensureOpen();
+            const success = PDFJSI.setRenderQuality(path, quality);
             
             if (success) {
                 console.log(`📱 EnhancedPdfView: Render quality set to ${quality}`);
@@ -277,8 +275,8 @@ export default class EnhancedPdfView extends Component {
      */
     lazyLoadPages = async (currentPage, preloadRadius = 3, totalPages = null) => {
         try {
-            const pdfId = `pdf_${Date.now()}`;
-            const result = await PDFJSI.lazyLoadPages(pdfId, currentPage, preloadRadius, totalPages);
+            const path = await this.ensureOpen();
+            const result = await PDFJSI.lazyLoadPages(path, currentPage, preloadRadius, totalPages);
             
             if (result.success) {
                 console.log(`📱 EnhancedPdfView: Lazy loaded pages around ${currentPage} via JSI`);
@@ -296,8 +294,8 @@ export default class EnhancedPdfView extends Component {
      */
     progressiveLoadPages = async (startPage = 1, batchSize = 5, onProgress = null) => {
         try {
-            const pdfId = `pdf_${Date.now()}`;
-            const result = await PDFJSI.progressiveLoadPages(pdfId, startPage, batchSize, onProgress);
+            const path = await this.ensureOpen();
+            const result = await PDFJSI.progressiveLoadPages(path, startPage, batchSize, onProgress);
             
             console.log(`📱 EnhancedPdfView: Progressive loaded ${result.totalLoaded} pages via JSI`);
             return result;
@@ -312,8 +310,8 @@ export default class EnhancedPdfView extends Component {
      */
     smartCacheFrequentPages = async (frequentPages = []) => {
         try {
-            const pdfId = `pdf_${Date.now()}`;
-            const result = await PDFJSI.smartCacheFrequentPages(pdfId, frequentPages);
+            const path = await this.ensureOpen();
+            const result = await PDFJSI.smartCacheFrequentPages(path, frequentPages);
             
             console.log(`📱 EnhancedPdfView: Smart cached ${result.successfulCaches}/${result.totalPages} frequent pages via JSI`);
             return result;
@@ -389,10 +387,10 @@ export const EnhancedPdfUtils = {
     /**
      * Clear all caches
      */
-    async clearAllCaches() {
+    async clearAllCaches(path) {
         try {
-            const pdfId = `pdf_${Date.now()}`;
-            return await PDFJSI.clearCacheDirect(pdfId, 'all');
+            await openPdf(path);
+            return PDFJSI.clearCacheDirect(path);
         } catch (error) {
             return false;
         }
@@ -401,10 +399,10 @@ export const EnhancedPdfUtils = {
     /**
      * Optimize all memory
      */
-    async optimizeAllMemory() {
+    async optimizeAllMemory(path) {
         try {
-            const pdfId = `pdf_${Date.now()}`;
-            return await PDFJSI.optimizeMemory(pdfId);
+            await openPdf(path);
+            return PDFJSI.optimizeMemory(path);
         } catch (error) {
             return false;
         }
