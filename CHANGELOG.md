@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-10-06
+
+Breaking release. Not a drop-in upgrade from 4.x. Install 5.0.0 only if the app already uses the React Native New Architecture and needs the Nitro JSI document API. Production apps on 4.x stay on 4.5.0. Upgrade steps: [MIGRATION-5.0.md](MIGRATION-5.0.md).
+
+### Changed
+
+- Document logic moves to Nitro HybridObjects (`PdfLibrary` / `PdfDocument`). The Fabric view only renders.
+- Android PDF operations run on an in-process PDFium. iOS uses Swift PDFKit.
+- Page indexes on the Nitro handle are 0-based. `renderPageDirect` and `searchTextDirect` still accept 1-based pages and convert them. Pass a file path; `pdfId` strings are rejected.
+
+### Removed
+
+- Old Architecture (Paper) view managers and bridge modules. There is no Paper fallback.
+- Windows (`windows/`, `RCTPdf`).
+- `pdfId` string API and `registerPathForSearch`.
+- Native modules `PDFJSIManager`, `EnhancedPdfJSIBridge`, `PDFExporter`, `PDFTextModule`, `FileManager`, and `FileDownloader`.
+- `createSearchablePDF`. `recognizeText(index, fast)` returns the recognized string.
+
+### Added
+
+- Required peer `react-native-nitro-modules`.
+- iOS document picker compiled into the Nitro module.
+
 ## [4.5.0] - 2026-09-05
 
 ### OCR (text extraction + on-device recognition)
