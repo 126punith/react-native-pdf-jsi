@@ -153,10 +153,11 @@ public final class HybridPdfDocument: HybridPdfDocumentSpec {
         let from = Int(min(startPage, endPage))
         let to = Int(max(startPage, endPage))
         return document.findString(term, withOptions: .caseInsensitive).compactMap { selection in
-          guard let page = selection.pages.first, let pageIndex = document.index(for: page) else {
+          guard let page = selection.pages.first else {
             return nil
           }
-          if pageIndex < from || pageIndex > to {
+          let pageIndex = document.index(for: page)
+          if pageIndex == NSNotFound || pageIndex < from || pageIndex > to {
             return nil
           }
           let bounds = selection.bounds(for: page)
