@@ -1,6 +1,28 @@
 # react-native-pdf-jsi
 
-PDF viewer for React Native. Version 5 requires the New Architecture.
+## Breaking change in 5.0.0
+
+**5.0.0 is not a drop-in upgrade.** Install it only if the app already uses the React Native New Architecture and you need the Nitro JSI document API (`getPdfLibrary().open(path)`).
+
+Production apps on 4.x stay on the published line:
+
+```sh
+npm install react-native-pdf-jsi@4.5.0
+```
+
+`npm install react-native-pdf-jsi` with no version follows the npm `latest` tag. If that tag is 5.0.0, the next native build fails for the old architecture, Windows, `pdfId` strings, and the native modules removed below.
+
+### What 5.0 removes
+
+- Old Architecture (Paper). There is no fallback.
+- Windows.
+- `pdfId` string APIs. Open a document with `getPdfLibrary().open(path)` instead.
+- Native modules: `PDFJSIManager`, `PDFExporter`, `PDFTextModule`, `FileManager`, `FileDownloader`.
+- `createSearchablePDF` and `registerPathForSearch`.
+
+5.0 requires `react-native-nitro-modules`. Details are in [MIGRATION-5.0.md](MIGRATION-5.0.md).
+
+PDF viewer for React Native. Version 5 is the Nitro JSI path on the New Architecture.
 
 - **Nitro** owns document logic: open, page geometry, render, search, text, OCR, merge, split, compress, and the on-disk cache.
 - **Fabric** owns the view (`RNPDFPdfView`) and nothing else.
@@ -8,12 +30,12 @@ PDF viewer for React Native. Version 5 requires the New Architecture.
 - **Android** is a C++ Nitro hybrid on PDFium.
 - Windows is not supported.
 
-See [MIGRATION-5.0.md](MIGRATION-5.0.md) if you are upgrading from 4.x.
+## Install 5.0 (New Architecture and Nitro JSI only)
 
-## Install
+Install this version only when you need that JSI logic. Everyone else keeps `react-native-pdf-jsi@4.5.0`.
 
 ```sh
-npm install react-native-pdf-jsi react-native-nitro-modules react-native-blob-util
+npm install react-native-pdf-jsi@5.0.0 react-native-nitro-modules react-native-blob-util
 cd ios && pod install
 ```
 
