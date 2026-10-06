@@ -15,12 +15,14 @@ Pod::Spec.new do |s|
   s.requires_arc   = true
   s.frameworks     = 'PDFKit', 'Vision'
   s.platforms      = { ios: '13.0', tvos: '13.0' }
+  s.module_name    = 'NitroPdfJsi'
   s.source_files   = 'ios/**/*.{h,m,mm,swift}'
   s.dependency 'React-jsi'
   s.dependency 'React-callinvoker'
   s.pod_target_xcconfig = {
     'HEADER_SEARCH_PATHS' => '"$(PODS_TARGET_SRCROOT)/ios/RNPDFPdf" "$(PODS_TARGET_SRCROOT)/nitrogen/generated/shared/c++"',
-    'SWIFT_OBJC_INTEROP_MODE' => 'objcxx'
+    'SWIFT_OBJC_INTEROP_MODE' => 'objcxx',
+    'PRODUCT_MODULE_NAME' => 'NitroPdfJsi'
   }
   install_modules_dependencies(s)
   load File.join(__dir__, 'nitrogen/generated/ios/NitroPdfJsi+autolinking.rb')
