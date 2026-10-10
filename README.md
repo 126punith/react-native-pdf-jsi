@@ -1,5 +1,7 @@
 # react-native-pdf-jsi
 
+[![npm downloads](https://img.shields.io/npm/dt/react-native-pdf-jsi)](https://www.npmjs.com/package/react-native-pdf-jsi)
+
 ## Breaking change in 5.0.0
 
 **5.0.0 is not a drop-in upgrade.** Install it only if the app already uses the React Native New Architecture and you need the Nitro JSI document API (`getPdfLibrary().open(path)`).
@@ -90,3 +92,28 @@ Page indexes on the Nitro handle are **0-based**. The older JS helpers `renderPa
 ## Downloads
 
 Saving into the public Downloads folder is done in JavaScript with `react-native-blob-util` (`FileManager.downloadToPublicFolder`). There is no native file-picker module.
+
+## Commercial Nitro Edition & Support
+
+react-native-pdf-jsi has crossed 223K downloads. Thank you to everyone who has used the library and supported its development.
+
+I've recently worked on a complete migration to Nitro Modules and am exploring a paid offering for developers and teams interested in this implementation.
+
+### What's included?
+
+- Access to the Nitro-based implementation under a commercial license, where applicable.
+- Assistance with setup and integration.
+- Help troubleshooting native Android and iOS build issues.
+- Direct support from the maintainer.
+
+### Interested in the Nitro Edition?
+
+The Nitro Edition and dedicated support will be available as a paid offering. Pricing and licensing details can be discussed based on your requirements.
+
+Contact: [punithm865@gmail.com](mailto:punithm865@gmail.com)
+
+### Want to support the ongoing development of the open-source version?
+
+[Become a GitHub Sponsor](https://github.com/sponsors/126punith)
+
+Your support helps me maintain the library and continue building for the React Native community.
