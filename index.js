@@ -26,7 +26,7 @@ let PdfViewCommands = null;
 import ReactNativeBlobUtil from 'react-native-blob-util'
 import {ViewPropTypes} from 'deprecated-react-native-prop-types';
 const SHA1 = require('crypto-js/sha1');
-import PDFJSI, { checkJSIAvailability, searchTextDirect } from './src/PDFJSI';
+import PDFJSI, { checkJSIAvailability, searchTextDirect, invalidatePdf } from './src/PDFJSI';
 
 export default class Pdf extends Component {
 
@@ -130,7 +130,8 @@ export default class Pdf extends Component {
         // This ensures path is available when onLoadComplete fires, even before state updates
         this.downloadedFilePath = '';
 
-        this.lastRNBFTask = null;
+        this._downloadTask = null;
+        this._loadGen = 0;
         this.pdfJSI = PDFJSI;
         this.initializeJSI();
 
@@ -156,15 +157,8 @@ export default class Pdf extends Component {
         const curSource = Image.resolveAssetSource(prevProps.source);
 
         if ((nextSource.uri !== curSource.uri)) {
-            // if has download task, then cancel it.
-            if (this.lastRNBFTask && this.lastRNBFTask.cancel) {
-                this.lastRNBFTask.cancel(err => {
-                    this._loadFromSource(this.props.source);
-                });
-                this.lastRNBFTask = null;
-            } else {
-                this._loadFromSource(this.props.source);
-            }
+            this._cancelDownload();
+            this._loadFromSource(this.props.source);
         }
 
         // #13: Same URI but `page` prop changed — force native navigation (lists / controlled page)
@@ -194,21 +188,37 @@ export default class Pdf extends Component {
 
     componentWillUnmount() {
         this._mounted = false;
-        if (this.lastRNBFTask) {
-            // this.lastRNBFTask.cancel(err => {
-            // });
-            this.lastRNBFTask = null;
-        }
-
+        this._loadGen += 1;
+        this._cancelDownload();
     }
 
-    _publishPdfPath = async (sourcePath, extraState = {}) => {
+    _isCurrentLoad = (gen) => this._mounted && gen === this._loadGen;
+
+    _cancelDownload = () => {
+        const task = this._downloadTask;
+        if (!task) {
+            return;
+        }
+        this._downloadTask = null;
+        task.onProgress = null;
+        try {
+            task.cancel();
+        } catch (error) {
+            // already finished or cancelled
+        }
+    };
+
+    _publishPdfPath = async (sourcePath, extraState, gen) => {
+        if (!this._isCurrentLoad(gen)) {
+            return;
+        }
         const filename = sourcePath.split('/').pop();
         const documentDir = ReactNativeBlobUtil.fs.dirs.DocumentDir;
         const stablePath = documentDir + '/' + filename;
         let path = sourcePath;
         try {
             if (sourcePath !== stablePath) {
+                invalidatePdf(stablePath);
                 const dirExists = await ReactNativeBlobUtil.fs.exists(documentDir);
                 if (!dirExists) {
                     await ReactNativeBlobUtil.fs.mkdir(documentDir);
@@ -224,15 +234,17 @@ export default class Pdf extends Component {
             console.warn('Failed to copy PDF into app files, using source path:', error);
             path = sourcePath;
         }
-        this.downloadedFilePath = path;
-        if (this._mounted) {
-            this.setState({path, isDownloaded: true, ...extraState});
+        if (!this._isCurrentLoad(gen)) {
+            return;
         }
+        this.downloadedFilePath = path;
+        this.setState({path, isDownloaded: true, ...extraState});
     };
 
     _loadFromSource = (newSource) => {
 
         const source = Image.resolveAssetSource(newSource) || {};
+        const gen = ++this._loadGen;
 
         let uri = source.uri || '';
         // first set to initial state
@@ -247,23 +259,29 @@ export default class Pdf extends Component {
             ReactNativeBlobUtil.fs
                 .stat(cacheFile)
                 .then(stats => {
+                    if (!this._isCurrentLoad(gen)) {
+                        return;
+                    }
                     if (!Boolean(source.expiration) || (source.expiration * 1000 + stats.lastModified) > (new Date().getTime())) {
-                        this._publishPdfPath(cacheFile);
+                        this._publishPdfPath(cacheFile, {}, gen);
                     } else {
                         // cache expirated then reload it
-                        this._prepareFile(source);
+                        this._prepareFile(source, gen);
                     }
                 })
                 .catch(() => {
-                    this._prepareFile(source);
+                    this._prepareFile(source, gen);
                 })
 
         } else {
-            this._prepareFile(source);
+            this._prepareFile(source, gen);
         }
     };
 
-    _prepareFile = async (source) => {
+    _prepareFile = async (source, gen) => {
+        if (!this._isCurrentLoad(gen)) {
+            return;
+        }
 
         try {
             if (source.uri) {
@@ -276,57 +294,52 @@ export default class Pdf extends Component {
                 const filename = source.cacheFileName || SHA1(uri) + '.pdf';
                 const cacheFile = ReactNativeBlobUtil.fs.dirs.CacheDir + '/' + filename;
 
-                // delete old cache file
-                this._unlinkFile(cacheFile);
-
                 if (isNetwork) {
-                    this._downloadFile(source, cacheFile);
-                } else if (isAsset) {
-                    ReactNativeBlobUtil.fs
-                        .cp(uri, cacheFile)
-                        .then(() => {
-                            this._publishPdfPath(cacheFile, {progress: 1});
-                        })
-                        .catch(async (error) => {
-                            this._unlinkFile(cacheFile);
-                            this._onError(error);
-                        })
-                } else if (isBase64) {
-                    let data = uri.replace(/data:application\/pdf;base64,/i, '');
-                    ReactNativeBlobUtil.fs
-                        .writeFile(cacheFile, data, 'base64')
-                        .then(() => {
-                            this._publishPdfPath(cacheFile, {progress: 1});
-                        })
-                        .catch(async (error) => {
-                            this._unlinkFile(cacheFile);
-                            this._onError(error)
-                        });
+                    await this._downloadFile(source, cacheFile, gen);
+                } else if (isAsset || isBase64) {
+                    // delete old cache file
+                    invalidatePdf(cacheFile);
+                    await this._unlinkFile(cacheFile);
+                    try {
+                        if (isAsset) {
+                            await ReactNativeBlobUtil.fs.cp(uri, cacheFile);
+                        } else {
+                            const data = uri.replace(/data:application\/pdf;base64,/i, '');
+                            await ReactNativeBlobUtil.fs.writeFile(cacheFile, data, 'base64');
+                        }
+                    } catch (error) {
+                        this._unlinkFile(cacheFile);
+                        throw error;
+                    }
+                    await this._publishPdfPath(cacheFile, {progress: 1}, gen);
                 } else {
                     // Local file path
                     const localPath = decodeURIComponent(uri.replace(/file:\/\//i, ''));
-                    this._publishPdfPath(localPath);
+                    await this._publishPdfPath(localPath, {}, gen);
                 }
             } else {
-                this._onError(new Error('no pdf source!'));
+                this._onError(new Error('no pdf source!'), gen);
             }
         } catch (e) {
-            this._onError(e)
+            this._onError(e, gen);
         }
-
-
     };
 
-    _downloadFile = async (source, cacheFile) => {
-
-        if (this.lastRNBFTask) {
-            this.lastRNBFTask.cancel(err => {
-            });
-            this.lastRNBFTask = null;
+    _onDownloadProgress = (gen, received, total) => {
+        if (!this._isCurrentLoad(gen)) {
+            return;
         }
+        const progress = total > 0 ? received / total : 0;
+        this.props.onLoadProgress && this.props.onLoadProgress(progress);
+        this.setState({progress});
+    };
+
+    _downloadFile = async (source, cacheFile, gen) => {
+
+        this._cancelDownload();
 
         const tempCacheFile = cacheFile + '.tmp';
-        this._unlinkFile(tempCacheFile);
+        await this._unlinkFile(tempCacheFile);
 
         // Ensure cache directory exists before downloading
         const cacheDir = ReactNativeBlobUtil.fs.dirs.CacheDir;
@@ -338,6 +351,10 @@ export default class Pdf extends Component {
         } catch (error) {
             console.warn('Failed to ensure cache directory exists:', error);
             // Continue anyway - ReactNativeBlobUtil might handle it
+        }
+
+        if (!this._isCurrentLoad(gen)) {
+            return;
         }
 
         // Build config object - conditionally include trusty based on URL protocol and trustAllCerts
@@ -353,67 +370,62 @@ export default class Pdf extends Component {
         }
         // For HTTP or when trustAllCerts is false, omit trusty option entirely
 
-        this.lastRNBFTask = ReactNativeBlobUtil.config(config)
-            .fetch(
-                source.method ? source.method : 'GET',
-                source.uri,
-                source.headers ? source.headers : {},
-                source.body ? source.body : ""
-            )
-            // listen to download progress event
-            .progress((received, total) => {
-                this.props.onLoadProgress && this.props.onLoadProgress(received / total);
-                if (this._mounted) {
-                    this.setState({progress: received / total});
-                }
-            })
-            .catch(async (error) => {
-                this._onError(error);
-            });
+        // Keep the raw task: only it carries cancel(). react-native-blob-util never removes
+        // its progress listener, so onProgress is cleared in finally to drop the reference to this.
+        const task = ReactNativeBlobUtil.config(config).fetch(
+            source.method ? source.method : 'GET',
+            source.uri,
+            source.headers ? source.headers : {},
+            source.body ? source.body : ""
+        );
+        this._downloadTask = task;
+        task.progress((received, total) => this._onDownloadProgress(gen, received, total));
 
-        this.lastRNBFTask
-            .then(async (res) => {
-
-                this.lastRNBFTask = null;
-
-                if (res && res.respInfo && res.respInfo.headers && !res.respInfo.headers["Content-Encoding"] && !res.respInfo.headers["Transfer-Encoding"] && res.respInfo.headers["Content-Length"]) {
-                    const expectedContentLength = res.respInfo.headers["Content-Length"];
-                    let actualContentLength;
-
-                    try {
-                        const fileStats = await ReactNativeBlobUtil.fs.stat(res.path());
-
-                        if (!fileStats || !fileStats.size) {
-                            throw new Error("FileNotFound:" + source.uri);
-                        }
-
-                        actualContentLength = fileStats.size;
-                    } catch (error) {
-                        throw new Error("DownloadFailed:" + source.uri);
-                    }
-
-                    if (expectedContentLength != actualContentLength) {
-                        throw new Error("DownloadFailed:" + source.uri);
-                    }
-                }
-
-                this._unlinkFile(cacheFile);
-                ReactNativeBlobUtil.fs
-                    .cp(tempCacheFile, cacheFile)
-                    .then(() => {
-                        this._publishPdfPath(cacheFile, {progress: 1});
-                        this._unlinkFile(tempCacheFile);
-                    })
-                    .catch(async (error) => {
-                        throw error;
-                    });
-            })
-            .catch(async (error) => {
+        try {
+            const res = await task;
+            if (!this._isCurrentLoad(gen)) {
                 this._unlinkFile(tempCacheFile);
-                this._unlinkFile(cacheFile);
-                this._onError(error);
-            });
+                return;
+            }
 
+            if (res && res.respInfo && res.respInfo.headers && !res.respInfo.headers["Content-Encoding"] && !res.respInfo.headers["Transfer-Encoding"] && res.respInfo.headers["Content-Length"]) {
+                const expectedContentLength = res.respInfo.headers["Content-Length"];
+                let actualContentLength;
+
+                try {
+                    const fileStats = await ReactNativeBlobUtil.fs.stat(res.path());
+
+                    if (!fileStats || !fileStats.size) {
+                        throw new Error("FileNotFound:" + source.uri);
+                    }
+
+                    actualContentLength = fileStats.size;
+                } catch (error) {
+                    throw new Error("DownloadFailed:" + source.uri);
+                }
+
+                if (expectedContentLength != actualContentLength) {
+                    throw new Error("DownloadFailed:" + source.uri);
+                }
+            }
+
+            invalidatePdf(cacheFile);
+            await this._unlinkFile(cacheFile);
+            await ReactNativeBlobUtil.fs.cp(tempCacheFile, cacheFile);
+            this._unlinkFile(tempCacheFile);
+            await this._publishPdfPath(cacheFile, {progress: 1}, gen);
+        } catch (error) {
+            this._unlinkFile(tempCacheFile);
+            if (this._isCurrentLoad(gen)) {
+                this._unlinkFile(cacheFile);
+                this._onError(error, gen);
+            }
+        } finally {
+            task.onProgress = null;
+            if (this._downloadTask === task) {
+                this._downloadTask = null;
+            }
+        }
     };
 
     _unlinkFile = async (file) => {
@@ -475,7 +487,6 @@ export default class Pdf extends Component {
         }
 
         try {
-            await this.pdfJSI.openPdf(this.state.path);
             const result = await this.pdfJSI.renderPageDirect(
                 this.state.path,
                 pageNumber,
@@ -496,8 +507,8 @@ export default class Pdf extends Component {
         }
 
         try {
-            await this.pdfJSI.openPdf(this.state.path);
-            return this.pdfJSI.getPageMetrics(this.state.path, pageNumber);
+            const path = this.state.path;
+            return await this.pdfJSI.withPdfDocument(path, () => this.pdfJSI.getPageMetrics(path, pageNumber));
         } catch (error) {
             console.error('JSI getPageMetrics failed:', error);
             return null;
@@ -511,7 +522,6 @@ export default class Pdf extends Component {
         }
 
         try {
-            await this.pdfJSI.openPdf(this.state.path);
             const success = await this.pdfJSI.preloadPagesDirect(this.state.path, startPage, endPage);
             console.log(`🚀 JSI: Preloaded pages ${startPage}-${endPage}: ${success}`);
             return success;
@@ -528,8 +538,8 @@ export default class Pdf extends Component {
         }
 
         try {
-            await this.pdfJSI.openPdf(this.state.path);
-            return this.pdfJSI.getPerformanceMetrics(this.state.path);
+            const path = this.state.path;
+            return await this.pdfJSI.withPdfDocument(path, () => this.pdfJSI.getPerformanceMetrics(path));
         } catch (error) {
             console.error('JSI getPerformanceMetrics failed:', error);
             return null;
@@ -647,10 +657,11 @@ export default class Pdf extends Component {
 
     };
 
-    _onError = (error) => {
-
+    _onError = (error, gen) => {
+        if (!this._mounted || (gen !== undefined && gen !== this._loadGen)) {
+            return;
+        }
         this.props.onError && this.props.onError(error);
-
     };
 
     render() {
@@ -744,6 +755,17 @@ export {
 // Programmatic search and JSI API (fix #24)
 // ========================================
 export { searchTextDirect, PDFJSI };
+export {
+    openPdf,
+    closePdf,
+    acquirePdf,
+    releasePdf,
+    withPdfDocument,
+    trimPdfCache,
+    closeAllPdfs,
+    getPdfRegistryStats,
+} from './src/PDFJSI';
+export { invalidatePdf };
 
 // ========================================
 // TIER 3: Pre-built UI Components

@@ -56,6 +56,11 @@ export default class DoubleTapView extends Component {
 
     }
 
+    componentWillUnmount() {
+        clearTimeout(this.timer);
+        this.timer = null;
+    }
+
 
     distance = (x0, y0, x1, y1) => {
         return Math.sqrt(Math.pow((x1 - x0), 2) + Math.pow((y1 - y0), 2)).toFixed(1);
@@ -90,6 +95,7 @@ export default class DoubleTapView extends Component {
 
                 // if not in radius, it's a move
                 if (this.distance(prevTouchX, prevTouchY, gestureState.x0, gestureState.y0) < radius) {
+                    clearTimeout(this.timer);
                     this.timer = null;
                     this.props.onSingleTap(x, y);
                 }

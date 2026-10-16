@@ -37,6 +37,9 @@ public:
     std::shared_ptr<Promise<bool>> deletePage(double pageNumber) override;
     void close() override;
 
+    /** Approximates PDFium's footprint by file size so Hermes sees the native cost of an open document. */
+    size_t getExternalMemorySize() noexcept override;
+
 private:
     struct Metrics {
         std::atomic<int> quality{2};
@@ -49,6 +52,7 @@ private:
 
     std::shared_ptr<OpenPdf> document_;
     std::shared_ptr<Metrics> metrics_ = std::make_shared<Metrics>();
+    std::atomic<size_t> externalMemorySize_{0};
 };
 
 } // namespace margelo::nitro::pdfjsi

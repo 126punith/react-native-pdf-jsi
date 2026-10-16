@@ -12,16 +12,26 @@ public final class HybridPdfDocument: HybridPdfDocumentSpec {
   private var renderCount = 0
   private var lastRenderMs: Double = 0
   private var totalRenderMs: Double = 0
+  private var fileSize = 0
 
   public func openFile(_ rawPath: String) throws {
     let path = HybridPdfPaths.normalize(rawPath)
     guard let pdf = PDFDocument(url: URL(fileURLWithPath: path)) else {
       throw RuntimeError.error(withMessage: "Failed to open PDF: \(path)")
     }
+    let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?.intValue ?? 0
     lock.lock()
     document = pdf
     filePath = path
+    fileSize = size
     lock.unlock()
+  }
+
+  /// Approximates PDFKit's footprint by file size so Hermes sees the native cost of an open document.
+  public var memorySize: Int {
+    lock.lock()
+    defer { lock.unlock() }
+    return document == nil ? 0 : fileSize
   }
 
   private func withDocument<T>(_ body: (PDFDocument) throws -> T) throws -> T {
@@ -183,7 +193,9 @@ public final class HybridPdfDocument: HybridPdfDocumentSpec {
         let indices = HybridPdfPaths.intArray(pageIndicesJson)
         var object: [String: String] = [:]
         for index in indices {
-          object[String(index)] = document.page(at: index)?.string ?? ""
+          autoreleasepool {
+            object[String(index)] = document.page(at: index)?.string ?? ""
+          }
         }
         let data = try JSONSerialization.data(withJSONObject: object)
         return String(data: data, encoding: .utf8) ?? "{}"
@@ -196,7 +208,9 @@ public final class HybridPdfDocument: HybridPdfDocumentSpec {
       try self.withDocument { document in
         var object: [String: String] = [:]
         for index in 0..<document.pageCount {
-          object[String(index)] = document.page(at: index)?.string ?? ""
+          autoreleasepool {
+            object[String(index)] = document.page(at: index)?.string ?? ""
+          }
         }
         let data = try JSONSerialization.data(withJSONObject: object)
         return String(data: data, encoding: .utf8) ?? "{}"
@@ -244,21 +258,24 @@ public final class HybridPdfDocument: HybridPdfDocumentSpec {
     let safeScale = scale > 0 ? scale : 1
     return Promise.parallel {
       let path = self.filePath
-      let images: [UIImage] = try self.withDocument { document in
-        (0..<document.pageCount).compactMap { index in
-          guard let page = document.page(at: index) else { return nil }
-          let bounds = page.bounds(for: .mediaBox)
-          return page.thumbnail(of: CGSize(width: bounds.width * safeScale, height: bounds.height * safeScale), for: .mediaBox)
-        }
-      }
+      let pageCount = try self.withDocument { $0.pageCount }
       var paths: [String] = []
-      for (index, image) in images.enumerated() {
-        let output = HybridPdfPaths.sibling(path, suffix: "-page-\(index).jpg")
-        guard let data = image.jpegData(compressionQuality: 0.9) else {
-          throw RuntimeError.error(withMessage: "JPEG encode failed")
+      for index in 0..<pageCount {
+        // One page bitmap alive at a time; the pool drains it before the next page renders.
+        try autoreleasepool {
+          let rendered: UIImage? = try self.withDocument { document in
+            guard let page = document.page(at: index) else { return nil }
+            let bounds = page.bounds(for: .mediaBox)
+            return page.thumbnail(of: CGSize(width: bounds.width * safeScale, height: bounds.height * safeScale), for: .mediaBox)
+          }
+          guard let image = rendered else { return }
+          let output = HybridPdfPaths.sibling(path, suffix: "-page-\(paths.count).jpg")
+          guard let data = image.jpegData(compressionQuality: 0.9) else {
+            throw RuntimeError.error(withMessage: "JPEG encode failed")
+          }
+          try data.write(to: URL(fileURLWithPath: output))
+          paths.append(output)
         }
-        try data.write(to: URL(fileURLWithPath: output))
-        paths.append(output)
       }
       let data = try JSONSerialization.data(withJSONObject: paths)
       return String(data: data, encoding: .utf8) ?? "[]"

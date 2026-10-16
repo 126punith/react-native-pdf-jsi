@@ -908,7 +908,12 @@ std::string pdfiumSplit(const std::string& filePath, const std::string& pageRang
                     FPDF_CloseDocument(piece);
                     throw std::runtime_error("Failed to split pages " + pageRange);
                 }
-                pieces.emplace_back(output, saveToMemory(piece));
+                try {
+                    pieces.emplace_back(output, saveToMemory(piece));
+                } catch (...) {
+                    FPDF_CloseDocument(piece);
+                    throw;
+                }
                 FPDF_CloseDocument(piece);
             }
             FPDF_CloseDocument(source);

@@ -201,7 +201,7 @@ const float MIN_SCALE = 1.0f;
     NSMutableDictionary *_pageCache;
     NSMutableSet *_preloadedPages;
     NSMutableDictionary *_performanceMetrics;
-    NSMutableDictionary *_searchCache;
+    NSCache *_searchCache;
     NSString *_currentPdfId;
     NSOperationQueue *_preloadQueue;
     
@@ -392,15 +392,7 @@ using namespace facebook::react;
 - (void)prepareForRecycle
 {
     [super prepareForRecycle];
-    if (_pdfId.length) [SearchRegistry unregisterPath:_pdfId];
-    [_pdfView removeFromSuperview];
-    _pdfDocument = Nil;
-    _pdfView = Nil;
-    _highlightOverlay = Nil;
-    //Remove notifications
-    [[NSNotificationCenter defaultCenter] removeObserver:self name:@"PDFViewDocumentChangedNotification" object:nil];
-    [[NSNotificationCenter defaultCenter] removeObserver:self name:@"PDFViewPageChangedNotification" object:nil];
-    [[NSNotificationCenter defaultCenter] removeObserver:self name:@"PDFViewScaleChangedNotification" object:nil];
+    [self teardown];
 
     // remove old recognizers before adding new ones
     [self removeGestureRecognizer:_doubleTapRecognizer];
@@ -501,7 +493,8 @@ using namespace facebook::react;
     _pageCache = [NSMutableDictionary dictionary];
     _preloadedPages = [NSMutableSet set];
     _performanceMetrics = [NSMutableDictionary dictionary];
-    _searchCache = [NSMutableDictionary dictionary];
+    _searchCache = [[NSCache alloc] init];
+    _searchCache.countLimit = 50;
     
     // Create preload queue
     _preloadQueue = [[NSOperationQueue alloc] init];
@@ -625,6 +618,10 @@ using namespace facebook::react;
                 _previousPage = -1;
                 _isNavigating = NO;
 
+                [_pageCache removeAllObjects];
+                [_preloadedPages removeAllObjects];
+                [_searchCache removeAllObjects];
+
                 // Release old doc if it exists
             if (_pdfDocument != Nil) {
                 _pdfDocument = Nil;
@@ -664,6 +661,7 @@ using namespace facebook::react;
                     [self notifyOnChangeWithMessage:@"error|Password required or incorrect password."];
 
                     _pdfDocument = Nil;
+                    _pdfView.document = nil;
                     return;
                 }
 
@@ -687,6 +685,7 @@ using namespace facebook::react;
                 [self notifyOnChangeWithMessage:[[NSString alloc] initWithString:[NSString stringWithFormat:@"error|Load pdf failed. path=%s",_path.UTF8String]]];
 
                 _pdfDocument = Nil;
+                _pdfView.document = nil;
                 return;
                 }
             }
@@ -1018,23 +1017,42 @@ using namespace facebook::react;
 #endif
 }
 
-- (void)dealloc{
+/// Releases the document, caches, observers and registry entry. Safe to call more than once;
+/// prepareForRecycle re-creates state with initCommonProps afterwards.
+- (void)teardown
+{
     [_preloadQueue cancelAllOperations];
-    _preloadQueue = nil;
-    
-    // Clear caches
+
+    if (_pdfId.length) {
+        [SearchRegistry unregisterPath:_pdfId];
+    }
+
+    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+    [center removeObserver:self name:PDFViewDocumentChangedNotification object:nil];
+    [center removeObserver:self name:PDFViewPageChangedNotification object:nil];
+    [center removeObserver:self name:PDFViewScaleChangedNotification object:nil];
+
     [_pageCache removeAllObjects];
     [_preloadedPages removeAllObjects];
     [_performanceMetrics removeAllObjects];
     [_searchCache removeAllObjects];
 
-    _pdfDocument = Nil;
-    _pdfView = Nil;
+    [_highlightOverlay removeFromSuperview];
+    _highlightOverlay = nil;
 
-    //Remove notifications
-    [[NSNotificationCenter defaultCenter] removeObserver:self name:@"PDFViewDocumentChangedNotification" object:nil];
-    [[NSNotificationCenter defaultCenter] removeObserver:self name:@"PDFViewPageChangedNotification" object:nil];
-    [[NSNotificationCenter defaultCenter] removeObserver:self name:@"PDFViewScaleChangedNotification" object:nil];
+    _pdfDocument = nil;
+    if (_pdfView) {
+        _pdfView.delegate = nil;
+        _pdfView.document = nil;
+        [_pdfView removeFromSuperview];
+        _pdfView = nil;
+    }
+    _lastLoadedPath = nil;
+}
+
+- (void)dealloc{
+    [self teardown];
+    _preloadQueue = nil;
 
     _doubleTapRecognizer = nil;
     _singleTapRecognizer = nil;
@@ -1757,9 +1775,10 @@ using namespace facebook::react;
     
     // Check cache first
     NSString *cacheKey = [NSString stringWithFormat:@"%@_%@", _currentPdfId, searchTerm];
-    if (_searchCache[cacheKey]) {
+    NSDictionary *cached = [_searchCache objectForKey:cacheKey];
+    if (cached) {
         RLog(@"Enhanced PDF: Search cache hit for '%@'", searchTerm);
-        return _searchCache[cacheKey];
+        return cached;
     }
     
     NSMutableArray *results = [NSMutableArray array];
@@ -1792,7 +1811,7 @@ using namespace facebook::react;
     };
     
     // Cache the results
-    _searchCache[cacheKey] = searchResults;
+    [_searchCache setObject:searchResults forKey:cacheKey];
     
     RLog(@"Enhanced PDF: Search completed for '%@', found %d matches", searchTerm, totalMatches);
     return searchResults;

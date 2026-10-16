@@ -29,7 +29,6 @@ import com.facebook.react.viewmanagers.RNPDFPdfViewManagerInterface;
 public class PdfManager extends SimpleViewManager<PdfView> implements RNPDFPdfViewManagerInterface<PdfView> {
     public static final String REACT_CLASS = "RNPDFPdfView";
     private Context context;
-    private PdfView pdfView;
     private final ViewManagerDelegate<PdfView> mDelegate;
 
     @Nullable
@@ -54,14 +53,13 @@ public class PdfManager extends SimpleViewManager<PdfView> implements RNPDFPdfVi
 
     @Override
     public PdfView createViewInstance(ThemedReactContext context) {
-        this.pdfView = new PdfView(context,null);
-        return pdfView;
+        return new PdfView(context, null);
     }
 
     @Override
-    public void onDropViewInstance(PdfView pdfView) {
-        pdfView.recycle();
-        this.pdfView = null;
+    public void onDropViewInstance(@NonNull PdfView pdfView) {
+        pdfView.dispose();
+        super.onDropViewInstance(pdfView);
     }
 
     @ReactProp(name = "path")
@@ -117,7 +115,7 @@ public class PdfManager extends SimpleViewManager<PdfView> implements RNPDFPdfVi
 
     @ReactProp(name = "scrollEnabled")
     public void setScrollEnabled(PdfView view, boolean scrollEnabled) {
-        pdfView.setScrollEnabled(scrollEnabled);
+        view.setScrollEnabled(scrollEnabled);
     }
 
     @ReactProp(name = "spacing")
@@ -173,7 +171,7 @@ public class PdfManager extends SimpleViewManager<PdfView> implements RNPDFPdfVi
     // use `receiveCommand` method and call this one there
     @Override
     public void setNativePage(PdfView view, int page) {
-        pdfView.setPage(page);
+        view.setPage(page);
     }
 
     @Override

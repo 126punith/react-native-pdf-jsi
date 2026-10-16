@@ -5,7 +5,7 @@ import UIKit
 
 public final class HybridPdfLibrary: HybridPdfLibrarySpec {
   public var jsiStats: JSIStats {
-    JSIStats(version: "5.0.0", performanceLevel: "high", directMemoryAccess: true, bridgeOptimized: true, initialized: true)
+    JSIStats(version: "5.1.0", performanceLevel: "high", directMemoryAccess: true, bridgeOptimized: true, initialized: true)
   }
 
   public var kb16Support: KB16Support {

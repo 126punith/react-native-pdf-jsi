@@ -82,7 +82,7 @@ export class AnalyticsManager {
                 cached: false,
                 computedAt: new Date().toISOString()
             };
-        }, 60000); // 1-minute TTL for analytics cache
+        }, 60000, pdfId); // 1-minute TTL for analytics cache
     }
     
     /**

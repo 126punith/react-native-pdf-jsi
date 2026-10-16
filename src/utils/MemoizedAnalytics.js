@@ -20,14 +20,18 @@ class MemoizedAnalytics {
      * @param {string} key - Cache key
      * @param {Function} fn - Function to execute (if cache miss)
      * @param {number} ttl - Time to live in milliseconds (default 60 seconds)
+     * @param {string} [pdfId] - PDF the entry belongs to, used by invalidate(pdfId)
      * @returns {*} Cached or computed value
      */
-    async memoize(key, fn, ttl = 60000) {
+    async memoize(key, fn, ttl = 60000, pdfId = null) {
         const cached = this.cache.get(key);
         const now = Date.now();
         
         // Check cache hit with TTL validation
         if (cached && (now - cached.timestamp) < ttl) {
+            // Re-insert so Map order tracks recency (least recently used first)
+            this.cache.delete(key);
+            this.cache.set(key, cached);
             console.log(`🎯 Analytics cache HIT for key: ${key}, age: ${now - cached.timestamp}ms`);
             return cached.value;
         }
@@ -42,10 +46,12 @@ class MemoizedAnalytics {
         console.log(`✅ Analytics computed in ${computeTime.toFixed(2)}ms for key: ${key}`);
         
         // Store in cache
+        this.cache.delete(key);
         this.cache.set(key, { 
             value, 
             timestamp: now,
-            computeTime 
+            computeTime,
+            pdfId
         });
         
         // LRU eviction if cache is full
@@ -64,8 +70,8 @@ class MemoizedAnalytics {
      */
     invalidate(pdfId) {
         let invalidated = 0;
-        for (const key of this.cache.keys()) {
-            if (key.startsWith(pdfId) || key.includes(pdfId)) {
+        for (const [key, entry] of this.cache.entries()) {
+            if (key === pdfId || entry.pdfId === pdfId) {
                 this.cache.delete(key);
                 invalidated++;
             }

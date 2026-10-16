@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Platform } from 'react-native';
-import PDFJSI, { openPdf } from '../PDFJSI';
+import PDFJSI, { withPdfDocument } from '../PDFJSI';
 
 /**
  * Hook for PDF JSI functionality
@@ -33,6 +33,15 @@ export const usePDFJSI = (options = {}) => {
     // Refs for tracking
     const pdfInstancesRef = useRef(new Map());
     const performanceHistoryRef = useRef([]);
+    const mountedRef = useRef(true);
+
+    const recordPerformance = useCallback((entry) => {
+        const history = performanceHistoryRef.current;
+        history.push(entry);
+        if (history.length > maxCacheSize) {
+            history.splice(0, history.length - maxCacheSize);
+        }
+    }, [maxCacheSize]);
     
     /**
      * Initialize JSI availability check
@@ -44,28 +53,27 @@ export const usePDFJSI = (options = {}) => {
             if (Platform.OS === 'android') {
                 // Android gets full JSI support
                 const isAvailable = await PDFJSI.checkJSIAvailability();
-                setIsJSIAvailable(isAvailable);
-                setIsInitialized(true);
+                if (mountedRef.current) {
+                    setIsJSIAvailable(isAvailable);
+                    setIsInitialized(true);
+                }
                 return isAvailable;
-            } else {
-                // iOS gets enhanced caching support (bridge mode with optimizations)
+            }
+            // iOS gets enhanced caching support (bridge mode with optimizations)
+            if (mountedRef.current) {
                 setIsJSIAvailable(true); // Enable enhanced features for iOS
                 setIsInitialized(true);
-                return true;
             }
-            
-            // Get JSI stats for performance tracking (Android only)
-            if (Platform.OS === 'android' && isJSIAvailable && enablePerformanceTracking) {
-                const stats = await PDFJSI.getJSIStats();
-                setJsiStats(stats);
-            }
+            return true;
         } catch (error) {
             console.error('📱 usePDFJSI: Error initializing JSI:', error);
-            setIsJSIAvailable(false);
-            setIsInitialized(true);
+            if (mountedRef.current) {
+                setIsJSIAvailable(false);
+                setIsInitialized(true);
+            }
             return false;
         }
-    }, [enablePerformanceTracking]);
+    }, []);
     
     /**
      * Render page with JSI or fallback
@@ -75,7 +83,6 @@ export const usePDFJSI = (options = {}) => {
         
         try {
             if (isJSIAvailable) {
-                await openPdf(path);
                 const result = await PDFJSI.renderPageDirect(path, pageNumber, scale);
                 
                 const endTime = performance.now();
@@ -83,7 +90,7 @@ export const usePDFJSI = (options = {}) => {
                 
                 // Track performance
                 if (enablePerformanceTracking) {
-                    performanceHistoryRef.current.push({
+                    recordPerformance({
                         operation: 'renderPage',
                         duration: renderTime,
                         timestamp: Date.now(),
@@ -104,7 +111,7 @@ export const usePDFJSI = (options = {}) => {
             const renderTime = endTime - startTime;
             
             if (enablePerformanceTracking) {
-                performanceHistoryRef.current.push({
+                recordPerformance({
                     operation: 'renderPage',
                     duration: renderTime,
                     timestamp: Date.now(),
@@ -118,7 +125,7 @@ export const usePDFJSI = (options = {}) => {
             
             throw error;
         }
-    }, [isJSIAvailable, enablePerformanceTracking]);
+    }, [isJSIAvailable, enablePerformanceTracking, recordPerformance]);
     
     /**
      * Get page metrics
@@ -126,8 +133,7 @@ export const usePDFJSI = (options = {}) => {
     const getPageMetrics = useCallback(async (path, pageNumber) => {
         try {
             if (isJSIAvailable) {
-                await openPdf(path);
-                return PDFJSI.getPageMetrics(path, pageNumber);
+                return await withPdfDocument(path, () => PDFJSI.getPageMetrics(path, pageNumber));
             } else {
                 throw new Error('JSI not available');
             }
@@ -143,7 +149,6 @@ export const usePDFJSI = (options = {}) => {
     const preloadPages = useCallback(async (pdfId, startPage, endPage) => {
         try {
             if (isJSIAvailable) {
-                await openPdf(pdfId);
                 return await PDFJSI.preloadPagesDirect(pdfId, startPage, endPage);
             } else {
                 throw new Error('JSI not available');
@@ -160,7 +165,6 @@ export const usePDFJSI = (options = {}) => {
     const searchText = useCallback(async (pdfId, searchTerm, startPage, endPage) => {
         try {
             if (isJSIAvailable) {
-                await openPdf(pdfId);
                 return await PDFJSI.searchTextDirect(pdfId, searchTerm, startPage, endPage);
             } else {
                 throw new Error('JSI not available');
@@ -177,8 +181,7 @@ export const usePDFJSI = (options = {}) => {
     const getCacheMetrics = useCallback(async (path) => {
         try {
             if (isJSIAvailable) {
-                await openPdf(path);
-                return PDFJSI.getCacheMetrics(path);
+                return await withPdfDocument(path, () => PDFJSI.getCacheMetrics(path));
             } else {
                 throw new Error('JSI not available');
             }
@@ -194,8 +197,7 @@ export const usePDFJSI = (options = {}) => {
     const clearCache = useCallback(async (path) => {
         try {
             if (isJSIAvailable) {
-                await openPdf(path);
-                return PDFJSI.clearCacheDirect(path);
+                return await withPdfDocument(path, () => PDFJSI.clearCacheDirect(path));
             } else {
                 throw new Error('JSI not available');
             }
@@ -211,8 +213,7 @@ export const usePDFJSI = (options = {}) => {
     const optimizeMemory = useCallback(async (path) => {
         try {
             if (isJSIAvailable) {
-                await openPdf(path);
-                return PDFJSI.optimizeMemory(path);
+                return await withPdfDocument(path, () => PDFJSI.optimizeMemory(path));
             } else {
                 throw new Error('JSI not available');
             }
@@ -228,8 +229,7 @@ export const usePDFJSI = (options = {}) => {
     const setRenderQuality = useCallback(async (path, quality) => {
         try {
             if (isJSIAvailable) {
-                await openPdf(path);
-                return PDFJSI.setRenderQuality(path, quality);
+                return await withPdfDocument(path, () => PDFJSI.setRenderQuality(path, quality));
             } else {
                 throw new Error('JSI not available');
             }
@@ -245,9 +245,10 @@ export const usePDFJSI = (options = {}) => {
     const updatePerformanceMetrics = useCallback(async (path) => {
         try {
             if (isJSIAvailable) {
-                await openPdf(path);
-                const metrics = PDFJSI.getPerformanceMetrics(path);
-                setPerformanceMetrics(metrics);
+                const metrics = await withPdfDocument(path, () => PDFJSI.getPerformanceMetrics(path));
+                if (mountedRef.current) {
+                    setPerformanceMetrics(metrics);
+                }
                 return metrics;
             }
         } catch (error) {
@@ -306,7 +307,6 @@ export const usePDFJSI = (options = {}) => {
     const lazyLoadPages = useCallback(async (pdfId, currentPage, preloadRadius = 3, totalPages = null) => {
         try {
             if (isJSIAvailable) {
-                await openPdf(pdfId);
                 return await PDFJSI.lazyLoadPages(pdfId, currentPage, preloadRadius, totalPages);
             } else {
                 throw new Error('JSI not available');
@@ -323,7 +323,6 @@ export const usePDFJSI = (options = {}) => {
     const progressiveLoadPages = useCallback(async (pdfId, startPage = 1, batchSize = 5, onProgress = null) => {
         try {
             if (isJSIAvailable) {
-                await openPdf(pdfId);
                 return await PDFJSI.progressiveLoadPages(pdfId, startPage, batchSize, onProgress);
             } else {
                 throw new Error('JSI not available');
@@ -340,7 +339,6 @@ export const usePDFJSI = (options = {}) => {
     const smartCacheFrequentPages = useCallback(async (pdfId, frequentPages = []) => {
         try {
             if (isJSIAvailable) {
-                await openPdf(pdfId);
                 return await PDFJSI.smartCacheFrequentPages(pdfId, frequentPages);
             } else {
                 throw new Error('JSI not available');
@@ -360,16 +358,13 @@ export const usePDFJSI = (options = {}) => {
     
     // Cleanup on unmount
     useEffect(() => {
+        mountedRef.current = true;
         return () => {
-            // Cleanup PDF instances
+            mountedRef.current = false;
             pdfInstancesRef.current.clear();
-            
-            // Clear performance history if needed
-            if (!enablePerformanceTracking) {
-                performanceHistoryRef.current = [];
-            }
+            performanceHistoryRef.current = [];
         };
-    }, [enablePerformanceTracking]);
+    }, []);
     
     return {
         // State

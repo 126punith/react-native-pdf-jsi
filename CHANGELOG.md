@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.0] - Unreleased
+
+Memory and resource leak fixes. Opening and closing the same PDF repeatedly no longer grows memory. No breaking API changes. Details: [MEMORY_LEAK_ANALYSIS.md](MEMORY_LEAK_ANALYSIS.md).
+
+### Added
+
+- Reference-counted document registry: `withPdfDocument`, `acquirePdf` / `releasePdf`, `invalidatePdf`, `trimPdfCache`, `closeAllPdfs`, `getPdfRegistryStats`. Released documents stay in a 2-document warm pool, which is emptied on memory warnings.
+- Native documents report their size to the JS garbage collector (`getExternalMemorySize` on Android, `memorySize` on iOS).
+
+### Changed
+
+- `openPdf(path)` now pins the document until `closePdf(path)`. Internal helpers (`renderPageDirect`, `searchTextDirect`, `PDFText`, `ExportManager`, `usePDFJSI`, `EnhancedPdfView`, the `Pdf` JSI methods) no longer pin, so documents they open are closed once released.
+- `Pdf` cancels an in-flight download on unmount and when `source` changes, and ignores results from superseded loads.
+
+### Fixed
+
+- Every opened native document stayed open for the life of the app.
+- Each network download kept the unmounted `Pdf` component and its parent screen alive through a `react-native-blob-util` progress listener that is never removed.
+- `Pdf` could throw `TypeError` when cancelling a previous download, and a stale download could overwrite a newer source.
+- Android: each view left a "PDF renderer" thread running after it was dropped; `content://` sources leaked a file descriptor; ML Kit recognizer was not closed on error; JNI local references piled up in OCR and disk-cache calls; `splitPDF` leaked a document if saving failed.
+- iOS: view teardown now always unregisters the search registry entry and releases the document; old documents are no longer kept after a failed or password-protected load; the search cache is bounded and cleared when the document changes; `exportToImages` encodes one page at a time.
+- `usePDFJSI` performance history is capped at `maxCacheSize`; `EnhancedPdfView` and `usePDFJSI` no longer set state after unmount; `DoubleTapView` clears its timer on unmount and no longer fires a single tap twice.
+- `mergePDFs` deletes the temp files it downloads for URL inputs. `BookmarkManager.getBookmarks` returns a copy. Analytics cache eviction is LRU and invalidation matches the exact PDF.
+
+### Removed
+
+- Unused `src/utils/PerformanceLogger.js`.
+
 ## [5.0.0] - 2026-10-06
 
 Breaking release. Not a drop-in upgrade from 4.x. Install 5.0.0 only if the app already uses the React Native New Architecture and needs the Nitro JSI document API. Production apps on 4.x stay on 4.5.0. Upgrade steps: [MIGRATION-5.0.md](MIGRATION-5.0.md).

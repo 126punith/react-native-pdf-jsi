@@ -19,7 +19,6 @@ const eventEmitter = null;
 
 class CacheManager {
     constructor() {
-        this.progressListeners = new Map();
     }
 
     /**

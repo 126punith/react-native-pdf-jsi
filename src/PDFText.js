@@ -10,7 +10,7 @@
  */
 
 import { Platform } from 'react-native';
-import { openPdf, getPdfLibrary } from './PDFJSI';
+import { withPdfDocument, getPdfLibrary } from './PDFJSI';
 
 let customOCREngine = null;
 
@@ -18,9 +18,8 @@ function nativeAvailable() {
     return true;
 }
 
-async function withDocument(filePath, fn) {
-    const document = await openPdf(filePath);
-    return fn(document);
+function withDocument(filePath, fn) {
+    return withPdfDocument(filePath, fn);
 }
 
 async function pageCountOf(filePath) {

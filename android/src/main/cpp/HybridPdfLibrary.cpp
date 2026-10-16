@@ -10,7 +10,7 @@
 namespace margelo::nitro::pdfjsi {
 
 JSIStats HybridPdfLibrary::getJsiStats() {
-    return JSIStats("5.0.0", "high", true, true, true);
+    return JSIStats("5.1.0", "high", true, true, true);
 }
 
 KB16Support HybridPdfLibrary::getKb16Support() {
@@ -36,9 +36,16 @@ bool HybridPdfLibrary::getOcrAvailable() {
     jmethodID method = env->GetStaticMethodID(clazz, "isAvailable", "()Z");
     if (method == nullptr) {
         env->ExceptionClear();
+        env->DeleteLocalRef(clazz);
         return false;
     }
-    return env->CallStaticBooleanMethod(clazz, method) == JNI_TRUE;
+    const bool available = env->CallStaticBooleanMethod(clazz, method) == JNI_TRUE;
+    env->DeleteLocalRef(clazz);
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return false;
+    }
+    return available;
 }
 
 std::shared_ptr<Promise<std::shared_ptr<HybridPdfDocumentSpec>>> HybridPdfLibrary::open(const std::string& path) {

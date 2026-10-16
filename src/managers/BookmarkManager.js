@@ -126,7 +126,7 @@ export class BookmarkManager {
         await this.initialize();
         
         const bookmarks = this.bookmarks.get(pdfId) || [];
-        return bookmarks.sort((a, b) => a.page - b.page);
+        return [...bookmarks].sort((a, b) => a.page - b.page);
     }
 
     /**
@@ -506,21 +506,39 @@ export class BookmarkManager {
     async getStorageSize() {
         await this.initialize();
 
-        const bookmarksStr = JSON.stringify(Object.fromEntries(this.bookmarks));
-        const progressStr = JSON.stringify(Object.fromEntries(this.progress));
+        const bookmarksBytes = utf8ByteLength(JSON.stringify(Object.fromEntries(this.bookmarks)));
+        const progressBytes = utf8ByteLength(JSON.stringify(Object.fromEntries(this.progress)));
 
         return {
             bookmarks: {
                 count: Array.from(this.bookmarks.values()).flat().length,
-                sizeKB: Math.round(new Blob([bookmarksStr]).size / 1024)
+                sizeKB: Math.round(bookmarksBytes / 1024)
             },
             progress: {
                 count: this.progress.size,
-                sizeKB: Math.round(new Blob([progressStr]).size / 1024)
+                sizeKB: Math.round(progressBytes / 1024)
             },
-            totalKB: Math.round((new Blob([bookmarksStr]).size + new Blob([progressStr]).size) / 1024)
+            totalKB: Math.round((bookmarksBytes + progressBytes) / 1024)
         };
     }
+}
+
+function utf8ByteLength(str) {
+    let bytes = 0;
+    for (let i = 0; i < str.length; i++) {
+        const code = str.charCodeAt(i);
+        if (code < 0x80) {
+            bytes += 1;
+        } else if (code < 0x800) {
+            bytes += 2;
+        } else if (code >= 0xd800 && code <= 0xdbff) {
+            bytes += 4;
+            i++;
+        } else {
+            bytes += 3;
+        }
+    }
+    return bytes;
 }
 
 // Create singleton instance

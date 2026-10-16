@@ -39,7 +39,16 @@ export {
     setRenderQuality,
     getJSIStats,
     getPerformanceHistory,
-    clearPerformanceHistory
+    clearPerformanceHistory,
+    openPdf,
+    closePdf,
+    acquirePdf,
+    releasePdf,
+    withPdfDocument,
+    invalidatePdf,
+    trimPdfCache,
+    closeAllPdfs,
+    getPdfRegistryStats
 } from './PDFJSI';
 
 // Re-export compression utilities

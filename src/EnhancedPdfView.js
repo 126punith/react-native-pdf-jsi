@@ -9,7 +9,7 @@
 import React, { Component } from 'react';
 import { Platform, Alert } from 'react-native';
 import Pdf from '../index';
-import PDFJSI, { openPdf } from './PDFJSI';
+import PDFJSI, { withPdfDocument } from './PDFJSI';
 
 export default class EnhancedPdfView extends Component {
     constructor(props) {
@@ -22,7 +22,21 @@ export default class EnhancedPdfView extends Component {
             renderMode: 'bridge' // 'bridge' or 'jsi'
         };
         
+    }
+
+    componentDidMount() {
+        this._mounted = true;
         this.initializeJSI();
+    }
+
+    componentWillUnmount() {
+        this._mounted = false;
+    }
+
+    safeSetState(state) {
+        if (this._mounted) {
+            this.setState(state);
+        }
     }
     
     /**
@@ -32,7 +46,7 @@ export default class EnhancedPdfView extends Component {
         try {
             if (Platform.OS === 'android') {
                 const isAvailable = await PDFJSI.checkJSIAvailability();
-                this.setState({ 
+                this.safeSetState({ 
                     isJSIAvailable: isAvailable,
                     jsiInitialized: true,
                     renderMode: isAvailable ? 'jsi' : 'bridge'
@@ -44,7 +58,7 @@ export default class EnhancedPdfView extends Component {
                     console.log('📱 EnhancedPdfView: Bridge mode - Standard performance mode');
                 }
             } else {
-                this.setState({ 
+                this.safeSetState({ 
                     isJSIAvailable: false,
                     jsiInitialized: true,
                     renderMode: 'bridge'
@@ -53,7 +67,7 @@ export default class EnhancedPdfView extends Component {
             }
         } catch (error) {
             console.error('📱 EnhancedPdfView: Error initializing JSI:', error);
-            this.setState({ 
+            this.safeSetState({ 
                 isJSIAvailable: false,
                 jsiInitialized: true,
                 renderMode: 'bridge'
@@ -72,10 +86,9 @@ export default class EnhancedPdfView extends Component {
         throw new Error('A file path is required. Open the PDF with openPdf(path) before reading it.');
     }
 
-    async ensureOpen() {
+    withDocument(fn) {
         const path = this.sourcePath();
-        await openPdf(path);
-        return path;
+        return withPdfDocument(path, () => fn(path));
     }
 
     /**
@@ -87,7 +100,7 @@ export default class EnhancedPdfView extends Component {
         }
         
         try {
-            const path = await this.ensureOpen();
+            const path = this.sourcePath();
             const result = await PDFJSI.renderPageDirect(path, pageNumber, scale);
             
             if (result.success) {
@@ -111,8 +124,7 @@ export default class EnhancedPdfView extends Component {
         }
         
         try {
-            const path = await this.ensureOpen();
-            return PDFJSI.getPageMetrics(path, pageNumber);
+            return await this.withDocument((path) => PDFJSI.getPageMetrics(path, pageNumber));
             
         } catch (error) {
             console.error('📱 EnhancedPdfView: JSI metrics error:', error);
@@ -129,7 +141,7 @@ export default class EnhancedPdfView extends Component {
         }
         
         try {
-            const path = await this.ensureOpen();
+            const path = this.sourcePath();
             const success = await PDFJSI.preloadPagesDirect(path, startPage, endPage);
             
             if (success) {
@@ -155,7 +167,7 @@ export default class EnhancedPdfView extends Component {
         }
         
         try {
-            const path = await this.ensureOpen();
+            const path = this.sourcePath();
             const results = await PDFJSI.searchTextDirect(path, searchTerm, startPage, endPage);
             
             console.log(`📱 EnhancedPdfView: Found ${results.length} matches for '${searchTerm}' via JSI`);
@@ -172,8 +184,7 @@ export default class EnhancedPdfView extends Component {
      */
     async getPerformanceMetrics() {
         try {
-            const path = await this.ensureOpen();
-            const metrics = PDFJSI.getPerformanceMetrics(path);
+            const metrics = await this.withDocument((path) => PDFJSI.getPerformanceMetrics(path));
             return metrics;
         } catch (error) {
             console.error('📱 EnhancedPdfView: Error getting performance metrics:', error);
@@ -199,8 +210,7 @@ export default class EnhancedPdfView extends Component {
      */
     async clearCache(cacheType = 'all') {
         try {
-            const path = await this.ensureOpen();
-            const success = PDFJSI.clearCacheDirect(path);
+            const success = await this.withDocument((path) => PDFJSI.clearCacheDirect(path));
             
             if (success) {
                 console.log(`📱 EnhancedPdfView: Cache cleared successfully (${cacheType})`);
@@ -218,8 +228,7 @@ export default class EnhancedPdfView extends Component {
      */
     async optimizeMemory() {
         try {
-            const path = await this.ensureOpen();
-            const success = PDFJSI.optimizeMemory(path);
+            const success = await this.withDocument((path) => PDFJSI.optimizeMemory(path));
             
             if (success) {
                 console.log('📱 EnhancedPdfView: Memory optimized successfully');
@@ -237,8 +246,7 @@ export default class EnhancedPdfView extends Component {
      */
     async setRenderQuality(quality) {
         try {
-            const path = await this.ensureOpen();
-            const success = PDFJSI.setRenderQuality(path, quality);
+            const success = await this.withDocument((path) => PDFJSI.setRenderQuality(path, quality));
             
             if (success) {
                 console.log(`📱 EnhancedPdfView: Render quality set to ${quality}`);
@@ -275,7 +283,7 @@ export default class EnhancedPdfView extends Component {
      */
     lazyLoadPages = async (currentPage, preloadRadius = 3, totalPages = null) => {
         try {
-            const path = await this.ensureOpen();
+            const path = this.sourcePath();
             const result = await PDFJSI.lazyLoadPages(path, currentPage, preloadRadius, totalPages);
             
             if (result.success) {
@@ -294,7 +302,7 @@ export default class EnhancedPdfView extends Component {
      */
     progressiveLoadPages = async (startPage = 1, batchSize = 5, onProgress = null) => {
         try {
-            const path = await this.ensureOpen();
+            const path = this.sourcePath();
             const result = await PDFJSI.progressiveLoadPages(path, startPage, batchSize, onProgress);
             
             console.log(`📱 EnhancedPdfView: Progressive loaded ${result.totalLoaded} pages via JSI`);
@@ -310,7 +318,7 @@ export default class EnhancedPdfView extends Component {
      */
     smartCacheFrequentPages = async (frequentPages = []) => {
         try {
-            const path = await this.ensureOpen();
+            const path = this.sourcePath();
             const result = await PDFJSI.smartCacheFrequentPages(path, frequentPages);
             
             console.log(`📱 EnhancedPdfView: Smart cached ${result.successfulCaches}/${result.totalPages} frequent pages via JSI`);
@@ -389,8 +397,7 @@ export const EnhancedPdfUtils = {
      */
     async clearAllCaches(path) {
         try {
-            await openPdf(path);
-            return PDFJSI.clearCacheDirect(path);
+            return await withPdfDocument(path, () => PDFJSI.clearCacheDirect(path));
         } catch (error) {
             return false;
         }
@@ -401,8 +408,7 @@ export const EnhancedPdfUtils = {
      */
     async optimizeAllMemory(path) {
         try {
-            await openPdf(path);
-            return PDFJSI.optimizeMemory(path);
+            return await withPdfDocument(path, () => PDFJSI.optimizeMemory(path));
         } catch (error) {
             return false;
         }

@@ -22,7 +22,10 @@ import android.view.MotionEvent;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.os.AsyncTask;
 import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.SystemClock;
 
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
@@ -59,8 +62,11 @@ import com.facebook.react.uimanager.events.RCTEventEmitter;
 
 import static java.lang.String.format;
 
-import java.io.FileNotFoundException;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -111,6 +117,7 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
     private float lastPageHeight = 0;
     private boolean loadCompleteDispatched = false;
     private int lastKnownPageCount = 0;
+    private boolean disposed = false;
 
     // used to store the parameters for `super.onSizeChanged`
     private int oldW = 0;
@@ -461,7 +468,130 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
         super.recycle();
     }
 
+    /**
+     * Final teardown, called once when React drops the view. Unlike recycle(), this also
+     * stops the "PDF renderer" HandlerThread that PDFView only quits in onDetachedFromWindow,
+     * which this class overrides to survive navigation.
+     */
+    public void dispose() {
+        if (disposed) {
+            return;
+        }
+        disposed = true;
+        mainHandler.removeCallbacksAndMessages(null);
+        highlightRects.clear();
+        AsyncTask<?, ?, ?> pendingDecode = pendingDecodingTask();
+        recycle();
+        quitRenderingThread();
+        if (pendingDecode != null) {
+            reapCancelledDecode(pendingDecode, SystemClock.uptimeMillis() + DECODE_REAP_TIMEOUT_MS);
+        }
+    }
+
+    private static final long DECODE_REAP_POLL_MS = 50;
+    private static final long DECODE_REAP_TIMEOUT_MS = 60_000;
+    private static final Handler decodeReaper = new Handler(Looper.getMainLooper());
+    private static Field decodingTaskField;
+    private static Field decodedPdfFileField;
+    private static boolean decodingFieldsResolved = false;
+
+    private static synchronized void resolveDecodingFields() {
+        if (decodingFieldsResolved) {
+            return;
+        }
+        decodingFieldsResolved = true;
+        try {
+            Field task = PDFView.class.getDeclaredField("decodingAsyncTask");
+            task.setAccessible(true);
+            Field pdfFile = task.getType().getDeclaredField("pdfFile");
+            pdfFile.setAccessible(true);
+            decodingTaskField = task;
+            decodedPdfFileField = pdfFile;
+        } catch (Exception e) {
+            Log.e("PdfView", "AndroidPdfViewer changed: decodingAsyncTask.pdfFile not found; cancelled loads will leak", e);
+        }
+    }
+
+    private AsyncTask<?, ?, ?> pendingDecodingTask() {
+        resolveDecodingFields();
+        if (decodingTaskField == null) {
+            return null;
+        }
+        try {
+            AsyncTask<?, ?, ?> task = (AsyncTask<?, ?, ?>) decodingTaskField.get(this);
+            if (task != null && task.getStatus() != AsyncTask.Status.FINISHED) {
+                return task;
+            }
+        } catch (Exception e) {
+            Log.e("PdfView", "Failed to read decoding task", e);
+        }
+        return null;
+    }
+
+    /**
+     * DecodingAsyncTask opens the document even when cancelled, and its onCancelled() never
+     * disposes it. AsyncTask marks itself FINISHED on the main thread only after doInBackground
+     * returns, so once FINISHED its pdfFile field is final and safe to dispose here.
+     */
+    private static void reapCancelledDecode(AsyncTask<?, ?, ?> task, long deadline) {
+        if (task.getStatus() != AsyncTask.Status.FINISHED) {
+            if (SystemClock.uptimeMillis() < deadline) {
+                decodeReaper.postDelayed(() -> reapCancelledDecode(task, deadline), DECODE_REAP_POLL_MS);
+            } else {
+                Log.w("PdfView", "Cancelled PDF decode did not finish in time; its document will leak");
+            }
+            return;
+        }
+        try {
+            Object pdfFile = decodedPdfFileField.get(task);
+            if (pdfFile != null) {
+                decodedPdfFileField.set(task, null);
+                Method dispose = pdfFile.getClass().getDeclaredMethod("dispose");
+                dispose.setAccessible(true);
+                dispose.invoke(pdfFile);
+            }
+        } catch (Exception e) {
+            Log.e("PdfView", "Failed to dispose cancelled PDF decode", e);
+        }
+    }
+
+    private static Field renderingThreadField;
+    private static boolean renderingThreadFieldResolved = false;
+
+    private static synchronized Field renderingThreadField() {
+        if (!renderingThreadFieldResolved) {
+            renderingThreadFieldResolved = true;
+            try {
+                Field field = PDFView.class.getDeclaredField("renderingHandlerThread");
+                field.setAccessible(true);
+                renderingThreadField = field;
+            } catch (Exception e) {
+                Log.e("PdfView", "AndroidPdfViewer changed: renderingHandlerThread not found; renderer thread will leak", e);
+            }
+        }
+        return renderingThreadField;
+    }
+
+    private void quitRenderingThread() {
+        Field field = renderingThreadField();
+        if (field == null) {
+            return;
+        }
+        try {
+            HandlerThread thread = (HandlerThread) field.get(this);
+            if (thread != null) {
+                thread.quitSafely();
+                field.set(this, null);
+            }
+        } catch (Exception e) {
+            Log.e("PdfView", "Failed to stop PDF renderer thread", e);
+        }
+    }
+
     public void drawPdf() {
+        if (disposed) {
+            return;
+        }
         
         // FIX: Check if we actually need to reload the document
         // Only reload if path changed or this is first load
@@ -494,14 +624,17 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
 
             if (this.path.startsWith("content://")) {
                 ContentResolver contentResolver = getContext().getContentResolver();
-                InputStream inputStream = null;
                 Uri uri = Uri.parse(this.path);
-                try {
-                    inputStream = contentResolver.openInputStream(uri);
-                } catch (FileNotFoundException e) {
+                byte[] bytes;
+                try (InputStream inputStream = contentResolver.openInputStream(uri)) {
+                    if (inputStream == null) {
+                        throw new IOException("Cannot open " + this.path);
+                    }
+                    bytes = readAll(inputStream);
+                } catch (IOException e) {
                     throw new RuntimeException(e.getMessage());
                 }
-                configurator = this.fromStream(inputStream);
+                configurator = this.fromBytes(bytes);
             } else {
                 configurator = this.fromUri(getURI(this.path));
             }
@@ -724,6 +857,16 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
 
     private void showLog(final String str) {
         Log.d("PdfView", str);
+    }
+
+    private static byte[] readAll(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        byte[] buffer = new byte[64 * 1024];
+        int read;
+        while ((read = inputStream.read(buffer)) != -1) {
+            output.write(buffer, 0, read);
+        }
+        return output.toByteArray();
     }
 
     private Uri getURI(final String uri) {

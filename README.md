@@ -37,7 +37,7 @@ PDF viewer for React Native. Version 5 is the Nitro JSI path on the New Architec
 Install this version only when you need that JSI logic. Everyone else keeps `react-native-pdf-jsi@4.5.0`.
 
 ```sh
-npm install react-native-pdf-jsi@5.0.0 react-native-nitro-modules react-native-blob-util
+npm install react-native-pdf-jsi@5.1.0 react-native-nitro-modules react-native-blob-util
 cd ios && pod install
 ```
 
@@ -88,6 +88,34 @@ library.ocrAvailable;        // sync
 ```
 
 Page indexes on the Nitro handle are **0-based**. The older JS helpers `renderPageDirect` and `searchTextDirect` still accept 1-based page numbers and convert them.
+
+## Document lifecycle
+
+A native document holds PDFium/PDFKit memory that the JavaScript garbage collector cannot see, so it must be closed explicitly. Since 5.1.0 the package keeps open documents in a reference-counted registry. Prefer `withPdfDocument`, which releases the document when the callback finishes, even if it throws:
+
+```js
+import { withPdfDocument } from 'react-native-pdf-jsi';
+
+const text = await withPdfDocument(filePath, (document) => document.extractText(0));
+```
+
+For a document that must stay open across several calls (for example, for the life of a screen), pair `acquirePdf` with `releasePdf`:
+
+```js
+import { acquirePdf, releasePdf } from 'react-native-pdf-jsi';
+
+useEffect(() => {
+  acquirePdf(filePath).then(setDocument, setError);
+  return () => releasePdf(filePath);
+}, [filePath]);
+```
+
+- Concurrent opens of the same path share one native document.
+- Released documents stay open in a small warm pool (2 documents) so reopening is instant. The pool is emptied on memory warnings, or call `trimPdfCache()`.
+- `openPdf(path)` still works and **pins** the document until `closePdf(path)`. `closePdf` force-closes, even while other code holds a reference.
+- Call `invalidatePdf(path)` before overwriting a file at the same path, so the next open reads the new contents.
+- `getPdfRegistryStats()` reports open, referenced, pinned, warm and stale counts, which is useful when checking for leaks.
+- If you set a custom OCR engine with `PDFText.setOCREngine`, call `PDFText.clearOCREngine()` when the component that created it unmounts.
 
 ## Downloads
 

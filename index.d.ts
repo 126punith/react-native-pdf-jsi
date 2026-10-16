@@ -503,6 +503,43 @@ export function searchTextDirect(
 ): Promise<PDFSearchResultItem[]>;
 
 // ========================================
+// Native document lifecycle
+// ========================================
+
+export type PdfDocumentHandle = import('./src/PDFJSI.nitro').PdfDocument;
+
+export interface PdfRegistryStats {
+    /** Documents currently open (referenced, pinned or warm). */
+    open: number;
+    /** Documents with at least one acquirePdf/withPdfDocument reference. */
+    referenced: number;
+    /** Documents opened with openPdf and not yet closed with closePdf. */
+    pinned: number;
+    /** Released documents kept open for fast reopen (at most 2). */
+    warm: number;
+    /** Replaced documents still referenced or pinned. */
+    stale: number;
+}
+
+/** Runs `fn` with the document at `path`, releasing it afterwards. Preferred API. */
+export function withPdfDocument<T>(path: string, fn: (document: PdfDocumentHandle) => T | Promise<T>): Promise<T>;
+/** Takes a reference on the document at `path`. Pair every call with releasePdf. */
+export function acquirePdf(path: string): Promise<PdfDocumentHandle>;
+/** Releases a reference taken with acquirePdf. */
+export function releasePdf(pathOrDocument: string | PdfDocumentHandle): void;
+/** Opens and pins the document until closePdf(path) is called. */
+export function openPdf(path: string): Promise<PdfDocumentHandle>;
+/** Force-closes the document at `path`, even if it is still referenced. */
+export function closePdf(path: string): void;
+/** Call before the file at `path` is replaced; the next open reads the new file. */
+export function invalidatePdf(path: string): void;
+/** Closes released documents kept warm for fast reopen. Runs automatically on memory warnings. */
+export function trimPdfCache(): void;
+/** Force-closes every open document. */
+export function closeAllPdfs(): void;
+export function getPdfRegistryStats(): PdfRegistryStats;
+
+// ========================================
 // PDFText (extraction + optional OCR)
 // ========================================
 

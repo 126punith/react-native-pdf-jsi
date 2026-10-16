@@ -14,7 +14,7 @@
 import { Platform, Share } from 'react-native';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import PDFTextExtractor from '../utils/PDFTextExtractor';
-import { getPdfLibrary, openPdf } from '../PDFJSI';
+import { getPdfLibrary, withPdfDocument } from '../PDFJSI';
 
 /**
  * Export formats supported
@@ -46,7 +46,7 @@ export class ExportManager {
         if (!this.isNativeAvailable) {
             console.warn('📤 ExportManager: Native module not available - using fallback methods');
         } else {
-            console.log('📤 ExportManager: Initialized (version 5.0.0)');
+            console.log('📤 ExportManager: Initialized (version 5.1.0)');
         }
     }
 
@@ -181,7 +181,7 @@ export class ExportManager {
         try {
             if (this.isNativeAvailable) {
                 // Use native exporter
-                const raw = await (await openPdf(filePath)).exportToImages(scale);
+                const raw = await withPdfDocument(filePath, (document) => document.exportToImages(scale));
                 const images = typeof raw === 'string' ? JSON.parse(raw) : raw;
 
                 console.log(`📤 ExportManager: Exported ${images.length} images`);
@@ -231,7 +231,7 @@ export class ExportManager {
                     scale
                 });
                 
-                const imagePath = await (await openPdf(filePath)).exportPageToImage(pageNumber - 1, scale);
+                const imagePath = await withPdfDocument(filePath, (document) => document.exportPageToImage(pageNumber - 1, scale));
 
                 console.log('✅ [ExportManager] exportPageToImage - SUCCESS', {
                     outputPath: imagePath
@@ -259,7 +259,7 @@ export class ExportManager {
      * @param {string} outputPath - Output file path
      * @returns {Promise<string>} Path to merged PDF
      */
-    async resolveMergePath(filePath) {
+    async resolveMergePath(filePath, tempFiles = null) {
         if (typeof filePath !== 'string' || filePath.trim() === '') {
             throw new Error('Merge path must be a file path or http(s) URL');
         }
@@ -267,10 +267,16 @@ export class ExportManager {
         if (!/^https?:\/\//i.test(trimmed)) {
             return trimmed;
         }
-        const dest = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/merge-url-${Date.now()}.pdf`;
+        const dest = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/merge-url-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`;
+        if (tempFiles) {
+            tempFiles.push(dest);
+        }
         console.log('📤 ExportManager: Downloading merge URL', trimmed);
         const response = await ReactNativeBlobUtil.config({ path: dest }).fetch('GET', trimmed);
         const saved = response.path();
+        if (tempFiles && saved !== dest) {
+            tempFiles.push(saved);
+        }
         console.log('📤 ExportManager: Downloaded merge URL to', saved);
         return saved;
     }
@@ -279,10 +285,11 @@ export class ExportManager {
         // All features enabled by default
         console.log(`📤 ExportManager: Merging ${filePaths.length} PDFs...`);
 
+        const tempFiles = [];
         try {
             const localPaths = [];
             for (const filePath of filePaths) {
-                localPaths.push(await this.resolveMergePath(filePath));
+                localPaths.push(await this.resolveMergePath(filePath, tempFiles));
             }
             const started = performance.now();
             const nitro = getPdfLibrary();
@@ -306,6 +313,10 @@ export class ExportManager {
         } catch (error) {
             console.error('📤 ExportManager: Merge PDFs error:', error);
             throw error;
+        } finally {
+            for (const file of tempFiles) {
+                ReactNativeBlobUtil.fs.unlink(file).catch(() => {});
+            }
         }
     }
 
@@ -440,10 +451,11 @@ export class ExportManager {
 
         try {
             if (this.isNativeAvailable) {
-                const document = await openPdf(filePath);
-                for (const [page, degrees] of Object.entries(rotations || {})) {
-                    await document.rotatePage(Number(page) - 1, Number(degrees));
-                }
+                await withPdfDocument(filePath, async (document) => {
+                    for (const [page, degrees] of Object.entries(rotations || {})) {
+                        await document.rotatePage(Number(page) - 1, Number(degrees));
+                    }
+                });
                 const rotatedPath = filePath;
                 console.log('📤 ExportManager: Rotated PDF saved to:', rotatedPath);
                 return rotatedPath;
@@ -470,11 +482,12 @@ export class ExportManager {
         try {
             if (this.isNativeAvailable) {
                 // Convert to 0-indexed
-                const document = await openPdf(filePath);
                 const pageIndices = pages.map(p => p - 1).sort((a, b) => b - a);
-                for (const pageIndex of pageIndices) {
-                    await document.deletePage(pageIndex);
-                }
+                await withPdfDocument(filePath, async (document) => {
+                    for (const pageIndex of pageIndices) {
+                        await document.deletePage(pageIndex);
+                    }
+                });
                 const newPath = filePath;
                 console.log('📤 ExportManager: New PDF saved to:', newPath);
                 return newPath;
@@ -673,7 +686,7 @@ export class ExportManager {
         return {
             isAvailable: this.isNativeAvailable,
             platform: Platform.OS,
-            version: '5.0.0',
+            version: '5.1.0',
             capabilities: this.getCapabilities()
         };
     }

@@ -23,7 +23,7 @@ std::mutex gCacheMutex;
 int gHits = 0;
 int gMisses = 0;
 
-std::string cacheDirectory() {
+std::string resolveCacheDirectory() {
     JNIEnv* env = facebook::jni::Environment::current();
     if (env == nullptr) {
         throw std::runtime_error("JNI environment is not available");
@@ -40,6 +40,19 @@ std::string cacheDirectory() {
     const char* chars = env->GetStringUTFChars(path, nullptr);
     std::string directory = std::string(chars) + "/pdf-jsi-cache";
     env->ReleaseStringUTFChars(path, chars);
+    env->DeleteLocalRef(path);
+    env->DeleteLocalRef(fileClass);
+    env->DeleteLocalRef(cacheDir);
+    env->DeleteLocalRef(contextClass);
+    env->DeleteLocalRef(application);
+    env->DeleteLocalRef(threadClass);
+    return directory;
+}
+
+std::string cacheDirectory() {
+    static std::once_flag resolved;
+    static std::string directory;
+    std::call_once(resolved, [] { directory = resolveCacheDirectory(); });
     std::filesystem::create_directories(directory);
     return directory;
 }

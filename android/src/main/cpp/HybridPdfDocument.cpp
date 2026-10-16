@@ -2,6 +2,7 @@
 
 #include <fbjni/fbjni.h>
 #include <algorithm>
+#include <filesystem>
 #include <stdexcept>
 #include <utility>
 
@@ -25,13 +26,18 @@ std::string recognizePage(const std::string& path, int pageIndex, bool fast) {
         "(Ljava/lang/String;IZ)Ljava/lang/String;");
     if (method == nullptr) {
         env->ExceptionClear();
+        env->DeleteLocalRef(clazz);
         throw std::runtime_error("OCR helper is not available");
     }
     jstring jpath = env->NewStringUTF(path.c_str());
     jstring result = static_cast<jstring>(env->CallStaticObjectMethod(clazz, method, jpath, pageIndex, fast ? JNI_TRUE : JNI_FALSE));
     env->DeleteLocalRef(jpath);
+    env->DeleteLocalRef(clazz);
     if (env->ExceptionCheck()) {
         env->ExceptionClear();
+        if (result != nullptr) {
+            env->DeleteLocalRef(result);
+        }
         throw std::runtime_error("OCR failed");
     }
     if (result == nullptr) {
@@ -42,13 +48,26 @@ std::string recognizePage(const std::string& path, int pageIndex, bool fast) {
     if (chars != nullptr) {
         env->ReleaseStringUTFChars(result, chars);
     }
+    env->DeleteLocalRef(result);
     return text;
+}
+
+size_t fileSizeOrZero(const std::string& path) {
+    std::error_code error;
+    const auto size = std::filesystem::file_size(path, error);
+    return error ? 0 : static_cast<size_t>(size);
 }
 
 } // namespace
 
 HybridPdfDocument::HybridPdfDocument(const std::string& path)
-    : HybridObject(TAG), document_(std::make_shared<OpenPdf>(path)) {}
+    : HybridObject(TAG), document_(std::make_shared<OpenPdf>(path)) {
+    externalMemorySize_ = fileSizeOrZero(document_->path());
+}
+
+size_t HybridPdfDocument::getExternalMemorySize() noexcept {
+    return externalMemorySize_.load();
+}
 
 std::shared_ptr<OpenPdf> HybridPdfDocument::requireOpen() const {
     if (document_ == nullptr) {
@@ -209,6 +228,7 @@ void HybridPdfDocument::close() {
         document_->close();
         document_.reset();
     }
+    externalMemorySize_ = 0;
 }
 
 } // namespace margelo::nitro::pdfjsi
