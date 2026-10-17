@@ -45,6 +45,20 @@ The host app must build with the New Architecture enabled. There is no Paper fal
 
 Optional Android OCR (ML Kit) is off unless you set `pdfJsiEnableOcr=true` in `gradle.properties`. iOS OCR uses Vision and needs no extra flag.
 
+### Expo
+
+Use a development build (Expo Go is not supported). Install the native peers with `npx expo install react-native-pdf-jsi react-native-nitro-modules react-native-blob-util @react-native-async-storage/async-storage`, then add the plugin to `app.json`:
+
+```json
+{
+  "expo": {
+    "plugins": [["react-native-pdf-jsi", { "ocr": false }]]
+  }
+}
+```
+
+The plugin sets `newArchEnabled=true` for Android and iOS and fails prebuild if `"newArchEnabled": false` is set or `react-native-nitro-modules` is missing. Run `npx expo prebuild --clean` after adding it.
+
 ## View
 
 ```jsx

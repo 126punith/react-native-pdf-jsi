@@ -10,6 +10,12 @@ import com.facebook.react.uimanager.ViewManager;
 
 public class RNPDFPackage implements ReactPackage {
 
+    static {
+        // JNI_OnLoad in libNitroPdfJsi registers PdfLibrary/PdfDocument with Nitro,
+        // so it must be loaded before JS calls createHybridObject.
+        System.loadLibrary("NitroPdfJsi");
+    }
+
     @Override
     public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
         return Collections.emptyList();

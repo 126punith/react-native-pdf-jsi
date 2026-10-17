@@ -8,7 +8,10 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "paths": {
+      "expo/config-plugins": ["../node_modules/@expo/config-plugins"]
+    }
   },
   "include": ["src/**/*"]
 }

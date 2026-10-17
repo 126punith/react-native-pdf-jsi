@@ -1,4 +1,4 @@
-import { ConfigPlugin, withXcodeProject } from '@expo/config-plugins';
+import { ConfigPlugin, withXcodeProject } from 'expo/config-plugins';
 
 /**
  * iOS config plugin for react-native-pdf-jsi
@@ -7,7 +7,8 @@ import { ConfigPlugin, withXcodeProject } from '@expo/config-plugins';
  * - PDFKit for viewing / text extraction (podspec)
  * - Vision for optional on-device OCR (podspec, iOS 13+)
  * 
- * Note: Most iOS configuration is handled by the podspec file.
+ * Note: Most iOS configuration is handled by the podspec file, including the
+ * Nitro HybridObjects, which are autolinked via NitroPdfJsi+autolinking.rb.
  * This plugin exists for any additional Xcode project modifications if needed.
  */
 export const withPdfJsiIos: ConfigPlugin = (config) => {
