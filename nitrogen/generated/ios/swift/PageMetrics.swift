@@ -18,13 +18,13 @@ public extension PageMetrics {
   /**
    * Create a new instance of `PageMetrics`.
    */
-  init(pageNumber: Double, width: Double, height: Double, rotation: Double, scale: Double, renderTimeMs: Double, cacheSizeKb: Double) {
-    self.init(pageNumber, width, height, rotation, scale, renderTimeMs, cacheSizeKb)
+  init(page: Double, width: Double, height: Double, rotation: Double) {
+    self.init(page, width, height, rotation)
   }
 
   @inline(__always)
-  var pageNumber: Double {
-    return self.__pageNumber
+  var page: Double {
+    return self.__page
   }
   
   @inline(__always)
@@ -40,20 +40,5 @@ public extension PageMetrics {
   @inline(__always)
   var rotation: Double {
     return self.__rotation
-  }
-  
-  @inline(__always)
-  var scale: Double {
-    return self.__scale
-  }
-  
-  @inline(__always)
-  var renderTimeMs: Double {
-    return self.__renderTimeMs
-  }
-  
-  @inline(__always)
-  var cacheSizeKb: Double {
-    return self.__cacheSizeKb
   }
 }

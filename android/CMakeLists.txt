@@ -4,8 +4,7 @@ project(react-native-pdf-jsi)
 
 set(PDFIUM_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/third_party/pdfium)
 add_library(pdfium SHARED IMPORTED)
-# pdfiumandroid already packages libpdfium.so for the Java viewer.
-# This copy keeps a different SONAME so both can load in one process.
+# Prebuilt PDFium with its own SONAME, so another libpdfium.so in the app can load alongside it.
 # libpdfn.so must not export _Unwind_*; those symbols belong to libc++_shared.
 set_target_properties(pdfium PROPERTIES
     IMPORTED_LOCATION ${PDFIUM_ROOT}/lib/${ANDROID_ABI}/libpdfn.so

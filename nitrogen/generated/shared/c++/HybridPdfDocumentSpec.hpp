@@ -13,28 +13,45 @@
 #error NitroModules cannot be found! Are you sure you installed NitroModules properly?
 #endif
 
-// Forward declaration of `CacheMetrics` to properly resolve imports.
-namespace margelo::nitro::pdfjsi { struct CacheMetrics; }
-// Forward declaration of `PerformanceMetrics` to properly resolve imports.
-namespace margelo::nitro::pdfjsi { struct PerformanceMetrics; }
 // Forward declaration of `PageSize` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct PageSize; }
 // Forward declaration of `PageMetrics` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct PageMetrics; }
-// Forward declaration of `RenderResult` to properly resolve imports.
-namespace margelo::nitro::pdfjsi { struct RenderResult; }
+// Forward declaration of `OutlineItem` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct OutlineItem; }
+// Forward declaration of `RenderedImage` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct RenderedImage; }
+// Forward declaration of `RenderOptions` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct RenderOptions; }
+// Forward declaration of `ThumbnailOptions` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct ThumbnailOptions; }
 // Forward declaration of `SearchResult` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct SearchResult; }
+// Forward declaration of `AnnotationInput` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct AnnotationInput; }
+// Forward declaration of `PdfAnnotation` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfAnnotation; }
+// Forward declaration of `PdfFormField` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfFormField; }
+// Forward declaration of `SaveOptions` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct SaveOptions; }
 
 #include <string>
-#include "CacheMetrics.hpp"
-#include "PerformanceMetrics.hpp"
 #include "PageSize.hpp"
 #include "PageMetrics.hpp"
-#include "RenderResult.hpp"
-#include <NitroModules/Promise.hpp>
-#include "SearchResult.hpp"
+#include "OutlineItem.hpp"
 #include <vector>
+#include <NitroModules/Promise.hpp>
+#include "RenderedImage.hpp"
+#include "RenderOptions.hpp"
+#include <optional>
+#include "ThumbnailOptions.hpp"
+#include "SearchResult.hpp"
+#include "AnnotationInput.hpp"
+#include "PdfAnnotation.hpp"
+#include "PdfFormField.hpp"
+#include <unordered_map>
+#include "SaveOptions.hpp"
 
 namespace margelo::nitro::pdfjsi {
 
@@ -65,27 +82,32 @@ namespace margelo::nitro::pdfjsi {
       // Properties
       virtual double getPageCount() = 0;
       virtual std::string getPath() = 0;
-      virtual CacheMetrics getCacheMetrics() = 0;
-      virtual PerformanceMetrics getPerformanceMetrics() = 0;
+      virtual bool getIsEncrypted() = 0;
+      virtual bool getHasUnsavedChanges() = 0;
 
     public:
       // Methods
       virtual PageSize pageSize(double index) = 0;
       virtual PageMetrics pageMetrics(double index) = 0;
-      virtual void setRenderQuality(double quality) = 0;
-      virtual void clearCache() = 0;
-      virtual void optimizeMemory() = 0;
-      virtual std::shared_ptr<Promise<RenderResult>> renderPage(double index, double scale) = 0;
-      virtual std::shared_ptr<Promise<bool>> preloadPages(double startPage, double endPage) = 0;
+      virtual std::shared_ptr<Promise<std::vector<OutlineItem>>> getOutline() = 0;
+      virtual std::shared_ptr<Promise<RenderedImage>> renderPage(double index, const std::optional<RenderOptions>& options) = 0;
+      virtual std::shared_ptr<Promise<std::vector<RenderedImage>>> renderThumbnails(const std::optional<ThumbnailOptions>& options) = 0;
       virtual std::shared_ptr<Promise<std::vector<SearchResult>>> searchText(const std::string& term, double startPage, double endPage) = 0;
       virtual std::shared_ptr<Promise<std::string>> extractText(double index) = 0;
       virtual std::shared_ptr<Promise<std::string>> extractTextFromPages(const std::string& pageIndicesJson) = 0;
       virtual std::shared_ptr<Promise<std::string>> extractAllText() = 0;
       virtual std::shared_ptr<Promise<std::string>> recognizeText(double index, bool fast) = 0;
-      virtual std::shared_ptr<Promise<std::string>> exportPageToImage(double index, double scale) = 0;
-      virtual std::shared_ptr<Promise<std::string>> exportToImages(double scale) = 0;
-      virtual std::shared_ptr<Promise<bool>> rotatePage(double pageNumber, double degrees) = 0;
-      virtual std::shared_ptr<Promise<bool>> deletePage(double pageNumber) = 0;
+      virtual std::shared_ptr<Promise<void>> rotatePage(double index, double degrees) = 0;
+      virtual std::shared_ptr<Promise<void>> deletePage(double index) = 0;
+      virtual std::shared_ptr<Promise<void>> movePage(double from, double to) = 0;
+      virtual std::shared_ptr<Promise<void>> insertPages(const std::string& fromPath, double atIndex, const std::optional<std::vector<double>>& pages, const std::optional<std::string>& password) = 0;
+      virtual std::shared_ptr<Promise<double>> addAnnotation(const AnnotationInput& annotation) = 0;
+      virtual std::shared_ptr<Promise<std::vector<PdfAnnotation>>> getAnnotations(double page) = 0;
+      virtual std::shared_ptr<Promise<void>> removeAnnotation(double page, double index) = 0;
+      virtual std::shared_ptr<Promise<std::vector<PdfFormField>>> getFormFields() = 0;
+      virtual std::shared_ptr<Promise<void>> setFormFieldValues(const std::unordered_map<std::string, std::string>& values) = 0;
+      virtual std::shared_ptr<Promise<void>> flattenForms() = 0;
+      virtual std::shared_ptr<Promise<std::string>> save(const std::string& outputPath, const std::optional<SaveOptions>& options) = 0;
       virtual void close() = 0;
 
     protected:

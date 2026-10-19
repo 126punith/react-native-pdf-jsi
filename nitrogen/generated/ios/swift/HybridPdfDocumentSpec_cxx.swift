@@ -135,17 +135,17 @@ open class HybridPdfDocumentSpec_cxx {
     }
   }
   
-  public final var cacheMetrics: CacheMetrics {
+  public final var isEncrypted: Bool {
     @inline(__always)
     get {
-      return self.__implementation.cacheMetrics
+      return self.__implementation.isEncrypted
     }
   }
   
-  public final var performanceMetrics: PerformanceMetrics {
+  public final var hasUnsavedChanges: Bool {
     @inline(__always)
     get {
-      return self.__implementation.performanceMetrics
+      return self.__implementation.hasUnsavedChanges
     }
   }
 
@@ -175,73 +175,71 @@ open class HybridPdfDocumentSpec_cxx {
   }
   
   @inline(__always)
-  public final func setRenderQuality(quality: Double) -> bridge.Result_void_ {
+  public final func getOutline() -> bridge.Result_std__shared_ptr_Promise_std__vector_OutlineItem____ {
     do {
-      try self.__implementation.setRenderQuality(quality: quality)
-      return bridge.create_Result_void_()
+      let __result = try self.__implementation.getOutline()
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__vector_OutlineItem___ in
+        let __promise = bridge.create_std__shared_ptr_Promise_std__vector_OutlineItem___()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__vector_OutlineItem___(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve({ () -> bridge.std__vector_OutlineItem_ in
+              var __vector = bridge.create_std__vector_OutlineItem_(__result.count)
+              for __item in __result {
+                __vector.push_back(__item)
+              }
+              return __vector
+            }()) })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_std__vector_OutlineItem____(__resultCpp)
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_void_(__exceptionPtr)
+      return bridge.create_Result_std__shared_ptr_Promise_std__vector_OutlineItem____(__exceptionPtr)
     }
   }
   
   @inline(__always)
-  public final func clearCache() -> bridge.Result_void_ {
+  public final func renderPage(index: Double, options: bridge.std__optional_RenderOptions_) -> bridge.Result_std__shared_ptr_Promise_RenderedImage___ {
     do {
-      try self.__implementation.clearCache()
-      return bridge.create_Result_void_()
-    } catch (let __error) {
-      let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_void_(__exceptionPtr)
-    }
-  }
-  
-  @inline(__always)
-  public final func optimizeMemory() -> bridge.Result_void_ {
-    do {
-      try self.__implementation.optimizeMemory()
-      return bridge.create_Result_void_()
-    } catch (let __error) {
-      let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_void_(__exceptionPtr)
-    }
-  }
-  
-  @inline(__always)
-  public final func renderPage(index: Double, scale: Double) -> bridge.Result_std__shared_ptr_Promise_RenderResult___ {
-    do {
-      let __result = try self.__implementation.renderPage(index: index, scale: scale)
-      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_RenderResult__ in
-        let __promise = bridge.create_std__shared_ptr_Promise_RenderResult__()
-        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_RenderResult__(__promise)
+      let __result = try self.__implementation.renderPage(index: index, options: options.value)
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_RenderedImage__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_RenderedImage__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_RenderedImage__(__promise)
         __result
           .then({ __result in __promiseHolder.resolve(__result) })
           .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
         return __promise
       }()
-      return bridge.create_Result_std__shared_ptr_Promise_RenderResult___(__resultCpp)
+      return bridge.create_Result_std__shared_ptr_Promise_RenderedImage___(__resultCpp)
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_std__shared_ptr_Promise_RenderResult___(__exceptionPtr)
+      return bridge.create_Result_std__shared_ptr_Promise_RenderedImage___(__exceptionPtr)
     }
   }
   
   @inline(__always)
-  public final func preloadPages(startPage: Double, endPage: Double) -> bridge.Result_std__shared_ptr_Promise_bool___ {
+  public final func renderThumbnails(options: bridge.std__optional_ThumbnailOptions_) -> bridge.Result_std__shared_ptr_Promise_std__vector_RenderedImage____ {
     do {
-      let __result = try self.__implementation.preloadPages(startPage: startPage, endPage: endPage)
-      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_bool__ in
-        let __promise = bridge.create_std__shared_ptr_Promise_bool__()
-        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_bool__(__promise)
+      let __result = try self.__implementation.renderThumbnails(options: options.value)
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__vector_RenderedImage___ in
+        let __promise = bridge.create_std__shared_ptr_Promise_std__vector_RenderedImage___()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__vector_RenderedImage___(__promise)
         __result
-          .then({ __result in __promiseHolder.resolve(__result) })
+          .then({ __result in __promiseHolder.resolve({ () -> bridge.std__vector_RenderedImage_ in
+              var __vector = bridge.create_std__vector_RenderedImage_(__result.count)
+              for __item in __result {
+                __vector.push_back(__item)
+              }
+              return __vector
+            }()) })
           .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
         return __promise
       }()
-      return bridge.create_Result_std__shared_ptr_Promise_bool___(__resultCpp)
+      return bridge.create_Result_std__shared_ptr_Promise_std__vector_RenderedImage____(__resultCpp)
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_std__shared_ptr_Promise_bool___(__exceptionPtr)
+      return bridge.create_Result_std__shared_ptr_Promise_std__vector_RenderedImage____(__exceptionPtr)
     }
   }
   
@@ -347,9 +345,233 @@ open class HybridPdfDocumentSpec_cxx {
   }
   
   @inline(__always)
-  public final func exportPageToImage(index: Double, scale: Double) -> bridge.Result_std__shared_ptr_Promise_std__string___ {
+  public final func rotatePage(index: Double, degrees: Double) -> bridge.Result_std__shared_ptr_Promise_void___ {
     do {
-      let __result = try self.__implementation.exportPageToImage(index: index, scale: scale)
+      let __result = try self.__implementation.rotatePage(index: index, degrees: degrees)
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_void__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_void__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_void__(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve() })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func deletePage(index: Double) -> bridge.Result_std__shared_ptr_Promise_void___ {
+    do {
+      let __result = try self.__implementation.deletePage(index: index)
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_void__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_void__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_void__(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve() })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func movePage(from: Double, to: Double) -> bridge.Result_std__shared_ptr_Promise_void___ {
+    do {
+      let __result = try self.__implementation.movePage(from: from, to: to)
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_void__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_void__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_void__(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve() })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func insertPages(fromPath: std.string, atIndex: Double, pages: bridge.std__optional_std__vector_double__, password: bridge.std__optional_std__string_) -> bridge.Result_std__shared_ptr_Promise_void___ {
+    do {
+      let __result = try self.__implementation.insertPages(fromPath: String(fromPath), atIndex: atIndex, pages: { () -> [Double]? in
+        if bridge.has_value_std__optional_std__vector_double__(pages) {
+          let __unwrapped = bridge.get_std__optional_std__vector_double__(pages)
+          return __unwrapped.map({ __item in __item })
+        } else {
+          return nil
+        }
+      }(), password: { () -> String? in
+        if bridge.has_value_std__optional_std__string_(password) {
+          let __unwrapped = bridge.get_std__optional_std__string_(password)
+          return String(__unwrapped)
+        } else {
+          return nil
+        }
+      }())
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_void__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_void__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_void__(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve() })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func addAnnotation(annotation: AnnotationInput) -> bridge.Result_std__shared_ptr_Promise_double___ {
+    do {
+      let __result = try self.__implementation.addAnnotation(annotation: annotation)
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_double__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_double__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_double__(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve(__result) })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_double___(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_Promise_double___(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func getAnnotations(page: Double) -> bridge.Result_std__shared_ptr_Promise_std__vector_PdfAnnotation____ {
+    do {
+      let __result = try self.__implementation.getAnnotations(page: page)
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__vector_PdfAnnotation___ in
+        let __promise = bridge.create_std__shared_ptr_Promise_std__vector_PdfAnnotation___()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__vector_PdfAnnotation___(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve({ () -> bridge.std__vector_PdfAnnotation_ in
+              var __vector = bridge.create_std__vector_PdfAnnotation_(__result.count)
+              for __item in __result {
+                __vector.push_back(__item)
+              }
+              return __vector
+            }()) })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_std__vector_PdfAnnotation____(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_Promise_std__vector_PdfAnnotation____(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func removeAnnotation(page: Double, index: Double) -> bridge.Result_std__shared_ptr_Promise_void___ {
+    do {
+      let __result = try self.__implementation.removeAnnotation(page: page, index: index)
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_void__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_void__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_void__(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve() })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func getFormFields() -> bridge.Result_std__shared_ptr_Promise_std__vector_PdfFormField____ {
+    do {
+      let __result = try self.__implementation.getFormFields()
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__vector_PdfFormField___ in
+        let __promise = bridge.create_std__shared_ptr_Promise_std__vector_PdfFormField___()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__vector_PdfFormField___(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve({ () -> bridge.std__vector_PdfFormField_ in
+              var __vector = bridge.create_std__vector_PdfFormField_(__result.count)
+              for __item in __result {
+                __vector.push_back(__item)
+              }
+              return __vector
+            }()) })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_std__vector_PdfFormField____(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_Promise_std__vector_PdfFormField____(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func setFormFieldValues(values: bridge.std__unordered_map_std__string__std__string_) -> bridge.Result_std__shared_ptr_Promise_void___ {
+    do {
+      let __result = try self.__implementation.setFormFieldValues(values: { () -> Dictionary<String, String> in
+        var __dictionary = Dictionary<String, String>(minimumCapacity: values.size())
+        let __keys = bridge.get_std__unordered_map_std__string__std__string__keys(values)
+        for __key in __keys {
+          let __value = bridge.get_std__unordered_map_std__string__std__string__value(values, __key)
+          __dictionary[String(__key)] = String(__value)
+        }
+        return __dictionary
+      }())
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_void__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_void__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_void__(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve() })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func flattenForms() -> bridge.Result_std__shared_ptr_Promise_void___ {
+    do {
+      let __result = try self.__implementation.flattenForms()
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_void__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_void__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_void__(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve() })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func save(outputPath: std.string, options: bridge.std__optional_SaveOptions_) -> bridge.Result_std__shared_ptr_Promise_std__string___ {
+    do {
+      let __result = try self.__implementation.save(outputPath: String(outputPath), options: options.value)
       let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__string__ in
         let __promise = bridge.create_std__shared_ptr_Promise_std__string__()
         let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__string__(__promise)
@@ -362,63 +584,6 @@ open class HybridPdfDocumentSpec_cxx {
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
       return bridge.create_Result_std__shared_ptr_Promise_std__string___(__exceptionPtr)
-    }
-  }
-  
-  @inline(__always)
-  public final func exportToImages(scale: Double) -> bridge.Result_std__shared_ptr_Promise_std__string___ {
-    do {
-      let __result = try self.__implementation.exportToImages(scale: scale)
-      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__string__ in
-        let __promise = bridge.create_std__shared_ptr_Promise_std__string__()
-        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__string__(__promise)
-        __result
-          .then({ __result in __promiseHolder.resolve(std.string(__result)) })
-          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
-        return __promise
-      }()
-      return bridge.create_Result_std__shared_ptr_Promise_std__string___(__resultCpp)
-    } catch (let __error) {
-      let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_std__shared_ptr_Promise_std__string___(__exceptionPtr)
-    }
-  }
-  
-  @inline(__always)
-  public final func rotatePage(pageNumber: Double, degrees: Double) -> bridge.Result_std__shared_ptr_Promise_bool___ {
-    do {
-      let __result = try self.__implementation.rotatePage(pageNumber: pageNumber, degrees: degrees)
-      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_bool__ in
-        let __promise = bridge.create_std__shared_ptr_Promise_bool__()
-        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_bool__(__promise)
-        __result
-          .then({ __result in __promiseHolder.resolve(__result) })
-          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
-        return __promise
-      }()
-      return bridge.create_Result_std__shared_ptr_Promise_bool___(__resultCpp)
-    } catch (let __error) {
-      let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_std__shared_ptr_Promise_bool___(__exceptionPtr)
-    }
-  }
-  
-  @inline(__always)
-  public final func deletePage(pageNumber: Double) -> bridge.Result_std__shared_ptr_Promise_bool___ {
-    do {
-      let __result = try self.__implementation.deletePage(pageNumber: pageNumber)
-      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_bool__ in
-        let __promise = bridge.create_std__shared_ptr_Promise_bool__()
-        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_bool__(__promise)
-        __result
-          .then({ __result in __promiseHolder.resolve(__result) })
-          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
-        return __promise
-      }()
-      return bridge.create_Result_std__shared_ptr_Promise_bool___(__resultCpp)
-    } catch (let __error) {
-      let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_std__shared_ptr_Promise_bool___(__exceptionPtr)
     }
   }
   

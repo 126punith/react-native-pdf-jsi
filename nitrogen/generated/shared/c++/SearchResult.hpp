@@ -28,9 +28,11 @@
 #error NitroModules cannot be found! Are you sure you installed NitroModules properly?
 #endif
 
-
+// Forward declaration of `PdfRect` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfRect; }
 
 #include <string>
+#include "PdfRect.hpp"
 
 namespace margelo::nitro::pdfjsi {
 
@@ -41,11 +43,11 @@ namespace margelo::nitro::pdfjsi {
   public:
     double page     SWIFT_PRIVATE;
     std::string text     SWIFT_PRIVATE;
-    std::string rect     SWIFT_PRIVATE;
+    PdfRect rect     SWIFT_PRIVATE;
 
   public:
     SearchResult() = default;
-    explicit SearchResult(double page, std::string text, std::string rect): page(page), text(text), rect(rect) {}
+    explicit SearchResult(double page, std::string text, PdfRect rect): page(page), text(text), rect(rect) {}
 
   public:
     friend bool operator==(const SearchResult& lhs, const SearchResult& rhs) = default;
@@ -63,14 +65,14 @@ namespace margelo::nitro {
       return margelo::nitro::pdfjsi::SearchResult(
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "page"))),
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "text"))),
-        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "rect")))
+        JSIConverter<margelo::nitro::pdfjsi::PdfRect>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "rect")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::pdfjsi::SearchResult& arg) {
       jsi::Object obj(runtime);
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "page"), JSIConverter<double>::toJSI(runtime, arg.page));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "text"), JSIConverter<std::string>::toJSI(runtime, arg.text));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "rect"), JSIConverter<std::string>::toJSI(runtime, arg.rect));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "rect"), JSIConverter<margelo::nitro::pdfjsi::PdfRect>::toJSI(runtime, arg.rect));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -83,7 +85,7 @@ namespace margelo::nitro {
       }
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "page")))) return false;
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "text")))) return false;
-      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "rect")))) return false;
+      if (!JSIConverter<margelo::nitro::pdfjsi::PdfRect>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "rect")))) return false;
       return true;
     }
   };

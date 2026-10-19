@@ -8,49 +8,103 @@
 #pragma once
 
 // Forward declarations of C++ defined types
-// Forward declaration of `CacheMetrics` to properly resolve imports.
-namespace margelo::nitro::pdfjsi { struct CacheMetrics; }
+// Forward declaration of `AddableAnnotationType` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { enum class AddableAnnotationType; }
+// Forward declaration of `AnnotationInput` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct AnnotationInput; }
+// Forward declaration of `AnnotationType` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { enum class AnnotationType; }
+// Forward declaration of `FormFieldType` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { enum class FormFieldType; }
+// Forward declaration of `HybridPdfCacheSpec` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { class HybridPdfCacheSpec; }
 // Forward declaration of `HybridPdfDocumentSpec` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { class HybridPdfDocumentSpec; }
 // Forward declaration of `HybridPdfLibrarySpec` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { class HybridPdfLibrarySpec; }
-// Forward declaration of `JSIStats` to properly resolve imports.
-namespace margelo::nitro::pdfjsi { struct JSIStats; }
+// Forward declaration of `ImageFormat` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { enum class ImageFormat; }
+// Forward declaration of `InkStroke` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct InkStroke; }
 // Forward declaration of `KB16Support` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct KB16Support; }
+// Forward declaration of `OutlineItem` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct OutlineItem; }
 // Forward declaration of `PageMetrics` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct PageMetrics; }
 // Forward declaration of `PageSize` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct PageSize; }
+// Forward declaration of `PdfAnnotation` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfAnnotation; }
+// Forward declaration of `PdfCacheEntry` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfCacheEntry; }
 // Forward declaration of `PdfCacheInfo` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct PdfCacheInfo; }
+// Forward declaration of `PdfCacheMode` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { enum class PdfCacheMode; }
 // Forward declaration of `PdfCacheStats` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct PdfCacheStats; }
-// Forward declaration of `PerformanceMetrics` to properly resolve imports.
-namespace margelo::nitro::pdfjsi { struct PerformanceMetrics; }
-// Forward declaration of `RenderResult` to properly resolve imports.
-namespace margelo::nitro::pdfjsi { struct RenderResult; }
+// Forward declaration of `PdfDownloadRequest` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfDownloadRequest; }
+// Forward declaration of `PdfDownloadsTarget` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfDownloadsTarget; }
+// Forward declaration of `PdfFormField` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfFormField; }
+// Forward declaration of `PdfPermissions` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfPermissions; }
+// Forward declaration of `PdfPoint` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfPoint; }
+// Forward declaration of `PdfRect` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfRect; }
+// Forward declaration of `RenderOptions` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct RenderOptions; }
+// Forward declaration of `RenderedImage` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct RenderedImage; }
+// Forward declaration of `SaveOptions` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct SaveOptions; }
 // Forward declaration of `SearchResult` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct SearchResult; }
+// Forward declaration of `ThumbnailOptions` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct ThumbnailOptions; }
 
 // Include C++ defined types
-#include "CacheMetrics.hpp"
+#include "AddableAnnotationType.hpp"
+#include "AnnotationInput.hpp"
+#include "AnnotationType.hpp"
+#include "FormFieldType.hpp"
+#include "HybridPdfCacheSpec.hpp"
 #include "HybridPdfDocumentSpec.hpp"
 #include "HybridPdfLibrarySpec.hpp"
-#include "JSIStats.hpp"
+#include "ImageFormat.hpp"
+#include "InkStroke.hpp"
 #include "KB16Support.hpp"
+#include "OutlineItem.hpp"
 #include "PageMetrics.hpp"
 #include "PageSize.hpp"
+#include "PdfAnnotation.hpp"
+#include "PdfCacheEntry.hpp"
 #include "PdfCacheInfo.hpp"
+#include "PdfCacheMode.hpp"
 #include "PdfCacheStats.hpp"
-#include "PerformanceMetrics.hpp"
-#include "RenderResult.hpp"
+#include "PdfDownloadRequest.hpp"
+#include "PdfDownloadsTarget.hpp"
+#include "PdfFormField.hpp"
+#include "PdfPermissions.hpp"
+#include "PdfPoint.hpp"
+#include "PdfRect.hpp"
+#include "RenderOptions.hpp"
+#include "RenderedImage.hpp"
+#include "SaveOptions.hpp"
 #include "SearchResult.hpp"
+#include "ThumbnailOptions.hpp"
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/Result.hpp>
 #include <exception>
+#include <functional>
 #include <memory>
+#include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 // C++ helpers for Swift
@@ -63,6 +117,8 @@ namespace margelo::nitro::pdfjsi { struct SearchResult; }
 #include <NitroModules/DateToChronoDate.hpp>
 
 // Forward declarations of Swift defined types
+// Forward declaration of `HybridPdfCacheSpec_cxx` to properly resolve imports.
+namespace NitroPdfJsi { class HybridPdfCacheSpec_cxx; }
 // Forward declaration of `HybridPdfDocumentSpec_cxx` to properly resolve imports.
 namespace NitroPdfJsi { class HybridPdfDocumentSpec_cxx; }
 // Forward declaration of `HybridPdfLibrarySpec_cxx` to properly resolve imports.

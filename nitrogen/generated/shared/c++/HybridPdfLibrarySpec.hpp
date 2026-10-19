@@ -13,8 +13,6 @@
 #error NitroModules cannot be found! Are you sure you installed NitroModules properly?
 #endif
 
-// Forward declaration of `JSIStats` to properly resolve imports.
-namespace margelo::nitro::pdfjsi { struct JSIStats; }
 // Forward declaration of `KB16Support` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct KB16Support; }
 // Forward declaration of `HybridPdfDocumentSpec` to properly resolve imports.
@@ -24,12 +22,12 @@ namespace margelo::nitro::pdfjsi { struct PdfCacheInfo; }
 // Forward declaration of `PdfCacheStats` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct PdfCacheStats; }
 
-#include "JSIStats.hpp"
+#include <string>
 #include "KB16Support.hpp"
 #include <memory>
 #include "HybridPdfDocumentSpec.hpp"
 #include <NitroModules/Promise.hpp>
-#include <string>
+#include <optional>
 #include <vector>
 #include "PdfCacheInfo.hpp"
 #include "PdfCacheStats.hpp"
@@ -61,13 +59,13 @@ namespace margelo::nitro::pdfjsi {
 
     public:
       // Properties
-      virtual JSIStats getJsiStats() = 0;
+      virtual std::string getVersion() = 0;
       virtual KB16Support getKb16Support() = 0;
       virtual bool getOcrAvailable() = 0;
 
     public:
       // Methods
-      virtual std::shared_ptr<Promise<std::shared_ptr<HybridPdfDocumentSpec>>> open(const std::string& path) = 0;
+      virtual std::shared_ptr<Promise<std::shared_ptr<HybridPdfDocumentSpec>>> open(const std::string& path, const std::optional<std::string>& password) = 0;
       virtual std::shared_ptr<Promise<std::string>> mergePDFs(const std::vector<std::string>& filePaths, const std::string& outputPath) = 0;
       virtual std::shared_ptr<Promise<std::string>> splitPDF(const std::string& filePath, const std::string& pageRangesJson, const std::string& outputDir) = 0;
       virtual std::shared_ptr<Promise<std::string>> extractPages(const std::string& filePath, const std::string& pageNumbersJson, const std::string& outputPath) = 0;

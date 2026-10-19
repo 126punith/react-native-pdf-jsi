@@ -8,45 +8,97 @@
 #pragma once
 
 // Forward declarations of C++ defined types
+// Forward declaration of `AnnotationType` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { enum class AnnotationType; }
+// Forward declaration of `FormFieldType` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { enum class FormFieldType; }
+// Forward declaration of `HybridPdfCacheSpec` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { class HybridPdfCacheSpec; }
 // Forward declaration of `HybridPdfDocumentSpec` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { class HybridPdfDocumentSpec; }
 // Forward declaration of `HybridPdfLibrarySpec` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { class HybridPdfLibrarySpec; }
+// Forward declaration of `ImageFormat` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { enum class ImageFormat; }
+// Forward declaration of `InkStroke` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct InkStroke; }
+// Forward declaration of `OutlineItem` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct OutlineItem; }
 // Forward declaration of `PageMetrics` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct PageMetrics; }
 // Forward declaration of `PageSize` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct PageSize; }
+// Forward declaration of `PdfAnnotation` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfAnnotation; }
+// Forward declaration of `PdfCacheEntry` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfCacheEntry; }
 // Forward declaration of `PdfCacheInfo` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct PdfCacheInfo; }
 // Forward declaration of `PdfCacheStats` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct PdfCacheStats; }
-// Forward declaration of `RenderResult` to properly resolve imports.
-namespace margelo::nitro::pdfjsi { struct RenderResult; }
+// Forward declaration of `PdfDownloadsTarget` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfDownloadsTarget; }
+// Forward declaration of `PdfFormField` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfFormField; }
+// Forward declaration of `PdfPermissions` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfPermissions; }
+// Forward declaration of `PdfPoint` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfPoint; }
+// Forward declaration of `PdfRect` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfRect; }
+// Forward declaration of `RenderOptions` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct RenderOptions; }
+// Forward declaration of `RenderedImage` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct RenderedImage; }
+// Forward declaration of `SaveOptions` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct SaveOptions; }
 // Forward declaration of `SearchResult` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct SearchResult; }
+// Forward declaration of `ThumbnailOptions` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct ThumbnailOptions; }
 
 // Forward declarations of Swift defined types
+// Forward declaration of `HybridPdfCacheSpec_cxx` to properly resolve imports.
+namespace NitroPdfJsi { class HybridPdfCacheSpec_cxx; }
 // Forward declaration of `HybridPdfDocumentSpec_cxx` to properly resolve imports.
 namespace NitroPdfJsi { class HybridPdfDocumentSpec_cxx; }
 // Forward declaration of `HybridPdfLibrarySpec_cxx` to properly resolve imports.
 namespace NitroPdfJsi { class HybridPdfLibrarySpec_cxx; }
 
 // Include C++ defined types
+#include "AnnotationType.hpp"
+#include "FormFieldType.hpp"
+#include "HybridPdfCacheSpec.hpp"
 #include "HybridPdfDocumentSpec.hpp"
 #include "HybridPdfLibrarySpec.hpp"
+#include "ImageFormat.hpp"
+#include "InkStroke.hpp"
+#include "OutlineItem.hpp"
 #include "PageMetrics.hpp"
 #include "PageSize.hpp"
+#include "PdfAnnotation.hpp"
+#include "PdfCacheEntry.hpp"
 #include "PdfCacheInfo.hpp"
 #include "PdfCacheStats.hpp"
-#include "RenderResult.hpp"
+#include "PdfDownloadsTarget.hpp"
+#include "PdfFormField.hpp"
+#include "PdfPermissions.hpp"
+#include "PdfPoint.hpp"
+#include "PdfRect.hpp"
+#include "RenderOptions.hpp"
+#include "RenderedImage.hpp"
+#include "SaveOptions.hpp"
 #include "SearchResult.hpp"
+#include "ThumbnailOptions.hpp"
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/PromiseHolder.hpp>
 #include <NitroModules/Result.hpp>
 #include <exception>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 /**
@@ -55,38 +107,38 @@ namespace NitroPdfJsi { class HybridPdfLibrarySpec_cxx; }
  */
 namespace margelo::nitro::pdfjsi::bridge::swift {
 
-  // pragma MARK: std::shared_ptr<Promise<RenderResult>>
+  // pragma MARK: std::shared_ptr<Promise<PdfCacheEntry>>
   /**
-   * Specialized version of `std::shared_ptr<Promise<RenderResult>>`.
+   * Specialized version of `std::shared_ptr<Promise<PdfCacheEntry>>`.
    */
-  using std__shared_ptr_Promise_RenderResult__ = std::shared_ptr<Promise<RenderResult>>;
-  inline std::shared_ptr<Promise<RenderResult>> create_std__shared_ptr_Promise_RenderResult__() noexcept {
-    return Promise<RenderResult>::create();
+  using std__shared_ptr_Promise_PdfCacheEntry__ = std::shared_ptr<Promise<PdfCacheEntry>>;
+  inline std::shared_ptr<Promise<PdfCacheEntry>> create_std__shared_ptr_Promise_PdfCacheEntry__() noexcept {
+    return Promise<PdfCacheEntry>::create();
   }
-  inline PromiseHolder<RenderResult> wrap_std__shared_ptr_Promise_RenderResult__(std::shared_ptr<Promise<RenderResult>> promise) noexcept {
-    return PromiseHolder<RenderResult>(std::move(promise));
+  inline PromiseHolder<PdfCacheEntry> wrap_std__shared_ptr_Promise_PdfCacheEntry__(std::shared_ptr<Promise<PdfCacheEntry>> promise) noexcept {
+    return PromiseHolder<PdfCacheEntry>(std::move(promise));
   }
   
-  // pragma MARK: std::function<void(const RenderResult& /* result */)>
+  // pragma MARK: std::function<void(const PdfCacheEntry& /* result */)>
   /**
-   * Specialized version of `std::function<void(const RenderResult&)>`.
+   * Specialized version of `std::function<void(const PdfCacheEntry&)>`.
    */
-  using Func_void_RenderResult = std::function<void(const RenderResult& /* result */)>;
+  using Func_void_PdfCacheEntry = std::function<void(const PdfCacheEntry& /* result */)>;
   /**
-   * Wrapper class for a `std::function<void(const RenderResult& / * result * /)>`, this can be used from Swift.
+   * Wrapper class for a `std::function<void(const PdfCacheEntry& / * result * /)>`, this can be used from Swift.
    */
-  class Func_void_RenderResult_Wrapper final {
+  class Func_void_PdfCacheEntry_Wrapper final {
   public:
-    explicit Func_void_RenderResult_Wrapper(std::function<void(const RenderResult& /* result */)>&& func): _function(std::make_unique<std::function<void(const RenderResult& /* result */)>>(std::move(func))) {}
-    inline void call(RenderResult result) const noexcept {
+    explicit Func_void_PdfCacheEntry_Wrapper(std::function<void(const PdfCacheEntry& /* result */)>&& func): _function(std::make_unique<std::function<void(const PdfCacheEntry& /* result */)>>(std::move(func))) {}
+    inline void call(PdfCacheEntry result) const noexcept {
       _function->operator()(result);
     }
   private:
-    std::unique_ptr<std::function<void(const RenderResult& /* result */)>> _function;
+    std::unique_ptr<std::function<void(const PdfCacheEntry& /* result */)>> _function;
   } SWIFT_NONCOPYABLE;
-  Func_void_RenderResult create_Func_void_RenderResult(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_RenderResult_Wrapper wrap_Func_void_RenderResult(Func_void_RenderResult value) noexcept {
-    return Func_void_RenderResult_Wrapper(std::move(value));
+  Func_void_PdfCacheEntry create_Func_void_PdfCacheEntry(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_PdfCacheEntry_Wrapper wrap_Func_void_PdfCacheEntry(Func_void_PdfCacheEntry value) noexcept {
+    return Func_void_PdfCacheEntry_Wrapper(std::move(value));
   }
   
   // pragma MARK: std::function<void(const std::exception_ptr& /* error */)>
@@ -109,6 +161,162 @@ namespace margelo::nitro::pdfjsi::bridge::swift {
   Func_void_std__exception_ptr create_Func_void_std__exception_ptr(void* NON_NULL swiftClosureWrapper) noexcept;
   inline Func_void_std__exception_ptr_Wrapper wrap_Func_void_std__exception_ptr(Func_void_std__exception_ptr value) noexcept {
     return Func_void_std__exception_ptr_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::unordered_map<std::string, std::string>
+  /**
+   * Specialized version of `std::unordered_map<std::string, std::string>`.
+   */
+  using std__unordered_map_std__string__std__string_ = std::unordered_map<std::string, std::string>;
+  inline std::unordered_map<std::string, std::string> create_std__unordered_map_std__string__std__string_(size_t size) noexcept {
+    std::unordered_map<std::string, std::string> map;
+    map.reserve(size);
+    return map;
+  }
+  inline std::vector<std::string> get_std__unordered_map_std__string__std__string__keys(const std__unordered_map_std__string__std__string_& map) noexcept {
+    std::vector<std::string> keys;
+    keys.reserve(map.size());
+    for (const auto& entry : map) {
+      keys.push_back(entry.first);
+    }
+    return keys;
+  }
+  inline std::string get_std__unordered_map_std__string__std__string__value(const std__unordered_map_std__string__std__string_& map, const std::string& key) noexcept {
+    return map.find(key)->second;
+  }
+  inline void emplace_std__unordered_map_std__string__std__string_(std__unordered_map_std__string__std__string_& map, const std::string& key, const std::string& value) noexcept {
+    map.emplace(key, value);
+  }
+  
+  // pragma MARK: std::optional<std::unordered_map<std::string, std::string>>
+  /**
+   * Specialized version of `std::optional<std::unordered_map<std::string, std::string>>`.
+   */
+  using std__optional_std__unordered_map_std__string__std__string__ = std::optional<std::unordered_map<std::string, std::string>>;
+  inline std::optional<std::unordered_map<std::string, std::string>> create_std__optional_std__unordered_map_std__string__std__string__(const std::unordered_map<std::string, std::string>& value) noexcept {
+    return std::optional<std::unordered_map<std::string, std::string>>(value);
+  }
+  inline bool has_value_std__optional_std__unordered_map_std__string__std__string__(const std::optional<std::unordered_map<std::string, std::string>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::unordered_map<std::string, std::string> get_std__optional_std__unordered_map_std__string__std__string__(const std::optional<std::unordered_map<std::string, std::string>>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::optional<std::string>
+  /**
+   * Specialized version of `std::optional<std::string>`.
+   */
+  using std__optional_std__string_ = std::optional<std::string>;
+  inline std::optional<std::string> create_std__optional_std__string_(const std::string& value) noexcept {
+    return std::optional<std::string>(value);
+  }
+  inline bool has_value_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::string get_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::optional<double>
+  /**
+   * Specialized version of `std::optional<double>`.
+   */
+  using std__optional_double_ = std::optional<double>;
+  inline std::optional<double> create_std__optional_double_(const double& value) noexcept {
+    return std::optional<double>(value);
+  }
+  inline bool has_value_std__optional_double_(const std::optional<double>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline double get_std__optional_double_(const std::optional<double>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::function<void(double /* loadedBytes */, double /* totalBytes */)>
+  /**
+   * Specialized version of `std::function<void(double, double)>`.
+   */
+  using Func_void_double_double = std::function<void(double /* loadedBytes */, double /* totalBytes */)>;
+  /**
+   * Wrapper class for a `std::function<void(double / * loadedBytes * /, double / * totalBytes * /)>`, this can be used from Swift.
+   */
+  class Func_void_double_double_Wrapper final {
+  public:
+    explicit Func_void_double_double_Wrapper(std::function<void(double /* loadedBytes */, double /* totalBytes */)>&& func): _function(std::make_unique<std::function<void(double /* loadedBytes */, double /* totalBytes */)>>(std::move(func))) {}
+    inline void call(double loadedBytes, double totalBytes) const noexcept {
+      _function->operator()(loadedBytes, totalBytes);
+    }
+  private:
+    std::unique_ptr<std::function<void(double /* loadedBytes */, double /* totalBytes */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_double_double create_Func_void_double_double(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_double_double_Wrapper wrap_Func_void_double_double(Func_void_double_double value) noexcept {
+    return Func_void_double_double_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::optional<std::function<void(double /* loadedBytes */, double /* totalBytes */)>>
+  /**
+   * Specialized version of `std::optional<std::function<void(double / * loadedBytes * /, double / * totalBytes * /)>>`.
+   */
+  using std__optional_std__function_void_double____loadedBytes_____double____totalBytes______ = std::optional<std::function<void(double /* loadedBytes */, double /* totalBytes */)>>;
+  inline std::optional<std::function<void(double /* loadedBytes */, double /* totalBytes */)>> create_std__optional_std__function_void_double____loadedBytes_____double____totalBytes______(const std::function<void(double /* loadedBytes */, double /* totalBytes */)>& value) noexcept {
+    return std::optional<std::function<void(double /* loadedBytes */, double /* totalBytes */)>>(value);
+  }
+  inline bool has_value_std__optional_std__function_void_double____loadedBytes_____double____totalBytes______(const std::optional<std::function<void(double /* loadedBytes */, double /* totalBytes */)>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::function<void(double /* loadedBytes */, double /* totalBytes */)> get_std__optional_std__function_void_double____loadedBytes_____double____totalBytes______(const std::optional<std::function<void(double /* loadedBytes */, double /* totalBytes */)>>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::optional<PdfCacheEntry>
+  /**
+   * Specialized version of `std::optional<PdfCacheEntry>`.
+   */
+  using std__optional_PdfCacheEntry_ = std::optional<PdfCacheEntry>;
+  inline std::optional<PdfCacheEntry> create_std__optional_PdfCacheEntry_(const PdfCacheEntry& value) noexcept {
+    return std::optional<PdfCacheEntry>(value);
+  }
+  inline bool has_value_std__optional_PdfCacheEntry_(const std::optional<PdfCacheEntry>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline PdfCacheEntry get_std__optional_PdfCacheEntry_(const std::optional<PdfCacheEntry>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<std::optional<PdfCacheEntry>>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<std::optional<PdfCacheEntry>>>`.
+   */
+  using std__shared_ptr_Promise_std__optional_PdfCacheEntry___ = std::shared_ptr<Promise<std::optional<PdfCacheEntry>>>;
+  inline std::shared_ptr<Promise<std::optional<PdfCacheEntry>>> create_std__shared_ptr_Promise_std__optional_PdfCacheEntry___() noexcept {
+    return Promise<std::optional<PdfCacheEntry>>::create();
+  }
+  inline PromiseHolder<std::optional<PdfCacheEntry>> wrap_std__shared_ptr_Promise_std__optional_PdfCacheEntry___(std::shared_ptr<Promise<std::optional<PdfCacheEntry>>> promise) noexcept {
+    return PromiseHolder<std::optional<PdfCacheEntry>>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void(const std::optional<PdfCacheEntry>& /* result */)>
+  /**
+   * Specialized version of `std::function<void(const std::optional<PdfCacheEntry>&)>`.
+   */
+  using Func_void_std__optional_PdfCacheEntry_ = std::function<void(const std::optional<PdfCacheEntry>& /* result */)>;
+  /**
+   * Wrapper class for a `std::function<void(const std::optional<PdfCacheEntry>& / * result * /)>`, this can be used from Swift.
+   */
+  class Func_void_std__optional_PdfCacheEntry__Wrapper final {
+  public:
+    explicit Func_void_std__optional_PdfCacheEntry__Wrapper(std::function<void(const std::optional<PdfCacheEntry>& /* result */)>&& func): _function(std::make_unique<std::function<void(const std::optional<PdfCacheEntry>& /* result */)>>(std::move(func))) {}
+    inline void call(std::optional<PdfCacheEntry> result) const noexcept {
+      _function->operator()(result);
+    }
+  private:
+    std::unique_ptr<std::function<void(const std::optional<PdfCacheEntry>& /* result */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_std__optional_PdfCacheEntry_ create_Func_void_std__optional_PdfCacheEntry_(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_std__optional_PdfCacheEntry__Wrapper wrap_Func_void_std__optional_PdfCacheEntry_(Func_void_std__optional_PdfCacheEntry_ value) noexcept {
+    return Func_void_std__optional_PdfCacheEntry__Wrapper(std::move(value));
   }
   
   // pragma MARK: std::shared_ptr<Promise<bool>>
@@ -143,6 +351,421 @@ namespace margelo::nitro::pdfjsi::bridge::swift {
   Func_void_bool create_Func_void_bool(void* NON_NULL swiftClosureWrapper) noexcept;
   inline Func_void_bool_Wrapper wrap_Func_void_bool(Func_void_bool value) noexcept {
     return Func_void_bool_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<void>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<void>>`.
+   */
+  using std__shared_ptr_Promise_void__ = std::shared_ptr<Promise<void>>;
+  inline std::shared_ptr<Promise<void>> create_std__shared_ptr_Promise_void__() noexcept {
+    return Promise<void>::create();
+  }
+  inline PromiseHolder<void> wrap_std__shared_ptr_Promise_void__(std::shared_ptr<Promise<void>> promise) noexcept {
+    return PromiseHolder<void>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void()>
+  /**
+   * Specialized version of `std::function<void()>`.
+   */
+  using Func_void = std::function<void()>;
+  /**
+   * Wrapper class for a `std::function<void()>`, this can be used from Swift.
+   */
+  class Func_void_Wrapper final {
+  public:
+    explicit Func_void_Wrapper(std::function<void()>&& func): _function(std::make_unique<std::function<void()>>(std::move(func))) {}
+    inline void call() const noexcept {
+      _function->operator()();
+    }
+  private:
+    std::unique_ptr<std::function<void()>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_Wrapper wrap_Func_void(Func_void value) noexcept {
+    return Func_void_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<double>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<double>>`.
+   */
+  using std__shared_ptr_Promise_double__ = std::shared_ptr<Promise<double>>;
+  inline std::shared_ptr<Promise<double>> create_std__shared_ptr_Promise_double__() noexcept {
+    return Promise<double>::create();
+  }
+  inline PromiseHolder<double> wrap_std__shared_ptr_Promise_double__(std::shared_ptr<Promise<double>> promise) noexcept {
+    return PromiseHolder<double>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void(double /* result */)>
+  /**
+   * Specialized version of `std::function<void(double)>`.
+   */
+  using Func_void_double = std::function<void(double /* result */)>;
+  /**
+   * Wrapper class for a `std::function<void(double / * result * /)>`, this can be used from Swift.
+   */
+  class Func_void_double_Wrapper final {
+  public:
+    explicit Func_void_double_Wrapper(std::function<void(double /* result */)>&& func): _function(std::make_unique<std::function<void(double /* result */)>>(std::move(func))) {}
+    inline void call(double result) const noexcept {
+      _function->operator()(result);
+    }
+  private:
+    std::unique_ptr<std::function<void(double /* result */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_double create_Func_void_double(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_double_Wrapper wrap_Func_void_double(Func_void_double value) noexcept {
+    return Func_void_double_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<std::string>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<std::string>>`.
+   */
+  using std__shared_ptr_Promise_std__string__ = std::shared_ptr<Promise<std::string>>;
+  inline std::shared_ptr<Promise<std::string>> create_std__shared_ptr_Promise_std__string__() noexcept {
+    return Promise<std::string>::create();
+  }
+  inline PromiseHolder<std::string> wrap_std__shared_ptr_Promise_std__string__(std::shared_ptr<Promise<std::string>> promise) noexcept {
+    return PromiseHolder<std::string>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void(const std::string& /* result */)>
+  /**
+   * Specialized version of `std::function<void(const std::string&)>`.
+   */
+  using Func_void_std__string = std::function<void(const std::string& /* result */)>;
+  /**
+   * Wrapper class for a `std::function<void(const std::string& / * result * /)>`, this can be used from Swift.
+   */
+  class Func_void_std__string_Wrapper final {
+  public:
+    explicit Func_void_std__string_Wrapper(std::function<void(const std::string& /* result */)>&& func): _function(std::make_unique<std::function<void(const std::string& /* result */)>>(std::move(func))) {}
+    inline void call(std::string result) const noexcept {
+      _function->operator()(result);
+    }
+  private:
+    std::unique_ptr<std::function<void(const std::string& /* result */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_std__string_Wrapper wrap_Func_void_std__string(Func_void_std__string value) noexcept {
+    return Func_void_std__string_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<PdfDownloadsTarget>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<PdfDownloadsTarget>>`.
+   */
+  using std__shared_ptr_Promise_PdfDownloadsTarget__ = std::shared_ptr<Promise<PdfDownloadsTarget>>;
+  inline std::shared_ptr<Promise<PdfDownloadsTarget>> create_std__shared_ptr_Promise_PdfDownloadsTarget__() noexcept {
+    return Promise<PdfDownloadsTarget>::create();
+  }
+  inline PromiseHolder<PdfDownloadsTarget> wrap_std__shared_ptr_Promise_PdfDownloadsTarget__(std::shared_ptr<Promise<PdfDownloadsTarget>> promise) noexcept {
+    return PromiseHolder<PdfDownloadsTarget>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void(const PdfDownloadsTarget& /* result */)>
+  /**
+   * Specialized version of `std::function<void(const PdfDownloadsTarget&)>`.
+   */
+  using Func_void_PdfDownloadsTarget = std::function<void(const PdfDownloadsTarget& /* result */)>;
+  /**
+   * Wrapper class for a `std::function<void(const PdfDownloadsTarget& / * result * /)>`, this can be used from Swift.
+   */
+  class Func_void_PdfDownloadsTarget_Wrapper final {
+  public:
+    explicit Func_void_PdfDownloadsTarget_Wrapper(std::function<void(const PdfDownloadsTarget& /* result */)>&& func): _function(std::make_unique<std::function<void(const PdfDownloadsTarget& /* result */)>>(std::move(func))) {}
+    inline void call(PdfDownloadsTarget result) const noexcept {
+      _function->operator()(result);
+    }
+  private:
+    std::unique_ptr<std::function<void(const PdfDownloadsTarget& /* result */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_PdfDownloadsTarget create_Func_void_PdfDownloadsTarget(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_PdfDownloadsTarget_Wrapper wrap_Func_void_PdfDownloadsTarget(Func_void_PdfDownloadsTarget value) noexcept {
+    return Func_void_PdfDownloadsTarget_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::shared_ptr<HybridPdfCacheSpec>
+  /**
+   * Specialized version of `std::shared_ptr<HybridPdfCacheSpec>`.
+   */
+  using std__shared_ptr_HybridPdfCacheSpec_ = std::shared_ptr<HybridPdfCacheSpec>;
+  std::shared_ptr<HybridPdfCacheSpec> create_std__shared_ptr_HybridPdfCacheSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
+  void* NON_NULL get_std__shared_ptr_HybridPdfCacheSpec_(std__shared_ptr_HybridPdfCacheSpec_ cppType);
+  
+  // pragma MARK: std::weak_ptr<HybridPdfCacheSpec>
+  using std__weak_ptr_HybridPdfCacheSpec_ = std::weak_ptr<HybridPdfCacheSpec>;
+  inline std__weak_ptr_HybridPdfCacheSpec_ weakify_std__shared_ptr_HybridPdfCacheSpec_(const std::shared_ptr<HybridPdfCacheSpec>& strong) noexcept { return strong; }
+  
+  // pragma MARK: Result<std::shared_ptr<Promise<PdfCacheEntry>>>
+  using Result_std__shared_ptr_Promise_PdfCacheEntry___ = Result<std::shared_ptr<Promise<PdfCacheEntry>>>;
+  inline Result_std__shared_ptr_Promise_PdfCacheEntry___ create_Result_std__shared_ptr_Promise_PdfCacheEntry___(const std::shared_ptr<Promise<PdfCacheEntry>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<PdfCacheEntry>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_PdfCacheEntry___ create_Result_std__shared_ptr_Promise_PdfCacheEntry___(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<PdfCacheEntry>>>::withError(error);
+  }
+  
+  // pragma MARK: Result<void>
+  using Result_void_ = Result<void>;
+  inline Result_void_ create_Result_void_() noexcept {
+    return Result<void>::withValue();
+  }
+  inline Result_void_ create_Result_void_(const std::exception_ptr& error) noexcept {
+    return Result<void>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::shared_ptr<Promise<std::optional<PdfCacheEntry>>>>
+  using Result_std__shared_ptr_Promise_std__optional_PdfCacheEntry____ = Result<std::shared_ptr<Promise<std::optional<PdfCacheEntry>>>>;
+  inline Result_std__shared_ptr_Promise_std__optional_PdfCacheEntry____ create_Result_std__shared_ptr_Promise_std__optional_PdfCacheEntry____(const std::shared_ptr<Promise<std::optional<PdfCacheEntry>>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<std::optional<PdfCacheEntry>>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_std__optional_PdfCacheEntry____ create_Result_std__shared_ptr_Promise_std__optional_PdfCacheEntry____(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<std::optional<PdfCacheEntry>>>>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::shared_ptr<Promise<bool>>>
+  using Result_std__shared_ptr_Promise_bool___ = Result<std::shared_ptr<Promise<bool>>>;
+  inline Result_std__shared_ptr_Promise_bool___ create_Result_std__shared_ptr_Promise_bool___(const std::shared_ptr<Promise<bool>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<bool>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_bool___ create_Result_std__shared_ptr_Promise_bool___(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<bool>>>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::shared_ptr<Promise<void>>>
+  using Result_std__shared_ptr_Promise_void___ = Result<std::shared_ptr<Promise<void>>>;
+  inline Result_std__shared_ptr_Promise_void___ create_Result_std__shared_ptr_Promise_void___(const std::shared_ptr<Promise<void>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<void>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_void___ create_Result_std__shared_ptr_Promise_void___(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<void>>>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::shared_ptr<Promise<double>>>
+  using Result_std__shared_ptr_Promise_double___ = Result<std::shared_ptr<Promise<double>>>;
+  inline Result_std__shared_ptr_Promise_double___ create_Result_std__shared_ptr_Promise_double___(const std::shared_ptr<Promise<double>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<double>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_double___ create_Result_std__shared_ptr_Promise_double___(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<double>>>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::shared_ptr<Promise<std::string>>>
+  using Result_std__shared_ptr_Promise_std__string___ = Result<std::shared_ptr<Promise<std::string>>>;
+  inline Result_std__shared_ptr_Promise_std__string___ create_Result_std__shared_ptr_Promise_std__string___(const std::shared_ptr<Promise<std::string>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<std::string>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_std__string___ create_Result_std__shared_ptr_Promise_std__string___(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<std::string>>>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::shared_ptr<Promise<PdfDownloadsTarget>>>
+  using Result_std__shared_ptr_Promise_PdfDownloadsTarget___ = Result<std::shared_ptr<Promise<PdfDownloadsTarget>>>;
+  inline Result_std__shared_ptr_Promise_PdfDownloadsTarget___ create_Result_std__shared_ptr_Promise_PdfDownloadsTarget___(const std::shared_ptr<Promise<PdfDownloadsTarget>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<PdfDownloadsTarget>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_PdfDownloadsTarget___ create_Result_std__shared_ptr_Promise_PdfDownloadsTarget___(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<PdfDownloadsTarget>>>::withError(error);
+  }
+  
+  // pragma MARK: std::vector<OutlineItem>
+  /**
+   * Specialized version of `std::vector<OutlineItem>`.
+   */
+  using std__vector_OutlineItem_ = std::vector<OutlineItem>;
+  inline std::vector<OutlineItem> create_std__vector_OutlineItem_(size_t size) noexcept {
+    std::vector<OutlineItem> vector;
+    vector.reserve(size);
+    return vector;
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<std::vector<OutlineItem>>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<std::vector<OutlineItem>>>`.
+   */
+  using std__shared_ptr_Promise_std__vector_OutlineItem___ = std::shared_ptr<Promise<std::vector<OutlineItem>>>;
+  inline std::shared_ptr<Promise<std::vector<OutlineItem>>> create_std__shared_ptr_Promise_std__vector_OutlineItem___() noexcept {
+    return Promise<std::vector<OutlineItem>>::create();
+  }
+  inline PromiseHolder<std::vector<OutlineItem>> wrap_std__shared_ptr_Promise_std__vector_OutlineItem___(std::shared_ptr<Promise<std::vector<OutlineItem>>> promise) noexcept {
+    return PromiseHolder<std::vector<OutlineItem>>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void(const std::vector<OutlineItem>& /* result */)>
+  /**
+   * Specialized version of `std::function<void(const std::vector<OutlineItem>&)>`.
+   */
+  using Func_void_std__vector_OutlineItem_ = std::function<void(const std::vector<OutlineItem>& /* result */)>;
+  /**
+   * Wrapper class for a `std::function<void(const std::vector<OutlineItem>& / * result * /)>`, this can be used from Swift.
+   */
+  class Func_void_std__vector_OutlineItem__Wrapper final {
+  public:
+    explicit Func_void_std__vector_OutlineItem__Wrapper(std::function<void(const std::vector<OutlineItem>& /* result */)>&& func): _function(std::make_unique<std::function<void(const std::vector<OutlineItem>& /* result */)>>(std::move(func))) {}
+    inline void call(std::vector<OutlineItem> result) const noexcept {
+      _function->operator()(result);
+    }
+  private:
+    std::unique_ptr<std::function<void(const std::vector<OutlineItem>& /* result */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_std__vector_OutlineItem_ create_Func_void_std__vector_OutlineItem_(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_std__vector_OutlineItem__Wrapper wrap_Func_void_std__vector_OutlineItem_(Func_void_std__vector_OutlineItem_ value) noexcept {
+    return Func_void_std__vector_OutlineItem__Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<RenderedImage>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<RenderedImage>>`.
+   */
+  using std__shared_ptr_Promise_RenderedImage__ = std::shared_ptr<Promise<RenderedImage>>;
+  inline std::shared_ptr<Promise<RenderedImage>> create_std__shared_ptr_Promise_RenderedImage__() noexcept {
+    return Promise<RenderedImage>::create();
+  }
+  inline PromiseHolder<RenderedImage> wrap_std__shared_ptr_Promise_RenderedImage__(std::shared_ptr<Promise<RenderedImage>> promise) noexcept {
+    return PromiseHolder<RenderedImage>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void(const RenderedImage& /* result */)>
+  /**
+   * Specialized version of `std::function<void(const RenderedImage&)>`.
+   */
+  using Func_void_RenderedImage = std::function<void(const RenderedImage& /* result */)>;
+  /**
+   * Wrapper class for a `std::function<void(const RenderedImage& / * result * /)>`, this can be used from Swift.
+   */
+  class Func_void_RenderedImage_Wrapper final {
+  public:
+    explicit Func_void_RenderedImage_Wrapper(std::function<void(const RenderedImage& /* result */)>&& func): _function(std::make_unique<std::function<void(const RenderedImage& /* result */)>>(std::move(func))) {}
+    inline void call(RenderedImage result) const noexcept {
+      _function->operator()(result);
+    }
+  private:
+    std::unique_ptr<std::function<void(const RenderedImage& /* result */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_RenderedImage create_Func_void_RenderedImage(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_RenderedImage_Wrapper wrap_Func_void_RenderedImage(Func_void_RenderedImage value) noexcept {
+    return Func_void_RenderedImage_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::optional<ImageFormat>
+  /**
+   * Specialized version of `std::optional<ImageFormat>`.
+   */
+  using std__optional_ImageFormat_ = std::optional<ImageFormat>;
+  inline std::optional<ImageFormat> create_std__optional_ImageFormat_(const ImageFormat& value) noexcept {
+    return std::optional<ImageFormat>(value);
+  }
+  inline bool has_value_std__optional_ImageFormat_(const std::optional<ImageFormat>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline ImageFormat get_std__optional_ImageFormat_(const std::optional<ImageFormat>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::optional<RenderOptions>
+  /**
+   * Specialized version of `std::optional<RenderOptions>`.
+   */
+  using std__optional_RenderOptions_ = std::optional<RenderOptions>;
+  inline std::optional<RenderOptions> create_std__optional_RenderOptions_(const RenderOptions& value) noexcept {
+    return std::optional<RenderOptions>(value);
+  }
+  inline bool has_value_std__optional_RenderOptions_(const std::optional<RenderOptions>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline RenderOptions get_std__optional_RenderOptions_(const std::optional<RenderOptions>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::vector<RenderedImage>
+  /**
+   * Specialized version of `std::vector<RenderedImage>`.
+   */
+  using std__vector_RenderedImage_ = std::vector<RenderedImage>;
+  inline std::vector<RenderedImage> create_std__vector_RenderedImage_(size_t size) noexcept {
+    std::vector<RenderedImage> vector;
+    vector.reserve(size);
+    return vector;
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<std::vector<RenderedImage>>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<std::vector<RenderedImage>>>`.
+   */
+  using std__shared_ptr_Promise_std__vector_RenderedImage___ = std::shared_ptr<Promise<std::vector<RenderedImage>>>;
+  inline std::shared_ptr<Promise<std::vector<RenderedImage>>> create_std__shared_ptr_Promise_std__vector_RenderedImage___() noexcept {
+    return Promise<std::vector<RenderedImage>>::create();
+  }
+  inline PromiseHolder<std::vector<RenderedImage>> wrap_std__shared_ptr_Promise_std__vector_RenderedImage___(std::shared_ptr<Promise<std::vector<RenderedImage>>> promise) noexcept {
+    return PromiseHolder<std::vector<RenderedImage>>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void(const std::vector<RenderedImage>& /* result */)>
+  /**
+   * Specialized version of `std::function<void(const std::vector<RenderedImage>&)>`.
+   */
+  using Func_void_std__vector_RenderedImage_ = std::function<void(const std::vector<RenderedImage>& /* result */)>;
+  /**
+   * Wrapper class for a `std::function<void(const std::vector<RenderedImage>& / * result * /)>`, this can be used from Swift.
+   */
+  class Func_void_std__vector_RenderedImage__Wrapper final {
+  public:
+    explicit Func_void_std__vector_RenderedImage__Wrapper(std::function<void(const std::vector<RenderedImage>& /* result */)>&& func): _function(std::make_unique<std::function<void(const std::vector<RenderedImage>& /* result */)>>(std::move(func))) {}
+    inline void call(std::vector<RenderedImage> result) const noexcept {
+      _function->operator()(result);
+    }
+  private:
+    std::unique_ptr<std::function<void(const std::vector<RenderedImage>& /* result */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_std__vector_RenderedImage_ create_Func_void_std__vector_RenderedImage_(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_std__vector_RenderedImage__Wrapper wrap_Func_void_std__vector_RenderedImage_(Func_void_std__vector_RenderedImage_ value) noexcept {
+    return Func_void_std__vector_RenderedImage__Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::vector<double>
+  /**
+   * Specialized version of `std::vector<double>`.
+   */
+  using std__vector_double_ = std::vector<double>;
+  inline std::vector<double> create_std__vector_double_(size_t size) noexcept {
+    std::vector<double> vector;
+    vector.reserve(size);
+    return vector;
+  }
+  
+  // pragma MARK: std::optional<std::vector<double>>
+  /**
+   * Specialized version of `std::optional<std::vector<double>>`.
+   */
+  using std__optional_std__vector_double__ = std::optional<std::vector<double>>;
+  inline std::optional<std::vector<double>> create_std__optional_std__vector_double__(const std::vector<double>& value) noexcept {
+    return std::optional<std::vector<double>>(value);
+  }
+  inline bool has_value_std__optional_std__vector_double__(const std::optional<std::vector<double>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::vector<double> get_std__optional_std__vector_double__(const std::optional<std::vector<double>>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::optional<ThumbnailOptions>
+  /**
+   * Specialized version of `std::optional<ThumbnailOptions>`.
+   */
+  using std__optional_ThumbnailOptions_ = std::optional<ThumbnailOptions>;
+  inline std::optional<ThumbnailOptions> create_std__optional_ThumbnailOptions_(const ThumbnailOptions& value) noexcept {
+    return std::optional<ThumbnailOptions>(value);
+  }
+  inline bool has_value_std__optional_ThumbnailOptions_(const std::optional<ThumbnailOptions>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline ThumbnailOptions get_std__optional_ThumbnailOptions_(const std::optional<ThumbnailOptions>& optional) noexcept {
+    return optional.value();
   }
   
   // pragma MARK: std::vector<SearchResult>
@@ -190,38 +813,187 @@ namespace margelo::nitro::pdfjsi::bridge::swift {
     return Func_void_std__vector_SearchResult__Wrapper(std::move(value));
   }
   
-  // pragma MARK: std::shared_ptr<Promise<std::string>>
+  // pragma MARK: std::vector<PdfPoint>
   /**
-   * Specialized version of `std::shared_ptr<Promise<std::string>>`.
+   * Specialized version of `std::vector<PdfPoint>`.
    */
-  using std__shared_ptr_Promise_std__string__ = std::shared_ptr<Promise<std::string>>;
-  inline std::shared_ptr<Promise<std::string>> create_std__shared_ptr_Promise_std__string__() noexcept {
-    return Promise<std::string>::create();
-  }
-  inline PromiseHolder<std::string> wrap_std__shared_ptr_Promise_std__string__(std::shared_ptr<Promise<std::string>> promise) noexcept {
-    return PromiseHolder<std::string>(std::move(promise));
+  using std__vector_PdfPoint_ = std::vector<PdfPoint>;
+  inline std::vector<PdfPoint> create_std__vector_PdfPoint_(size_t size) noexcept {
+    std::vector<PdfPoint> vector;
+    vector.reserve(size);
+    return vector;
   }
   
-  // pragma MARK: std::function<void(const std::string& /* result */)>
+  // pragma MARK: std::vector<InkStroke>
   /**
-   * Specialized version of `std::function<void(const std::string&)>`.
+   * Specialized version of `std::vector<InkStroke>`.
    */
-  using Func_void_std__string = std::function<void(const std::string& /* result */)>;
+  using std__vector_InkStroke_ = std::vector<InkStroke>;
+  inline std::vector<InkStroke> create_std__vector_InkStroke_(size_t size) noexcept {
+    std::vector<InkStroke> vector;
+    vector.reserve(size);
+    return vector;
+  }
+  
+  // pragma MARK: std::optional<std::vector<InkStroke>>
   /**
-   * Wrapper class for a `std::function<void(const std::string& / * result * /)>`, this can be used from Swift.
+   * Specialized version of `std::optional<std::vector<InkStroke>>`.
    */
-  class Func_void_std__string_Wrapper final {
+  using std__optional_std__vector_InkStroke__ = std::optional<std::vector<InkStroke>>;
+  inline std::optional<std::vector<InkStroke>> create_std__optional_std__vector_InkStroke__(const std::vector<InkStroke>& value) noexcept {
+    return std::optional<std::vector<InkStroke>>(value);
+  }
+  inline bool has_value_std__optional_std__vector_InkStroke__(const std::optional<std::vector<InkStroke>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::vector<InkStroke> get_std__optional_std__vector_InkStroke__(const std::optional<std::vector<InkStroke>>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::vector<PdfAnnotation>
+  /**
+   * Specialized version of `std::vector<PdfAnnotation>`.
+   */
+  using std__vector_PdfAnnotation_ = std::vector<PdfAnnotation>;
+  inline std::vector<PdfAnnotation> create_std__vector_PdfAnnotation_(size_t size) noexcept {
+    std::vector<PdfAnnotation> vector;
+    vector.reserve(size);
+    return vector;
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<std::vector<PdfAnnotation>>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<std::vector<PdfAnnotation>>>`.
+   */
+  using std__shared_ptr_Promise_std__vector_PdfAnnotation___ = std::shared_ptr<Promise<std::vector<PdfAnnotation>>>;
+  inline std::shared_ptr<Promise<std::vector<PdfAnnotation>>> create_std__shared_ptr_Promise_std__vector_PdfAnnotation___() noexcept {
+    return Promise<std::vector<PdfAnnotation>>::create();
+  }
+  inline PromiseHolder<std::vector<PdfAnnotation>> wrap_std__shared_ptr_Promise_std__vector_PdfAnnotation___(std::shared_ptr<Promise<std::vector<PdfAnnotation>>> promise) noexcept {
+    return PromiseHolder<std::vector<PdfAnnotation>>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void(const std::vector<PdfAnnotation>& /* result */)>
+  /**
+   * Specialized version of `std::function<void(const std::vector<PdfAnnotation>&)>`.
+   */
+  using Func_void_std__vector_PdfAnnotation_ = std::function<void(const std::vector<PdfAnnotation>& /* result */)>;
+  /**
+   * Wrapper class for a `std::function<void(const std::vector<PdfAnnotation>& / * result * /)>`, this can be used from Swift.
+   */
+  class Func_void_std__vector_PdfAnnotation__Wrapper final {
   public:
-    explicit Func_void_std__string_Wrapper(std::function<void(const std::string& /* result */)>&& func): _function(std::make_unique<std::function<void(const std::string& /* result */)>>(std::move(func))) {}
-    inline void call(std::string result) const noexcept {
+    explicit Func_void_std__vector_PdfAnnotation__Wrapper(std::function<void(const std::vector<PdfAnnotation>& /* result */)>&& func): _function(std::make_unique<std::function<void(const std::vector<PdfAnnotation>& /* result */)>>(std::move(func))) {}
+    inline void call(std::vector<PdfAnnotation> result) const noexcept {
       _function->operator()(result);
     }
   private:
-    std::unique_ptr<std::function<void(const std::string& /* result */)>> _function;
+    std::unique_ptr<std::function<void(const std::vector<PdfAnnotation>& /* result */)>> _function;
   } SWIFT_NONCOPYABLE;
-  Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_std__string_Wrapper wrap_Func_void_std__string(Func_void_std__string value) noexcept {
-    return Func_void_std__string_Wrapper(std::move(value));
+  Func_void_std__vector_PdfAnnotation_ create_Func_void_std__vector_PdfAnnotation_(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_std__vector_PdfAnnotation__Wrapper wrap_Func_void_std__vector_PdfAnnotation_(Func_void_std__vector_PdfAnnotation_ value) noexcept {
+    return Func_void_std__vector_PdfAnnotation__Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::vector<std::string>
+  /**
+   * Specialized version of `std::vector<std::string>`.
+   */
+  using std__vector_std__string_ = std::vector<std::string>;
+  inline std::vector<std::string> create_std__vector_std__string_(size_t size) noexcept {
+    std::vector<std::string> vector;
+    vector.reserve(size);
+    return vector;
+  }
+  
+  // pragma MARK: std::vector<PdfFormField>
+  /**
+   * Specialized version of `std::vector<PdfFormField>`.
+   */
+  using std__vector_PdfFormField_ = std::vector<PdfFormField>;
+  inline std::vector<PdfFormField> create_std__vector_PdfFormField_(size_t size) noexcept {
+    std::vector<PdfFormField> vector;
+    vector.reserve(size);
+    return vector;
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<std::vector<PdfFormField>>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<std::vector<PdfFormField>>>`.
+   */
+  using std__shared_ptr_Promise_std__vector_PdfFormField___ = std::shared_ptr<Promise<std::vector<PdfFormField>>>;
+  inline std::shared_ptr<Promise<std::vector<PdfFormField>>> create_std__shared_ptr_Promise_std__vector_PdfFormField___() noexcept {
+    return Promise<std::vector<PdfFormField>>::create();
+  }
+  inline PromiseHolder<std::vector<PdfFormField>> wrap_std__shared_ptr_Promise_std__vector_PdfFormField___(std::shared_ptr<Promise<std::vector<PdfFormField>>> promise) noexcept {
+    return PromiseHolder<std::vector<PdfFormField>>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void(const std::vector<PdfFormField>& /* result */)>
+  /**
+   * Specialized version of `std::function<void(const std::vector<PdfFormField>&)>`.
+   */
+  using Func_void_std__vector_PdfFormField_ = std::function<void(const std::vector<PdfFormField>& /* result */)>;
+  /**
+   * Wrapper class for a `std::function<void(const std::vector<PdfFormField>& / * result * /)>`, this can be used from Swift.
+   */
+  class Func_void_std__vector_PdfFormField__Wrapper final {
+  public:
+    explicit Func_void_std__vector_PdfFormField__Wrapper(std::function<void(const std::vector<PdfFormField>& /* result */)>&& func): _function(std::make_unique<std::function<void(const std::vector<PdfFormField>& /* result */)>>(std::move(func))) {}
+    inline void call(std::vector<PdfFormField> result) const noexcept {
+      _function->operator()(result);
+    }
+  private:
+    std::unique_ptr<std::function<void(const std::vector<PdfFormField>& /* result */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_std__vector_PdfFormField_ create_Func_void_std__vector_PdfFormField_(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_std__vector_PdfFormField__Wrapper wrap_Func_void_std__vector_PdfFormField_(Func_void_std__vector_PdfFormField_ value) noexcept {
+    return Func_void_std__vector_PdfFormField__Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::optional<bool>
+  /**
+   * Specialized version of `std::optional<bool>`.
+   */
+  using std__optional_bool_ = std::optional<bool>;
+  inline std::optional<bool> create_std__optional_bool_(const bool& value) noexcept {
+    return std::optional<bool>(value);
+  }
+  inline bool has_value_std__optional_bool_(const std::optional<bool>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline bool get_std__optional_bool_(const std::optional<bool>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::optional<PdfPermissions>
+  /**
+   * Specialized version of `std::optional<PdfPermissions>`.
+   */
+  using std__optional_PdfPermissions_ = std::optional<PdfPermissions>;
+  inline std::optional<PdfPermissions> create_std__optional_PdfPermissions_(const PdfPermissions& value) noexcept {
+    return std::optional<PdfPermissions>(value);
+  }
+  inline bool has_value_std__optional_PdfPermissions_(const std::optional<PdfPermissions>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline PdfPermissions get_std__optional_PdfPermissions_(const std::optional<PdfPermissions>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::optional<SaveOptions>
+  /**
+   * Specialized version of `std::optional<SaveOptions>`.
+   */
+  using std__optional_SaveOptions_ = std::optional<SaveOptions>;
+  inline std::optional<SaveOptions> create_std__optional_SaveOptions_(const SaveOptions& value) noexcept {
+    return std::optional<SaveOptions>(value);
+  }
+  inline bool has_value_std__optional_SaveOptions_(const std::optional<SaveOptions>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline SaveOptions get_std__optional_SaveOptions_(const std::optional<SaveOptions>& optional) noexcept {
+    return optional.value();
   }
   
   // pragma MARK: std::shared_ptr<HybridPdfDocumentSpec>
@@ -254,31 +1026,31 @@ namespace margelo::nitro::pdfjsi::bridge::swift {
     return Result<PageMetrics>::withError(error);
   }
   
-  // pragma MARK: Result<void>
-  using Result_void_ = Result<void>;
-  inline Result_void_ create_Result_void_() noexcept {
-    return Result<void>::withValue();
+  // pragma MARK: Result<std::shared_ptr<Promise<std::vector<OutlineItem>>>>
+  using Result_std__shared_ptr_Promise_std__vector_OutlineItem____ = Result<std::shared_ptr<Promise<std::vector<OutlineItem>>>>;
+  inline Result_std__shared_ptr_Promise_std__vector_OutlineItem____ create_Result_std__shared_ptr_Promise_std__vector_OutlineItem____(const std::shared_ptr<Promise<std::vector<OutlineItem>>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<std::vector<OutlineItem>>>>::withValue(value);
   }
-  inline Result_void_ create_Result_void_(const std::exception_ptr& error) noexcept {
-    return Result<void>::withError(error);
-  }
-  
-  // pragma MARK: Result<std::shared_ptr<Promise<RenderResult>>>
-  using Result_std__shared_ptr_Promise_RenderResult___ = Result<std::shared_ptr<Promise<RenderResult>>>;
-  inline Result_std__shared_ptr_Promise_RenderResult___ create_Result_std__shared_ptr_Promise_RenderResult___(const std::shared_ptr<Promise<RenderResult>>& value) noexcept {
-    return Result<std::shared_ptr<Promise<RenderResult>>>::withValue(value);
-  }
-  inline Result_std__shared_ptr_Promise_RenderResult___ create_Result_std__shared_ptr_Promise_RenderResult___(const std::exception_ptr& error) noexcept {
-    return Result<std::shared_ptr<Promise<RenderResult>>>::withError(error);
+  inline Result_std__shared_ptr_Promise_std__vector_OutlineItem____ create_Result_std__shared_ptr_Promise_std__vector_OutlineItem____(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<std::vector<OutlineItem>>>>::withError(error);
   }
   
-  // pragma MARK: Result<std::shared_ptr<Promise<bool>>>
-  using Result_std__shared_ptr_Promise_bool___ = Result<std::shared_ptr<Promise<bool>>>;
-  inline Result_std__shared_ptr_Promise_bool___ create_Result_std__shared_ptr_Promise_bool___(const std::shared_ptr<Promise<bool>>& value) noexcept {
-    return Result<std::shared_ptr<Promise<bool>>>::withValue(value);
+  // pragma MARK: Result<std::shared_ptr<Promise<RenderedImage>>>
+  using Result_std__shared_ptr_Promise_RenderedImage___ = Result<std::shared_ptr<Promise<RenderedImage>>>;
+  inline Result_std__shared_ptr_Promise_RenderedImage___ create_Result_std__shared_ptr_Promise_RenderedImage___(const std::shared_ptr<Promise<RenderedImage>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<RenderedImage>>>::withValue(value);
   }
-  inline Result_std__shared_ptr_Promise_bool___ create_Result_std__shared_ptr_Promise_bool___(const std::exception_ptr& error) noexcept {
-    return Result<std::shared_ptr<Promise<bool>>>::withError(error);
+  inline Result_std__shared_ptr_Promise_RenderedImage___ create_Result_std__shared_ptr_Promise_RenderedImage___(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<RenderedImage>>>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::shared_ptr<Promise<std::vector<RenderedImage>>>>
+  using Result_std__shared_ptr_Promise_std__vector_RenderedImage____ = Result<std::shared_ptr<Promise<std::vector<RenderedImage>>>>;
+  inline Result_std__shared_ptr_Promise_std__vector_RenderedImage____ create_Result_std__shared_ptr_Promise_std__vector_RenderedImage____(const std::shared_ptr<Promise<std::vector<RenderedImage>>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<std::vector<RenderedImage>>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_std__vector_RenderedImage____ create_Result_std__shared_ptr_Promise_std__vector_RenderedImage____(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<std::vector<RenderedImage>>>>::withError(error);
   }
   
   // pragma MARK: Result<std::shared_ptr<Promise<std::vector<SearchResult>>>>
@@ -290,13 +1062,22 @@ namespace margelo::nitro::pdfjsi::bridge::swift {
     return Result<std::shared_ptr<Promise<std::vector<SearchResult>>>>::withError(error);
   }
   
-  // pragma MARK: Result<std::shared_ptr<Promise<std::string>>>
-  using Result_std__shared_ptr_Promise_std__string___ = Result<std::shared_ptr<Promise<std::string>>>;
-  inline Result_std__shared_ptr_Promise_std__string___ create_Result_std__shared_ptr_Promise_std__string___(const std::shared_ptr<Promise<std::string>>& value) noexcept {
-    return Result<std::shared_ptr<Promise<std::string>>>::withValue(value);
+  // pragma MARK: Result<std::shared_ptr<Promise<std::vector<PdfAnnotation>>>>
+  using Result_std__shared_ptr_Promise_std__vector_PdfAnnotation____ = Result<std::shared_ptr<Promise<std::vector<PdfAnnotation>>>>;
+  inline Result_std__shared_ptr_Promise_std__vector_PdfAnnotation____ create_Result_std__shared_ptr_Promise_std__vector_PdfAnnotation____(const std::shared_ptr<Promise<std::vector<PdfAnnotation>>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<std::vector<PdfAnnotation>>>>::withValue(value);
   }
-  inline Result_std__shared_ptr_Promise_std__string___ create_Result_std__shared_ptr_Promise_std__string___(const std::exception_ptr& error) noexcept {
-    return Result<std::shared_ptr<Promise<std::string>>>::withError(error);
+  inline Result_std__shared_ptr_Promise_std__vector_PdfAnnotation____ create_Result_std__shared_ptr_Promise_std__vector_PdfAnnotation____(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<std::vector<PdfAnnotation>>>>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::shared_ptr<Promise<std::vector<PdfFormField>>>>
+  using Result_std__shared_ptr_Promise_std__vector_PdfFormField____ = Result<std::shared_ptr<Promise<std::vector<PdfFormField>>>>;
+  inline Result_std__shared_ptr_Promise_std__vector_PdfFormField____ create_Result_std__shared_ptr_Promise_std__vector_PdfFormField____(const std::shared_ptr<Promise<std::vector<PdfFormField>>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<std::vector<PdfFormField>>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_std__vector_PdfFormField____ create_Result_std__shared_ptr_Promise_std__vector_PdfFormField____(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<std::vector<PdfFormField>>>>::withError(error);
   }
   
   // pragma MARK: std::shared_ptr<Promise<std::shared_ptr<HybridPdfDocumentSpec>>>
@@ -333,17 +1114,6 @@ namespace margelo::nitro::pdfjsi::bridge::swift {
     return Func_void_std__shared_ptr_HybridPdfDocumentSpec__Wrapper(std::move(value));
   }
   
-  // pragma MARK: std::vector<std::string>
-  /**
-   * Specialized version of `std::vector<std::string>`.
-   */
-  using std__vector_std__string_ = std::vector<std::string>;
-  inline std::vector<std::string> create_std__vector_std__string_(size_t size) noexcept {
-    std::vector<std::string> vector;
-    vector.reserve(size);
-    return vector;
-  }
-  
   // pragma MARK: std::shared_ptr<Promise<PdfCacheInfo>>
   /**
    * Specialized version of `std::shared_ptr<Promise<PdfCacheInfo>>`.
@@ -376,40 +1146,6 @@ namespace margelo::nitro::pdfjsi::bridge::swift {
   Func_void_PdfCacheInfo create_Func_void_PdfCacheInfo(void* NON_NULL swiftClosureWrapper) noexcept;
   inline Func_void_PdfCacheInfo_Wrapper wrap_Func_void_PdfCacheInfo(Func_void_PdfCacheInfo value) noexcept {
     return Func_void_PdfCacheInfo_Wrapper(std::move(value));
-  }
-  
-  // pragma MARK: std::shared_ptr<Promise<double>>
-  /**
-   * Specialized version of `std::shared_ptr<Promise<double>>`.
-   */
-  using std__shared_ptr_Promise_double__ = std::shared_ptr<Promise<double>>;
-  inline std::shared_ptr<Promise<double>> create_std__shared_ptr_Promise_double__() noexcept {
-    return Promise<double>::create();
-  }
-  inline PromiseHolder<double> wrap_std__shared_ptr_Promise_double__(std::shared_ptr<Promise<double>> promise) noexcept {
-    return PromiseHolder<double>(std::move(promise));
-  }
-  
-  // pragma MARK: std::function<void(double /* result */)>
-  /**
-   * Specialized version of `std::function<void(double)>`.
-   */
-  using Func_void_double = std::function<void(double /* result */)>;
-  /**
-   * Wrapper class for a `std::function<void(double / * result * /)>`, this can be used from Swift.
-   */
-  class Func_void_double_Wrapper final {
-  public:
-    explicit Func_void_double_Wrapper(std::function<void(double /* result */)>&& func): _function(std::make_unique<std::function<void(double /* result */)>>(std::move(func))) {}
-    inline void call(double result) const noexcept {
-      _function->operator()(result);
-    }
-  private:
-    std::unique_ptr<std::function<void(double /* result */)>> _function;
-  } SWIFT_NONCOPYABLE;
-  Func_void_double create_Func_void_double(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_double_Wrapper wrap_Func_void_double(Func_void_double value) noexcept {
-    return Func_void_double_Wrapper(std::move(value));
   }
   
   // pragma MARK: std::shared_ptr<Promise<PdfCacheStats>>
@@ -474,15 +1210,6 @@ namespace margelo::nitro::pdfjsi::bridge::swift {
   }
   inline Result_std__shared_ptr_Promise_PdfCacheInfo___ create_Result_std__shared_ptr_Promise_PdfCacheInfo___(const std::exception_ptr& error) noexcept {
     return Result<std::shared_ptr<Promise<PdfCacheInfo>>>::withError(error);
-  }
-  
-  // pragma MARK: Result<std::shared_ptr<Promise<double>>>
-  using Result_std__shared_ptr_Promise_double___ = Result<std::shared_ptr<Promise<double>>>;
-  inline Result_std__shared_ptr_Promise_double___ create_Result_std__shared_ptr_Promise_double___(const std::shared_ptr<Promise<double>>& value) noexcept {
-    return Result<std::shared_ptr<Promise<double>>>::withValue(value);
-  }
-  inline Result_std__shared_ptr_Promise_double___ create_Result_std__shared_ptr_Promise_double___(const std::exception_ptr& error) noexcept {
-    return Result<std::shared_ptr<Promise<double>>>::withError(error);
   }
   
   // pragma MARK: Result<std::shared_ptr<Promise<PdfCacheStats>>>

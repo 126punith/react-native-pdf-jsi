@@ -156,13 +156,29 @@ describe('document registry', () => {
         expect(doc.close).toHaveBeenCalledTimes(1);
     });
 
-    test('direct helpers do not leave documents referenced or pinned', async () => {
-        mockOpen.mockImplementation(async (path) => ({
-            ...fakeDocument(path),
-            searchText: jest.fn(async () => []),
-        }));
-        await registry.searchTextDirect('/a.pdf', 'x', 1, 2);
+    test('withPdfDocument maps native errors to PdfError codes', async () => {
+        await expect(
+            registry.withPdfDocument('/a.pdf', () => {
+                throw new Error('[invalid-page] Page 9 does not exist');
+            })
+        ).rejects.toMatchObject({ name: 'PdfError', code: 'invalid-page', message: 'Page 9 does not exist' });
         expect(registry.getPdfRegistryStats()).toMatchObject({ referenced: 0, pinned: 0, warm: 1 });
+    });
+
+    test('open failures surface their native code', async () => {
+        mockOpen.mockImplementationOnce(async () => {
+            throw new Error('[password-required] This PDF needs a password');
+        });
+        await expect(registry.acquirePdf('/locked.pdf')).rejects.toMatchObject({ code: 'password-required' });
+    });
+
+    test('a failed password open can be retried with a password', async () => {
+        mockOpen.mockImplementationOnce(async () => {
+            throw new Error('[password-required] needs a password');
+        });
+        await expect(registry.acquirePdf('/locked.pdf')).rejects.toMatchObject({ code: 'password-required' });
+        await registry.acquirePdf('/locked.pdf', 'secret');
+        expect(mockOpen).toHaveBeenLastCalledWith('/locked.pdf', 'secret');
     });
 
     test('closeAllPdfs closes everything', async () => {

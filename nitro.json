@@ -1,10 +1,14 @@
 {
-  "cxxNamespace": ["pdfjsi"],
+  "cxxNamespace": [
+    "pdfjsi"
+  ],
   "ios": {
     "iosModuleName": "NitroPdfJsi"
   },
   "android": {
-    "androidNamespace": ["pdfjsi"],
+    "androidNamespace": [
+      "pdfjsi"
+    ],
     "androidCxxLibName": "NitroPdfJsi"
   },
   "autolinking": {
@@ -27,7 +31,19 @@
         "language": "c++",
         "implementationClassName": "HybridPdfDocument"
       }
+    },
+    "PdfCache": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridPdfCache"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "HybridPdfCache"
+      }
     }
   },
-  "ignorePaths": ["node_modules"]
+  "ignorePaths": [
+    "node_modules"
+  ]
 }

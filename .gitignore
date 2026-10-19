@@ -78,3 +78,6 @@ yarn-error.log
 # Cursor (local / machine-specific agent rules)
 .cursor/rules/git-commit-messages.mdc
 
+
+# Library build output
+/lib/

@@ -12,8 +12,6 @@
 // Forward declaration of `HybridPdfLibrarySpec_cxx` to properly resolve imports.
 namespace NitroPdfJsi { class HybridPdfLibrarySpec_cxx; }
 
-// Forward declaration of `JSIStats` to properly resolve imports.
-namespace margelo::nitro::pdfjsi { struct JSIStats; }
 // Forward declaration of `KB16Support` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct KB16Support; }
 // Forward declaration of `HybridPdfDocumentSpec` to properly resolve imports.
@@ -23,12 +21,12 @@ namespace margelo::nitro::pdfjsi { struct PdfCacheInfo; }
 // Forward declaration of `PdfCacheStats` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct PdfCacheStats; }
 
-#include "JSIStats.hpp"
 #include <string>
 #include "KB16Support.hpp"
 #include <memory>
 #include "HybridPdfDocumentSpec.hpp"
 #include <NitroModules/Promise.hpp>
+#include <optional>
 #include <vector>
 #include "PdfCacheInfo.hpp"
 #include "PdfCacheStats.hpp"
@@ -79,8 +77,9 @@ namespace margelo::nitro::pdfjsi {
 
   public:
     // Properties
-    inline JSIStats getJsiStats() noexcept override {
-      return _swiftPart.getJsiStats();
+    inline std::string getVersion() noexcept override {
+      auto __result = _swiftPart.getVersion();
+      return __result;
     }
     inline KB16Support getKb16Support() noexcept override {
       return _swiftPart.getKb16Support();
@@ -91,8 +90,8 @@ namespace margelo::nitro::pdfjsi {
 
   public:
     // Methods
-    inline std::shared_ptr<Promise<std::shared_ptr<HybridPdfDocumentSpec>>> open(const std::string& path) override {
-      auto __result = _swiftPart.open(path);
+    inline std::shared_ptr<Promise<std::shared_ptr<HybridPdfDocumentSpec>>> open(const std::string& path, const std::optional<std::string>& password) override {
+      auto __result = _swiftPart.open(path, password);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }

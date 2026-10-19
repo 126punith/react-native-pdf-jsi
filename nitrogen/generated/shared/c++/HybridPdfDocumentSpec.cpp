@@ -16,24 +16,29 @@ namespace margelo::nitro::pdfjsi {
     registerHybrids(this, [](Prototype& prototype) {
       prototype.registerHybridGetter("pageCount", &HybridPdfDocumentSpec::getPageCount);
       prototype.registerHybridGetter("path", &HybridPdfDocumentSpec::getPath);
-      prototype.registerHybridGetter("cacheMetrics", &HybridPdfDocumentSpec::getCacheMetrics);
-      prototype.registerHybridGetter("performanceMetrics", &HybridPdfDocumentSpec::getPerformanceMetrics);
+      prototype.registerHybridGetter("isEncrypted", &HybridPdfDocumentSpec::getIsEncrypted);
+      prototype.registerHybridGetter("hasUnsavedChanges", &HybridPdfDocumentSpec::getHasUnsavedChanges);
       prototype.registerHybridMethod("pageSize", &HybridPdfDocumentSpec::pageSize);
       prototype.registerHybridMethod("pageMetrics", &HybridPdfDocumentSpec::pageMetrics);
-      prototype.registerHybridMethod("setRenderQuality", &HybridPdfDocumentSpec::setRenderQuality);
-      prototype.registerHybridMethod("clearCache", &HybridPdfDocumentSpec::clearCache);
-      prototype.registerHybridMethod("optimizeMemory", &HybridPdfDocumentSpec::optimizeMemory);
+      prototype.registerHybridMethod("getOutline", &HybridPdfDocumentSpec::getOutline);
       prototype.registerHybridMethod("renderPage", &HybridPdfDocumentSpec::renderPage);
-      prototype.registerHybridMethod("preloadPages", &HybridPdfDocumentSpec::preloadPages);
+      prototype.registerHybridMethod("renderThumbnails", &HybridPdfDocumentSpec::renderThumbnails);
       prototype.registerHybridMethod("searchText", &HybridPdfDocumentSpec::searchText);
       prototype.registerHybridMethod("extractText", &HybridPdfDocumentSpec::extractText);
       prototype.registerHybridMethod("extractTextFromPages", &HybridPdfDocumentSpec::extractTextFromPages);
       prototype.registerHybridMethod("extractAllText", &HybridPdfDocumentSpec::extractAllText);
       prototype.registerHybridMethod("recognizeText", &HybridPdfDocumentSpec::recognizeText);
-      prototype.registerHybridMethod("exportPageToImage", &HybridPdfDocumentSpec::exportPageToImage);
-      prototype.registerHybridMethod("exportToImages", &HybridPdfDocumentSpec::exportToImages);
       prototype.registerHybridMethod("rotatePage", &HybridPdfDocumentSpec::rotatePage);
       prototype.registerHybridMethod("deletePage", &HybridPdfDocumentSpec::deletePage);
+      prototype.registerHybridMethod("movePage", &HybridPdfDocumentSpec::movePage);
+      prototype.registerHybridMethod("insertPages", &HybridPdfDocumentSpec::insertPages);
+      prototype.registerHybridMethod("addAnnotation", &HybridPdfDocumentSpec::addAnnotation);
+      prototype.registerHybridMethod("getAnnotations", &HybridPdfDocumentSpec::getAnnotations);
+      prototype.registerHybridMethod("removeAnnotation", &HybridPdfDocumentSpec::removeAnnotation);
+      prototype.registerHybridMethod("getFormFields", &HybridPdfDocumentSpec::getFormFields);
+      prototype.registerHybridMethod("setFormFieldValues", &HybridPdfDocumentSpec::setFormFieldValues);
+      prototype.registerHybridMethod("flattenForms", &HybridPdfDocumentSpec::flattenForms);
+      prototype.registerHybridMethod("save", &HybridPdfDocumentSpec::save);
       prototype.registerHybridMethod("close", &HybridPdfDocumentSpec::close);
     });
   }

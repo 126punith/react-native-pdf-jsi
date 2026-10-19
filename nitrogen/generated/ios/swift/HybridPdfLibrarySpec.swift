@@ -10,12 +10,12 @@ import NitroModules
 /// See ``HybridPdfLibrarySpec``
 public protocol HybridPdfLibrarySpec_protocol: HybridObject {
   // Properties
-  var jsiStats: JSIStats { get }
+  var version: String { get }
   var kb16Support: KB16Support { get }
   var ocrAvailable: Bool { get }
 
   // Methods
-  func open(path: String) throws -> Promise<(any HybridPdfDocumentSpec)>
+  func open(path: String, password: String?) throws -> Promise<(any HybridPdfDocumentSpec)>
   func mergePDFs(filePaths: [String], outputPath: String) throws -> Promise<String>
   func splitPDF(filePath: String, pageRangesJson: String, outputDir: String) throws -> Promise<String>
   func extractPages(filePath: String, pageNumbersJson: String, outputPath: String) throws -> Promise<String>

@@ -121,10 +121,10 @@ open class HybridPdfLibrarySpec_cxx {
   }
 
   // Properties
-  public final var jsiStats: JSIStats {
+  public final var version: std.string {
     @inline(__always)
     get {
-      return self.__implementation.jsiStats
+      return std.string(self.__implementation.version)
     }
   }
   
@@ -144,9 +144,16 @@ open class HybridPdfLibrarySpec_cxx {
 
   // Methods
   @inline(__always)
-  public final func open(path: std.string) -> bridge.Result_std__shared_ptr_Promise_std__shared_ptr_HybridPdfDocumentSpec____ {
+  public final func open(path: std.string, password: bridge.std__optional_std__string_) -> bridge.Result_std__shared_ptr_Promise_std__shared_ptr_HybridPdfDocumentSpec____ {
     do {
-      let __result = try self.__implementation.open(path: String(path))
+      let __result = try self.__implementation.open(path: String(path), password: { () -> String? in
+        if bridge.has_value_std__optional_std__string_(password) {
+          let __unwrapped = bridge.get_std__optional_std__string_(password)
+          return String(__unwrapped)
+        } else {
+          return nil
+        }
+      }())
       let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__shared_ptr_HybridPdfDocumentSpec___ in
         let __promise = bridge.create_std__shared_ptr_Promise_std__shared_ptr_HybridPdfDocumentSpec___()
         let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__shared_ptr_HybridPdfDocumentSpec___(__promise)

@@ -195,7 +195,7 @@ const SwipeableBookmarkItem = ({bookmark, isCurrentPage, onPress, onDelete}) => 
               <Text style={styles.bookmarkName} numberOfLines={1}>
                 {bookmark.name}
               </Text>
-              <Text style={styles.pageNumber}>Page {bookmark.page}</Text>
+              <Text style={styles.pageNumber}>Page {bookmark.page + 1}</Text>
             </View>
             
             {bookmark.notes && (

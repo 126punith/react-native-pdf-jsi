@@ -1,0 +1,24 @@
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "lib": ["ESNext"],
+        "jsx": "react-jsx",
+        "strict": true,
+        "allowJs": true,
+        "checkJs": false,
+        "noEmit": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "resolveJsonModule": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noFallthroughCasesInSwitch": true,
+        "forceConsistentCasingInFileNames": true,
+        "verbatimModuleSyntax": false,
+        "types": ["jest", "react-native"]
+    },
+    "include": ["src", "fabric"],
+    "exclude": ["node_modules", "lib", "example", "plugin"]
+}

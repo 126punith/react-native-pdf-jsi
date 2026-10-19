@@ -10,8 +10,8 @@
  */
 
 import { Platform } from 'react-native';
-import ReactNativeBlobUtil from 'react-native-blob-util';
 import { getPdfLibrary } from './PDFJSI';
+import { PdfFiles } from './PdfCache';
 
 /**
  * Compression presets for different use cases
@@ -358,7 +358,7 @@ export class PDFCompressor {
         try {
             // For fallback, we simply copy the file
             // Real compression requires native code
-            await ReactNativeBlobUtil.fs.cp(inputPath, outputPath);
+            await PdfFiles.copy(inputPath, outputPath);
 
             if (onProgress) {
                 onProgress({
@@ -388,7 +388,7 @@ export class PDFCompressor {
      */
     async _fileExists(filePath) {
         try {
-            return await ReactNativeBlobUtil.fs.exists(filePath);
+            return await PdfFiles.exists(filePath);
         } catch (error) {
             return false;
         }
@@ -400,11 +400,11 @@ export class PDFCompressor {
      */
     async _getFileStats(filePath) {
         try {
-            const stats = await ReactNativeBlobUtil.fs.stat(filePath);
+            const size = await PdfFiles.size(filePath);
             return {
-                size: parseInt(stats.size, 10),
-                lastModified: stats.lastModified,
-                path: stats.path
+                size,
+                lastModified: 0,
+                path: filePath
             };
         } catch (error) {
             console.error('📦 PDFCompressor: Failed to get file stats:', error);
@@ -431,7 +431,7 @@ export class PDFCompressor {
         try {
             const exists = await this._fileExists(filePath);
             if (exists) {
-                await ReactNativeBlobUtil.fs.unlink(filePath);
+                await PdfFiles.remove(filePath);
                 console.log(`📦 PDFCompressor: Deleted file: ${filePath}`);
                 return true;
             }

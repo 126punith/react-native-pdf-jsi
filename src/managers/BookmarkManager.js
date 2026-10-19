@@ -10,7 +10,27 @@
  * @version 1.0.0
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+/**
+ * Storage the app provides through `bookmarkManager.setStorage(adapter)`.
+ * AsyncStorage, MMKV (wrapped in promises) or any key-value store fits:
+ *
+ *     import AsyncStorage from '@react-native-async-storage/async-storage';
+ *     bookmarkManager.setStorage(AsyncStorage);
+ *
+ * Without an adapter, bookmarks live in memory for the session.
+ */
+export function createMemoryStorage() {
+    const values = new Map();
+    return {
+        getItem: async (key) => (values.has(key) ? values.get(key) : null),
+        setItem: async (key, value) => {
+            values.set(key, value);
+        },
+        removeItem: async (key) => {
+            values.delete(key);
+        },
+    };
+}
 
 const STORAGE_KEY = '@react-native-pdf-jsi/bookmarks';
 const PROGRESS_KEY = '@react-native-pdf-jsi/progress';
@@ -23,18 +43,34 @@ export class BookmarkManager {
         this.bookmarks = new Map();
         this.progress = new Map();
         this.initialized = false;
+        this.storage = createMemoryStorage();
+    }
+
+    /**
+     * Sets where bookmarks and progress are stored. Call before the first use;
+     * the next call reloads from the new storage.
+     * @param {{ getItem(key: string): Promise<string|null>, setItem(key: string, value: string): Promise<void>, removeItem(key: string): Promise<void> }} storage
+     */
+    setStorage(storage) {
+        if (!storage || typeof storage.getItem !== 'function' || typeof storage.setItem !== 'function') {
+            throw new Error('BookmarkManager.setStorage needs an object with getItem and setItem.');
+        }
+        this.storage = storage;
+        this.bookmarks = new Map();
+        this.progress = new Map();
+        this.initialized = false;
     }
 
     /**
      * Initialize bookmark manager
-     * Load bookmarks and progress from AsyncStorage
+     * Load bookmarks and progress from the configured storage
      */
     async initialize() {
         if (this.initialized) return;
 
         try {
             // Load bookmarks
-            const bookmarksData = await AsyncStorage.getItem(STORAGE_KEY);
+            const bookmarksData = await this.storage.getItem(STORAGE_KEY);
             if (bookmarksData) {
                 const parsed = JSON.parse(bookmarksData);
                 this.bookmarks = new Map(Object.entries(parsed));
@@ -42,7 +78,7 @@ export class BookmarkManager {
             }
 
             // Load progress
-            const progressData = await AsyncStorage.getItem(PROGRESS_KEY);
+            const progressData = await this.storage.getItem(PROGRESS_KEY);
             if (progressData) {
                 const parsed = JSON.parse(progressData);
                 this.progress = new Map(Object.entries(parsed));
@@ -57,12 +93,12 @@ export class BookmarkManager {
     }
 
     /**
-     * Save bookmarks to AsyncStorage
+     * Save bookmarks to the configured storage
      */
     async saveBookmarks() {
         try {
             const data = Object.fromEntries(this.bookmarks);
-            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            await this.storage.setItem(STORAGE_KEY, JSON.stringify(data));
             console.log('📚 BookmarkManager: Bookmarks saved');
         } catch (error) {
             console.error('📚 BookmarkManager: Save error:', error);
@@ -71,12 +107,12 @@ export class BookmarkManager {
     }
 
     /**
-     * Save progress to AsyncStorage
+     * Save progress to the configured storage
      */
     async saveProgress() {
         try {
             const data = Object.fromEntries(this.progress);
-            await AsyncStorage.setItem(PROGRESS_KEY, JSON.stringify(data));
+            await this.storage.setItem(PROGRESS_KEY, JSON.stringify(data));
             console.log('📊 BookmarkManager: Progress saved');
         } catch (error) {
             console.error('📊 BookmarkManager: Progress save error:', error);
@@ -99,7 +135,7 @@ export class BookmarkManager {
             id: this.generateId(),
             pdfId,
             page: bookmark.page,
-            name: bookmark.name || `Page ${bookmark.page}`,
+            name: bookmark.name || `Page ${bookmark.page + 1}`,
             color: bookmark.color || '#000000', // Default to black (free), colors require Pro
             notes: bookmark.notes || '',
             createdAt: new Date().toISOString(),
@@ -255,7 +291,7 @@ export class BookmarkManager {
 
         const currentProgress = this.progress.get(pdfId) || {
             pdfId,
-            currentPage: 1,
+            currentPage: 0,
             totalPages: progressData.totalPages || 0,
             pagesRead: [],
             timeSpent: 0,
@@ -267,14 +303,14 @@ export class BookmarkManager {
         // Update progress
         const updatedProgress = {
             ...currentProgress,
-            currentPage: progressData.currentPage || currentProgress.currentPage,
+            currentPage: Number.isInteger(progressData.currentPage) ? progressData.currentPage : currentProgress.currentPage,
             totalPages: progressData.totalPages || currentProgress.totalPages,
             lastRead: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
 
         // Track unique pages read
-        if (progressData.currentPage && !currentProgress.pagesRead.includes(progressData.currentPage)) {
+        if (Number.isInteger(progressData.currentPage) && !currentProgress.pagesRead.includes(progressData.currentPage)) {
             updatedProgress.pagesRead = [...currentProgress.pagesRead, progressData.currentPage].sort((a, b) => a - b);
         }
 
@@ -307,7 +343,7 @@ export class BookmarkManager {
         if (!progress) {
             return {
                 pdfId,
-                currentPage: 1,
+                currentPage: 0,
                 totalPages: 0,
                 pagesRead: [],
                 percentage: 0,
@@ -495,7 +531,13 @@ export class BookmarkManager {
     async clearAll() {
         this.bookmarks.clear();
         this.progress.clear();
-        await AsyncStorage.multiRemove([STORAGE_KEY, PROGRESS_KEY]);
+        if (typeof this.storage.removeItem === 'function') {
+            await this.storage.removeItem(STORAGE_KEY);
+            await this.storage.removeItem(PROGRESS_KEY);
+        } else {
+            await this.storage.setItem(STORAGE_KEY, '{}');
+            await this.storage.setItem(PROGRESS_KEY, '{}');
+        }
         console.log('📚 BookmarkManager: All data cleared');
     }
 

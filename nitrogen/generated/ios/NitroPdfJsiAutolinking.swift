@@ -35,4 +35,16 @@ public final class NitroPdfJsiAutolinking {
   public static func isPdfDocumentRecyclable() -> Bool {
     return HybridPdfDocument.self is any RecyclableView.Type
   }
+  
+  public static func createPdfCache() -> bridge.std__shared_ptr_HybridPdfCacheSpec_ {
+    let hybridObject = HybridPdfCache()
+    return { () -> bridge.std__shared_ptr_HybridPdfCacheSpec_ in
+      let __cxxWrapped = hybridObject.getCxxWrapper()
+      return __cxxWrapped.getCxxPart()
+    }()
+  }
+  
+  public static func isPdfCacheRecyclable() -> Bool {
+    return HybridPdfCache.self is any RecyclableView.Type
+  }
 }

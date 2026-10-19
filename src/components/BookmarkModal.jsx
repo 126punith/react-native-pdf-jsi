@@ -77,7 +77,7 @@ const BookmarkModal = ({
           </View>
 
           <ScrollView style={styles.form}>
-            <Text style={styles.pageInfo}>Page {currentPage}</Text>
+            <Text style={styles.pageInfo}>Page {currentPage + 1}</Text>
 
             <Text style={styles.label}>Name</Text>
             <TextInput

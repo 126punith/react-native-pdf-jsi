@@ -14,7 +14,7 @@ namespace margelo::nitro::pdfjsi {
     HybridObject::loadHybridMethods();
     // load custom methods/properties
     registerHybrids(this, [](Prototype& prototype) {
-      prototype.registerHybridGetter("jsiStats", &HybridPdfLibrarySpec::getJsiStats);
+      prototype.registerHybridGetter("version", &HybridPdfLibrarySpec::getVersion);
       prototype.registerHybridGetter("kb16Support", &HybridPdfLibrarySpec::getKb16Support);
       prototype.registerHybridGetter("ocrAvailable", &HybridPdfLibrarySpec::getOcrAvailable);
       prototype.registerHybridMethod("open", &HybridPdfLibrarySpec::open);

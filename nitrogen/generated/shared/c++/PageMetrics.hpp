@@ -39,17 +39,14 @@ namespace margelo::nitro::pdfjsi {
    */
   struct PageMetrics final {
   public:
-    double pageNumber     SWIFT_PRIVATE;
+    double page     SWIFT_PRIVATE;
     double width     SWIFT_PRIVATE;
     double height     SWIFT_PRIVATE;
     double rotation     SWIFT_PRIVATE;
-    double scale     SWIFT_PRIVATE;
-    double renderTimeMs     SWIFT_PRIVATE;
-    double cacheSizeKb     SWIFT_PRIVATE;
 
   public:
     PageMetrics() = default;
-    explicit PageMetrics(double pageNumber, double width, double height, double rotation, double scale, double renderTimeMs, double cacheSizeKb): pageNumber(pageNumber), width(width), height(height), rotation(rotation), scale(scale), renderTimeMs(renderTimeMs), cacheSizeKb(cacheSizeKb) {}
+    explicit PageMetrics(double page, double width, double height, double rotation): page(page), width(width), height(height), rotation(rotation) {}
 
   public:
     friend bool operator==(const PageMetrics& lhs, const PageMetrics& rhs) = default;
@@ -65,24 +62,18 @@ namespace margelo::nitro {
     static inline margelo::nitro::pdfjsi::PageMetrics fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
       jsi::Object obj = arg.asObject(runtime);
       return margelo::nitro::pdfjsi::PageMetrics(
-        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "pageNumber"))),
+        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "page"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "width"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "height"))),
-        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "rotation"))),
-        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "scale"))),
-        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "renderTimeMs"))),
-        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "cacheSizeKb")))
+        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "rotation")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::pdfjsi::PageMetrics& arg) {
       jsi::Object obj(runtime);
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "pageNumber"), JSIConverter<double>::toJSI(runtime, arg.pageNumber));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "page"), JSIConverter<double>::toJSI(runtime, arg.page));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "width"), JSIConverter<double>::toJSI(runtime, arg.width));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "height"), JSIConverter<double>::toJSI(runtime, arg.height));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "rotation"), JSIConverter<double>::toJSI(runtime, arg.rotation));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "scale"), JSIConverter<double>::toJSI(runtime, arg.scale));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "renderTimeMs"), JSIConverter<double>::toJSI(runtime, arg.renderTimeMs));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "cacheSizeKb"), JSIConverter<double>::toJSI(runtime, arg.cacheSizeKb));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -93,13 +84,10 @@ namespace margelo::nitro {
       if (!nitro::isPlainObject(runtime, obj)) {
         return false;
       }
-      if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "pageNumber")))) return false;
+      if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "page")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "width")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "height")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "rotation")))) return false;
-      if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "scale")))) return false;
-      if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "renderTimeMs")))) return false;
-      if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "cacheSizeKb")))) return false;
       return true;
     }
   };

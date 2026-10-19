@@ -33,10 +33,11 @@ target_sources(
   # Autolinking Setup
   ../nitrogen/generated/android/NitroPdfJsiOnLoad.cpp
   # Shared Nitrogen C++ sources
+  ../nitrogen/generated/shared/c++/HybridPdfCacheSpec.cpp
   ../nitrogen/generated/shared/c++/HybridPdfDocumentSpec.cpp
   ../nitrogen/generated/shared/c++/HybridPdfLibrarySpec.cpp
   # Android-specific Nitrogen C++ sources
-  
+  ../nitrogen/generated/android/c++/JHybridPdfCacheSpec.cpp
 )
 
 # From node_modules/react-native/ReactAndroid/cmake-utils/folly-flags.cmake

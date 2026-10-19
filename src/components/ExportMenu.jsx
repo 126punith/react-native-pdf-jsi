@@ -39,7 +39,7 @@ const ExportMenu = ({
 
       let result;
       if (pages === 'current') {
-        setExportProgress(`Exporting page ${currentPage}...`);
+        setExportProgress(`Exporting page ${currentPage + 1}...`);
         result = await onExport({
           type: 'single',
           page: currentPage,
@@ -50,7 +50,7 @@ const ExportMenu = ({
         setExportProgress(`Exporting ${pageCount} pages...`);
         result = await onExport({
           type: 'range',
-          pages: Array.from({length: pageCount}, (_, i) => i + 1),
+          pages: Array.from({length: pageCount}, (_, i) => i),
           ...options,
         });
       }
@@ -114,7 +114,7 @@ const ExportMenu = ({
                 onPress={() => handleExport('png', 'high', 'current')}>
                 <Text style={styles.buttonIcon}>🖼️</Text>
                 <Text style={styles.buttonText}>PNG (High)</Text>
-                <Text style={styles.buttonHint}>Page {currentPage}</Text>
+                <Text style={styles.buttonHint}>Page {currentPage + 1}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -122,7 +122,7 @@ const ExportMenu = ({
                 onPress={() => handleExport('jpeg', 'medium', 'current')}>
                 <Text style={styles.buttonIcon}>📸</Text>
                 <Text style={styles.buttonText}>JPEG (Med)</Text>
-                <Text style={styles.buttonHint}>Page {currentPage}</Text>
+                <Text style={styles.buttonHint}>Page {currentPage + 1}</Text>
               </TouchableOpacity>
             </View>
 

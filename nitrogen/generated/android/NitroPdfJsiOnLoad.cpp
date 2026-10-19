@@ -15,8 +15,11 @@
 #include <fbjni/fbjni.h>
 #include <NitroModules/HybridObjectRegistry.hpp>
 
+#include "JHybridPdfCacheSpec.hpp"
+#include "JFunc_void_double_double.hpp"
 #include "HybridPdfLibrary.hpp"
 #include "HybridPdfDocument.hpp"
+#include <NitroModules/DefaultConstructableObject.hpp>
 
 namespace margelo::nitro::pdfjsi {
 
@@ -26,14 +29,22 @@ int initialize(JavaVM* vm) {
   });
 }
 
-
+struct JHybridPdfCacheSpecImpl: public jni::JavaClass<JHybridPdfCacheSpecImpl, JHybridPdfCacheSpec::JavaPart> {
+  static constexpr auto kJavaDescriptor = "Lcom/margelo/nitro/pdfjsi/HybridPdfCache;";
+  static std::shared_ptr<JHybridPdfCacheSpec> create() {
+    static const auto constructorFn = javaClassStatic()->getConstructor<JHybridPdfCacheSpecImpl::javaobject()>();
+    jni::local_ref<JHybridPdfCacheSpec::JavaPart> javaPart = javaClassStatic()->newObject(constructorFn);
+    return javaPart->getJHybridPdfCacheSpec();
+  }
+};
 
 void registerAllNatives() {
   using namespace margelo::nitro;
   using namespace margelo::nitro::pdfjsi;
 
   // Register native JNI methods
-  
+  margelo::nitro::pdfjsi::JHybridPdfCacheSpec::CxxPart::registerNatives();
+  margelo::nitro::pdfjsi::JFunc_void_double_double_cxx::registerNatives();
 
   // Register Nitro Hybrid Objects
   HybridObjectRegistry::registerHybridObjectConstructor(
@@ -52,6 +63,12 @@ void registerAllNatives() {
                     "The HybridObject \"HybridPdfDocument\" is not default-constructible! "
                     "Create a public constructor that takes zero arguments to be able to autolink this HybridObject.");
       return std::make_shared<HybridPdfDocument>();
+    }
+  );
+  HybridObjectRegistry::registerHybridObjectConstructor(
+    "PdfCache",
+    []() -> std::shared_ptr<HybridObject> {
+      return JHybridPdfCacheSpecImpl::create();
     }
   );
 }

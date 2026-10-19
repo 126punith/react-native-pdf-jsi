@@ -12,26 +12,31 @@ public protocol HybridPdfDocumentSpec_protocol: HybridObject {
   // Properties
   var pageCount: Double { get }
   var path: String { get }
-  var cacheMetrics: CacheMetrics { get }
-  var performanceMetrics: PerformanceMetrics { get }
+  var isEncrypted: Bool { get }
+  var hasUnsavedChanges: Bool { get }
 
   // Methods
   func pageSize(index: Double) throws -> PageSize
   func pageMetrics(index: Double) throws -> PageMetrics
-  func setRenderQuality(quality: Double) throws -> Void
-  func clearCache() throws -> Void
-  func optimizeMemory() throws -> Void
-  func renderPage(index: Double, scale: Double) throws -> Promise<RenderResult>
-  func preloadPages(startPage: Double, endPage: Double) throws -> Promise<Bool>
+  func getOutline() throws -> Promise<[OutlineItem]>
+  func renderPage(index: Double, options: RenderOptions?) throws -> Promise<RenderedImage>
+  func renderThumbnails(options: ThumbnailOptions?) throws -> Promise<[RenderedImage]>
   func searchText(term: String, startPage: Double, endPage: Double) throws -> Promise<[SearchResult]>
   func extractText(index: Double) throws -> Promise<String>
   func extractTextFromPages(pageIndicesJson: String) throws -> Promise<String>
   func extractAllText() throws -> Promise<String>
   func recognizeText(index: Double, fast: Bool) throws -> Promise<String>
-  func exportPageToImage(index: Double, scale: Double) throws -> Promise<String>
-  func exportToImages(scale: Double) throws -> Promise<String>
-  func rotatePage(pageNumber: Double, degrees: Double) throws -> Promise<Bool>
-  func deletePage(pageNumber: Double) throws -> Promise<Bool>
+  func rotatePage(index: Double, degrees: Double) throws -> Promise<Void>
+  func deletePage(index: Double) throws -> Promise<Void>
+  func movePage(from: Double, to: Double) throws -> Promise<Void>
+  func insertPages(fromPath: String, atIndex: Double, pages: [Double]?, password: String?) throws -> Promise<Void>
+  func addAnnotation(annotation: AnnotationInput) throws -> Promise<Double>
+  func getAnnotations(page: Double) throws -> Promise<[PdfAnnotation]>
+  func removeAnnotation(page: Double, index: Double) throws -> Promise<Void>
+  func getFormFields() throws -> Promise<[PdfFormField]>
+  func setFormFieldValues(values: Dictionary<String, String>) throws -> Promise<Void>
+  func flattenForms() throws -> Promise<Void>
+  func save(outputPath: String, options: SaveOptions?) throws -> Promise<String>
   func close() throws -> Void
 }
 

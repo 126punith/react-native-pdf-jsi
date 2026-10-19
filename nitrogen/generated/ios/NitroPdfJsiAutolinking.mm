@@ -12,6 +12,7 @@
 
 #include "HybridPdfLibrarySpecSwift.hpp"
 #include "HybridPdfDocumentSpecSwift.hpp"
+#include "HybridPdfCacheSpecSwift.hpp"
 
 @interface NitroPdfJsiAutolinking : NSObject
 @end
@@ -33,6 +34,13 @@
     "PdfDocument",
     []() -> std::shared_ptr<HybridObject> {
       std::shared_ptr<HybridPdfDocumentSpec> hybridObject = NitroPdfJsi::NitroPdfJsiAutolinking::createPdfDocument();
+      return hybridObject;
+    }
+  );
+  HybridObjectRegistry::registerHybridObjectConstructor(
+    "PdfCache",
+    []() -> std::shared_ptr<HybridObject> {
+      std::shared_ptr<HybridPdfCacheSpec> hybridObject = NitroPdfJsi::NitroPdfJsiAutolinking::createPdfCache();
       return hybridObject;
     }
   );

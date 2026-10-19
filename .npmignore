@@ -64,8 +64,7 @@ LOCAL_CACHE_PRO_TIP.md
 *.temp
 *.cache
 
-# Source maps and bundles
-*.map
+# Bundles
 *.jsbundle
 
 # Lock files
@@ -76,12 +75,10 @@ npm-debug.log
 *.generated.*
 *.codegen.*
 
-# Empty jniLibs (placeholders - these are 0B files)
-android/src/main/jniLibs/**/*.so
-
 # Android build outputs (compiled files)
 **/*.class
 **/*.dex
 **/*.o
 **/*.so
-!android/src/main/jniLibs/**/*.so
+# Prebuilt PDFium is required at build time
+!android/third_party/pdfium/lib/**/libpdfn.so

@@ -18,8 +18,8 @@ public extension SearchResult {
   /**
    * Create a new instance of `SearchResult`.
    */
-  init(page: Double, text: String, rect: String) {
-    self.init(page, std.string(text), std.string(rect))
+  init(page: Double, text: String, rect: PdfRect) {
+    self.init(page, std.string(text), rect)
   }
 
   @inline(__always)
@@ -33,7 +33,7 @@ public extension SearchResult {
   }
   
   @inline(__always)
-  var rect: String {
-    return String(self.__rect)
+  var rect: PdfRect {
+    return self.__rect
   }
 }

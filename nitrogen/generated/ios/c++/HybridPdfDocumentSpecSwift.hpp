@@ -12,28 +12,69 @@
 // Forward declaration of `HybridPdfDocumentSpec_cxx` to properly resolve imports.
 namespace NitroPdfJsi { class HybridPdfDocumentSpec_cxx; }
 
-// Forward declaration of `CacheMetrics` to properly resolve imports.
-namespace margelo::nitro::pdfjsi { struct CacheMetrics; }
-// Forward declaration of `PerformanceMetrics` to properly resolve imports.
-namespace margelo::nitro::pdfjsi { struct PerformanceMetrics; }
 // Forward declaration of `PageSize` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct PageSize; }
 // Forward declaration of `PageMetrics` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct PageMetrics; }
-// Forward declaration of `RenderResult` to properly resolve imports.
-namespace margelo::nitro::pdfjsi { struct RenderResult; }
+// Forward declaration of `OutlineItem` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct OutlineItem; }
+// Forward declaration of `RenderedImage` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct RenderedImage; }
+// Forward declaration of `RenderOptions` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct RenderOptions; }
+// Forward declaration of `ImageFormat` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { enum class ImageFormat; }
+// Forward declaration of `ThumbnailOptions` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct ThumbnailOptions; }
 // Forward declaration of `SearchResult` to properly resolve imports.
 namespace margelo::nitro::pdfjsi { struct SearchResult; }
+// Forward declaration of `PdfRect` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfRect; }
+// Forward declaration of `AnnotationInput` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct AnnotationInput; }
+// Forward declaration of `AddableAnnotationType` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { enum class AddableAnnotationType; }
+// Forward declaration of `InkStroke` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct InkStroke; }
+// Forward declaration of `PdfPoint` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfPoint; }
+// Forward declaration of `PdfAnnotation` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfAnnotation; }
+// Forward declaration of `AnnotationType` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { enum class AnnotationType; }
+// Forward declaration of `PdfFormField` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfFormField; }
+// Forward declaration of `FormFieldType` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { enum class FormFieldType; }
+// Forward declaration of `SaveOptions` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct SaveOptions; }
+// Forward declaration of `PdfPermissions` to properly resolve imports.
+namespace margelo::nitro::pdfjsi { struct PdfPermissions; }
 
 #include <string>
-#include "CacheMetrics.hpp"
-#include "PerformanceMetrics.hpp"
 #include "PageSize.hpp"
 #include "PageMetrics.hpp"
-#include "RenderResult.hpp"
-#include <NitroModules/Promise.hpp>
-#include "SearchResult.hpp"
+#include "OutlineItem.hpp"
 #include <vector>
+#include <NitroModules/Promise.hpp>
+#include "RenderedImage.hpp"
+#include "RenderOptions.hpp"
+#include <optional>
+#include "ImageFormat.hpp"
+#include "ThumbnailOptions.hpp"
+#include "SearchResult.hpp"
+#include "PdfRect.hpp"
+#include "AnnotationInput.hpp"
+#include "AddableAnnotationType.hpp"
+#include "InkStroke.hpp"
+#include "PdfPoint.hpp"
+#include "PdfAnnotation.hpp"
+#include "AnnotationType.hpp"
+#include "PdfFormField.hpp"
+#include "FormFieldType.hpp"
+#include <unordered_map>
+#include "SaveOptions.hpp"
+#include "PdfPermissions.hpp"
 
 #include "NitroPdfJsi-Swift-Cxx-Umbrella.hpp"
 
@@ -88,11 +129,11 @@ namespace margelo::nitro::pdfjsi {
       auto __result = _swiftPart.getPath();
       return __result;
     }
-    inline CacheMetrics getCacheMetrics() noexcept override {
-      return _swiftPart.getCacheMetrics();
+    inline bool getIsEncrypted() noexcept override {
+      return _swiftPart.isEncrypted();
     }
-    inline PerformanceMetrics getPerformanceMetrics() noexcept override {
-      return _swiftPart.getPerformanceMetrics();
+    inline bool getHasUnsavedChanges() noexcept override {
+      return _swiftPart.hasUnsavedChanges();
     }
 
   public:
@@ -113,34 +154,24 @@ namespace margelo::nitro::pdfjsi {
       auto __value = std::move(__result.value());
       return __value;
     }
-    inline void setRenderQuality(double quality) override {
-      auto __result = _swiftPart.setRenderQuality(std::forward<decltype(quality)>(quality));
-      if (__result.hasError()) [[unlikely]] {
-        std::rethrow_exception(__result.error());
-      }
-    }
-    inline void clearCache() override {
-      auto __result = _swiftPart.clearCache();
-      if (__result.hasError()) [[unlikely]] {
-        std::rethrow_exception(__result.error());
-      }
-    }
-    inline void optimizeMemory() override {
-      auto __result = _swiftPart.optimizeMemory();
-      if (__result.hasError()) [[unlikely]] {
-        std::rethrow_exception(__result.error());
-      }
-    }
-    inline std::shared_ptr<Promise<RenderResult>> renderPage(double index, double scale) override {
-      auto __result = _swiftPart.renderPage(std::forward<decltype(index)>(index), std::forward<decltype(scale)>(scale));
+    inline std::shared_ptr<Promise<std::vector<OutlineItem>>> getOutline() override {
+      auto __result = _swiftPart.getOutline();
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
       auto __value = std::move(__result.value());
       return __value;
     }
-    inline std::shared_ptr<Promise<bool>> preloadPages(double startPage, double endPage) override {
-      auto __result = _swiftPart.preloadPages(std::forward<decltype(startPage)>(startPage), std::forward<decltype(endPage)>(endPage));
+    inline std::shared_ptr<Promise<RenderedImage>> renderPage(double index, const std::optional<RenderOptions>& options) override {
+      auto __result = _swiftPart.renderPage(std::forward<decltype(index)>(index), options);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<std::vector<RenderedImage>>> renderThumbnails(const std::optional<ThumbnailOptions>& options) override {
+      auto __result = _swiftPart.renderThumbnails(options);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
@@ -187,32 +218,88 @@ namespace margelo::nitro::pdfjsi {
       auto __value = std::move(__result.value());
       return __value;
     }
-    inline std::shared_ptr<Promise<std::string>> exportPageToImage(double index, double scale) override {
-      auto __result = _swiftPart.exportPageToImage(std::forward<decltype(index)>(index), std::forward<decltype(scale)>(scale));
+    inline std::shared_ptr<Promise<void>> rotatePage(double index, double degrees) override {
+      auto __result = _swiftPart.rotatePage(std::forward<decltype(index)>(index), std::forward<decltype(degrees)>(degrees));
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
       auto __value = std::move(__result.value());
       return __value;
     }
-    inline std::shared_ptr<Promise<std::string>> exportToImages(double scale) override {
-      auto __result = _swiftPart.exportToImages(std::forward<decltype(scale)>(scale));
+    inline std::shared_ptr<Promise<void>> deletePage(double index) override {
+      auto __result = _swiftPart.deletePage(std::forward<decltype(index)>(index));
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
       auto __value = std::move(__result.value());
       return __value;
     }
-    inline std::shared_ptr<Promise<bool>> rotatePage(double pageNumber, double degrees) override {
-      auto __result = _swiftPart.rotatePage(std::forward<decltype(pageNumber)>(pageNumber), std::forward<decltype(degrees)>(degrees));
+    inline std::shared_ptr<Promise<void>> movePage(double from, double to) override {
+      auto __result = _swiftPart.movePage(std::forward<decltype(from)>(from), std::forward<decltype(to)>(to));
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
       auto __value = std::move(__result.value());
       return __value;
     }
-    inline std::shared_ptr<Promise<bool>> deletePage(double pageNumber) override {
-      auto __result = _swiftPart.deletePage(std::forward<decltype(pageNumber)>(pageNumber));
+    inline std::shared_ptr<Promise<void>> insertPages(const std::string& fromPath, double atIndex, const std::optional<std::vector<double>>& pages, const std::optional<std::string>& password) override {
+      auto __result = _swiftPart.insertPages(fromPath, std::forward<decltype(atIndex)>(atIndex), pages, password);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<double>> addAnnotation(const AnnotationInput& annotation) override {
+      auto __result = _swiftPart.addAnnotation(std::forward<decltype(annotation)>(annotation));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<std::vector<PdfAnnotation>>> getAnnotations(double page) override {
+      auto __result = _swiftPart.getAnnotations(std::forward<decltype(page)>(page));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<void>> removeAnnotation(double page, double index) override {
+      auto __result = _swiftPart.removeAnnotation(std::forward<decltype(page)>(page), std::forward<decltype(index)>(index));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<std::vector<PdfFormField>>> getFormFields() override {
+      auto __result = _swiftPart.getFormFields();
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<void>> setFormFieldValues(const std::unordered_map<std::string, std::string>& values) override {
+      auto __result = _swiftPart.setFormFieldValues(values);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<void>> flattenForms() override {
+      auto __result = _swiftPart.flattenForms();
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<std::string>> save(const std::string& outputPath, const std::optional<SaveOptions>& options) override {
+      auto __result = _swiftPart.save(outputPath, options);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }

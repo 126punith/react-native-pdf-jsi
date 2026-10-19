@@ -4,8 +4,6 @@ import {
   withGradleProperties,
   withPodfileProperties,
 } from 'expo/config-plugins';
-import { withPdfJsiAndroid } from './withPdfJsiAndroid';
-import { withPdfJsiIos } from './withPdfJsiIos';
 
 const pkg = require('../../package.json');
 
@@ -39,7 +37,7 @@ const withPdfJsiOcrGradle: ConfigPlugin<boolean> = (config, enabled) =>
   setGradleProperty('pdfJsiEnableOcr', enabled ? 'true' : 'false')(config);
 
 /**
- * 5.x has no old-architecture fallback, so force newArchEnabled on both platforms.
+ * There is no old-architecture fallback, so force newArchEnabled on both platforms.
  */
 const withNewArchitecture: ConfigPlugin = (config) => {
   if ((config as { newArchEnabled?: boolean }).newArchEnabled === false) {
@@ -73,8 +71,9 @@ function assertNitroModulesInstalled(projectRoot: string | undefined) {
 /**
  * Expo config plugin for react-native-pdf-jsi
  *
- * Configures native projects for Expo development builds.
- * Optional `{ ocr: true }` enables Android ML Kit text recognition.
+ * Turns on the New Architecture and checks that react-native-nitro-modules is
+ * installed. Optional `{ ocr: true }` enables Android ML Kit text recognition.
+ * Nothing else is needed: PDFium ships with the package and iOS uses PDFKit.
  *
  * Note: This package requires development builds and won't work with Expo Go.
  */
@@ -84,19 +83,7 @@ const withPdfJsi: ConfigPlugin<PdfJsiPluginProps | void> = (config, props) => {
 
   assertNitroModulesInstalled(config._internal?.projectRoot);
 
-  console.log(
-    '[react-native-pdf-jsi] Requires the New Architecture and these peer dependencies:\n' +
-      '  - react-native-nitro-modules\n' +
-      '  - react-native-blob-util\n' +
-      '  - @react-native-async-storage/async-storage' +
-      (enableOcr
-        ? '\n[react-native-pdf-jsi] OCR enabled (Android ML Kit; iOS uses Vision)'
-        : '')
-  );
-
   config = withNewArchitecture(config);
-  config = withPdfJsiAndroid(config);
-  config = withPdfJsiIos(config);
   config = withPdfJsiOcrGradle(config, enableOcr);
 
   return config;

@@ -1,10 +1,7 @@
 import { Linking, Platform } from 'react-native';
-import ReactNativeBlobUtil from 'react-native-blob-util';
+import { PdfFiles } from '../PdfCache';
 
-/**
- * File helpers that used to be native bridge modules. Downloads go through
- * react-native-blob-util, which is already a peer dependency.
- */
+/** File helpers backed by the native PdfCache module (no react-native-blob-util). */
 class FileManager {
   static async openDownloadsFolder() {
     if (Platform.OS === 'android') {
@@ -15,18 +12,14 @@ class FileManager {
     return true;
   }
 
+  /**
+   * Android: copies into the public Downloads folder through MediaStore and
+   * returns its content:// URI. iOS: copies into the app's Documents folder
+   * and returns the path.
+   */
   static async downloadToPublicFolder(sourcePath, fileName, mimeType = 'application/pdf') {
-    const source = sourcePath.startsWith('file://') ? sourcePath.replace('file://', '') : sourcePath;
-    if (Platform.OS === 'android' && ReactNativeBlobUtil.MediaCollection?.copyToMediaStore) {
-      return ReactNativeBlobUtil.MediaCollection.copyToMediaStore(
-        { name: fileName, parentFolder: '', mimeType },
-        'Download',
-        source
-      );
-    }
-    const dest = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/${fileName}`;
-    await ReactNativeBlobUtil.fs.cp(source, dest);
-    return dest;
+    const target = await PdfFiles.saveToDownloads(sourcePath, fileName, mimeType);
+    return target.uri;
   }
 
   static async downloadMultipleFiles(files) {

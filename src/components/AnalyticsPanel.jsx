@@ -19,7 +19,7 @@ const AnalyticsPanel = ({
     totalPages: 0,
     percentage: 0,
     sessions: 0,
-    currentPage: 1,
+    currentPage: 0,
     lastRead: null,
   };
   
@@ -94,7 +94,7 @@ const AnalyticsPanel = ({
           <View style={styles.sessionCard}>
             <Text style={styles.sessionTitle}>Current Session</Text>
             <Text style={styles.sessionInfo}>
-              Page {safeAnalytics.currentPage || 1} of {totalPages}
+              Page {(safeAnalytics.currentPage || 0) + 1} of {totalPages}
             </Text>
             {safeAnalytics.lastRead && (
               <Text style={styles.sessionTime}>

@@ -11,6 +11,7 @@
 
 import { Platform } from 'react-native';
 import { withPdfDocument, getPdfLibrary } from './PDFJSI';
+import { PdfError } from './errors';
 
 let customOCREngine = null;
 
@@ -54,34 +55,44 @@ function normalizeOcrOptions(ocrOptions = {}) {
     return out;
 }
 
-function parseRect(rectStr) {
-    if (!rectStr || typeof rectStr !== 'string') return null;
-    const parts = rectStr.split(',').map((p) => Number(p.trim()));
+function parseRect(rect) {
+    if (rect && typeof rect === 'object') {
+        if ([rect.x, rect.y, rect.width, rect.height].every(Number.isFinite)) {
+            return { left: rect.x, top: rect.y, right: rect.x + rect.width, bottom: rect.y + rect.height };
+        }
+        if ([rect.left, rect.top, rect.right, rect.bottom].every(Number.isFinite)) {
+            return rect;
+        }
+        return null;
+    }
+    if (!rect || typeof rect !== 'string') return null;
+    const parts = rect.split(',').map((p) => Number(p.trim()));
     if (parts.length < 4 || parts.some((n) => Number.isNaN(n))) return null;
     return { left: parts[0], top: parts[1], right: parts[2], bottom: parts[3] };
 }
 
 /**
- * Convert image-pixel rect (top-left origin) to PDF points (bottom-left / y-up:
- * "left,top,right,bottom" with top > bottom), matching searchTextDirect / highlightRects.
+ * Convert an image-pixel rect (top-left origin) to a PdfRect in PDF points
+ * from the page's top-left corner, the coordinates PdfView highlights use.
  */
-function imageRectToPdfRect(rectStr, imageWidth, imageHeight, pageWidthPt, pageHeightPt) {
-    const r = parseRect(rectStr);
+function imageRectToPdfRect(rect, imageWidth, imageHeight, pageWidthPt, pageHeightPt) {
+    const r = parseRect(rect);
     if (!r || !imageWidth || !imageHeight || !pageWidthPt || !pageHeightPt) return null;
     const sx = pageWidthPt / imageWidth;
     const sy = pageHeightPt / imageHeight;
-    const left = r.left * sx;
-    const right = r.right * sx;
-    const topFromTop = Math.min(r.top, r.bottom) * sy;
-    const bottomFromTop = Math.max(r.top, r.bottom) * sy;
-    const pdfTop = pageHeightPt - topFromTop;
-    const pdfBottom = pageHeightPt - bottomFromTop;
-    return `${left},${pdfTop},${right},${pdfBottom}`;
+    const left = Math.min(r.left, r.right) * sx;
+    const right = Math.max(r.left, r.right) * sx;
+    const top = Math.min(r.top, r.bottom) * sy;
+    const bottom = Math.max(r.top, r.bottom) * sy;
+    return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
 async function exportPageImage(filePath, pageIndex0, dpi) {
     const scale = Math.max(1, dpi / 72);
-    return withDocument(filePath, (document) => document.exportPageToImage(pageIndex0, scale));
+    const image = await withDocument(filePath, (document) =>
+        document.renderPage(pageIndex0, { scale, format: 'png' })
+    );
+    return image.path;
 }
 
 async function runNativeOCR() {
@@ -222,10 +233,10 @@ class PDFText {
     }
 
     /**
-     * Map OCR pageMeta blocks to Pdf `highlightRects`.
+     * Map OCR pageMeta blocks to PdfView `highlights` (zero-based pages, PdfRect in points).
      * @param {string} filePath
      * @param {Map|Object} pageMeta - from extract({ includeBlocks: true })
-     * @returns {Promise<Array<{ page: number, rect: string }>>}
+     * @returns {Promise<Array<{ page: number, rect: { x: number, y: number, width: number, height: number } }>>}
      */
     static async toHighlightRects(filePath, pageMeta) {
         if (!pageMeta) return [];
@@ -257,7 +268,7 @@ class PDFText {
                 );
                 if (!pdfRect) continue;
                 highlights.push({
-                    page: pageIndex0 + 1,
+                    page: pageIndex0,
                     rect: pdfRect,
                 });
             }
@@ -290,7 +301,7 @@ class PDFText {
                     pageSize.height
                 );
                 if (!pdfRect) continue;
-                highlights.push({ page: pageIndex0 + 1, rect: pdfRect });
+                highlights.push({ page: pageIndex0, rect: pdfRect });
             }
         }
         return highlights;
@@ -323,7 +334,7 @@ class PDFText {
         const pageCount = await pageCountOf(filePath);
         let indices;
         if (pages && pages.length) {
-            indices = pages.map((p) => p - 1).filter((i) => i >= 0 && i < pageCount);
+            indices = pages.filter((i) => Number.isInteger(i) && i >= 0 && i < pageCount);
         } else {
             indices = Array.from({ length: pageCount }, (_, i) => i);
         }
@@ -402,7 +413,7 @@ class PDFText {
 
             if (onProgress) {
                 onProgress({
-                    page: pageIndex + 1,
+                    page: pageIndex,
                     total: indices.length,
                     mode: usedMode,
                 });
@@ -428,132 +439,14 @@ class PDFText {
     }
 
     /**
-     * Build an image + invisible-text searchable PDF (OCR sandwich).
-     * Output can be opened and searched with searchTextDirect after load.
+     * Not supported: assemble a searchable PDF from recognizePage results instead.
      */
-    static async makeSearchablePDF(inputPath, options = {}) {
-        if (!inputPath) throw new Error('inputPath is required');
-        throw new Error('createSearchablePDF was removed in 5.0. Use recognizePage and assemble the PDF in JS.');
-
-        const {
-            outputPath = null,
-            pages = null,
-            mode = 'auto',
-            minTextLength = 20,
-            ocrDpi = 200,
-            ocrFormat = 'jpeg',
-            ocrOptions: rawOcrOptions = {},
-            onProgress = null,
-        } = options;
-        const ocrOptions = normalizeOcrOptions(rawOcrOptions);
-
-        const pageCount = await pageCountOf(inputPath);
-        let indices;
-        if (pages && pages.length) {
-            indices = pages.map((p) => p - 1).filter((i) => i >= 0 && i < pageCount);
-        } else {
-            indices = Array.from({ length: pageCount }, (_, i) => i);
-        }
-
-        const outPath =
-            outputPath ||
-            inputPath.replace(/\.pdf$/i, '') + `_searchable_${Date.now()}.pdf`;
-
-        const payload = [];
-        const tempImages = [];
-        let pagesNative = 0;
-        let pagesOcr = 0;
-        let pagesEmpty = 0;
-
-        const ocrAvailable = await this.isOCRAvailable();
-
-        try {
-            for (let i = 0; i < indices.length; i++) {
-                const pageIndex = indices[i];
-                const pageSize = await pageSizeOf(inputPath, pageIndex);
-
-                let text = '';
-                let blocks = [];
-                let usedMode = 'text';
-
-                if (mode === 'text' || mode === 'auto') {
-                    text = await textFromPage(inputPath, pageIndex);
-                }
-
-                const needsOcr =
-                    mode === 'ocr' ||
-                    (mode === 'auto' && text.trim().length < minTextLength);
-
-                // Always rasterize for visual page in searchable output
-                const imagePath = await exportPageImage(
-                    inputPath,
-                    pageIndex,
-                    ocrDpi,
-                    ocrFormat
-                );
-                tempImages.push(imagePath);
-
-                const imageWidth = Math.round((pageSize.width * ocrDpi) / 72);
-                const imageHeight = Math.round((pageSize.height * ocrDpi) / 72);
-
-                if (needsOcr && (ocrAvailable || customOCREngine)) {
-                    const ocrResult = await runOCROnImage(imagePath, ocrOptions);
-                    text = ocrResult?.text ?? text;
-                    blocks = ocrResult?.blocks || [];
-                    usedMode = ocrResult?.engine || 'ocr';
-                    pagesOcr += 1;
-                } else {
-                    pagesNative += 1;
-                    if (text.trim()) {
-                        // Full-page invisible text when we only have a text layer string
-                        blocks = [
-                            {
-                                text,
-                                rect: `0,0,${imageWidth},${imageHeight}`,
-                            },
-                        ];
-                    }
-                }
-
-                if (!text || !String(text).trim()) {
-                    pagesEmpty += 1;
-                }
-
-                payload.push({
-                    imagePath,
-                    widthPt: pageSize.width,
-                    heightPt: pageSize.height,
-                    blocks,
-                });
-
-                if (onProgress) {
-                    onProgress({
-                        page: pageIndex + 1,
-                        total: indices.length,
-                        mode: usedMode,
-                    });
-                }
-            }
-
-            throw new Error('createSearchablePDF was removed in 5.0');
-            return {
-                outputPath: outPath,
-                stats: {
-                    totalPages: indices.length,
-                    pagesNative,
-                    pagesOcr,
-                    pagesEmpty,
-                    mode,
-                },
-            };
-        } finally {
-            // Best-effort cleanup of temp exports (React Native has no RNFS dep)
-            void tempImages;
-        }
+    static async makeSearchablePDF() {
+        throw new PdfError('unsupported-operation', 'makeSearchablePDF is not supported. Use recognizePage and build the PDF yourself.');
     }
 
-    static async extractTextFromPage(filePath, pageNumber) {
-        return textFromPage(filePath, pageNumber);
+    static async extractTextFromPage(filePath, pageIndex) {
+        return textFromPage(filePath, pageIndex);
     }
 
     static async extractTextFromPages(filePath, pageIndices) {

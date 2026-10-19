@@ -1,0 +1,8 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "noEmit": false,
+        "types": ["react-native"]
+    },
+    "exclude": ["node_modules", "lib", "example", "plugin", "src/**/__tests__"]
+}
