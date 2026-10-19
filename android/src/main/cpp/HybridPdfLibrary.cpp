@@ -4,13 +4,12 @@
 #include "PdfDiskCache.hpp"
 #include "PdfiumSession.hpp"
 
-#include <fbjni/fbjni.h>
-#include <stdexcept>
+#include "PdfJni.hpp"
 
 namespace margelo::nitro::pdfjsi {
 
-JSIStats HybridPdfLibrary::getJsiStats() {
-    return JSIStats("5.1.0", "high", true, true, true);
+std::string HybridPdfLibrary::getVersion() {
+    return "6.0.0";
 }
 
 KB16Support HybridPdfLibrary::getKb16Support() {
@@ -24,33 +23,15 @@ KB16Support HybridPdfLibrary::getKb16Support() {
 }
 
 bool HybridPdfLibrary::getOcrAvailable() {
-    JNIEnv* env = facebook::jni::Environment::current();
-    if (env == nullptr) {
-        return false;
-    }
-    jclass clazz = env->FindClass("org/wonday/pdf/PdfOcr");
-    if (clazz == nullptr) {
-        env->ExceptionClear();
-        return false;
-    }
-    jmethodID method = env->GetStaticMethodID(clazz, "isAvailable", "()Z");
-    if (method == nullptr) {
-        env->ExceptionClear();
-        env->DeleteLocalRef(clazz);
-        return false;
-    }
-    const bool available = env->CallStaticBooleanMethod(clazz, method) == JNI_TRUE;
-    env->DeleteLocalRef(clazz);
-    if (env->ExceptionCheck()) {
-        env->ExceptionClear();
-        return false;
-    }
-    return available;
+    return ocrAvailable();
 }
 
-std::shared_ptr<Promise<std::shared_ptr<HybridPdfDocumentSpec>>> HybridPdfLibrary::open(const std::string& path) {
-    return Promise<std::shared_ptr<HybridPdfDocumentSpec>>::async([path]() {
-        auto document = std::make_shared<HybridPdfDocument>(path);
+std::shared_ptr<Promise<std::shared_ptr<HybridPdfDocumentSpec>>> HybridPdfLibrary::open(
+    const std::string& path,
+    const std::optional<std::string>& password) {
+    return Promise<std::shared_ptr<HybridPdfDocumentSpec>>::async([path, password]() {
+        auto session = std::make_shared<OpenPdf>(path, password);
+        auto document = std::make_shared<HybridPdfDocument>(std::move(session));
         return std::static_pointer_cast<HybridPdfDocumentSpec>(document);
     });
 }

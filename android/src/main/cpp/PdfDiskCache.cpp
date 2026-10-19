@@ -1,6 +1,5 @@
 #include "PdfDiskCache.hpp"
-
-#include <fbjni/fbjni.h>
+#include "PdfJni.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -24,29 +23,7 @@ int gHits = 0;
 int gMisses = 0;
 
 std::string resolveCacheDirectory() {
-    JNIEnv* env = facebook::jni::Environment::current();
-    if (env == nullptr) {
-        throw std::runtime_error("JNI environment is not available");
-    }
-    jclass threadClass = env->FindClass("android/app/ActivityThread");
-    jmethodID currentApplication = env->GetStaticMethodID(threadClass, "currentApplication", "()Landroid/app/Application;");
-    jobject application = env->CallStaticObjectMethod(threadClass, currentApplication);
-    jclass contextClass = env->GetObjectClass(application);
-    jmethodID getCacheDir = env->GetMethodID(contextClass, "getCacheDir", "()Ljava/io/File;");
-    jobject cacheDir = env->CallObjectMethod(application, getCacheDir);
-    jclass fileClass = env->GetObjectClass(cacheDir);
-    jmethodID getAbsolutePath = env->GetMethodID(fileClass, "getAbsolutePath", "()Ljava/lang/String;");
-    jstring path = static_cast<jstring>(env->CallObjectMethod(cacheDir, getAbsolutePath));
-    const char* chars = env->GetStringUTFChars(path, nullptr);
-    std::string directory = std::string(chars) + "/pdf-jsi-cache";
-    env->ReleaseStringUTFChars(path, chars);
-    env->DeleteLocalRef(path);
-    env->DeleteLocalRef(fileClass);
-    env->DeleteLocalRef(cacheDir);
-    env->DeleteLocalRef(contextClass);
-    env->DeleteLocalRef(application);
-    env->DeleteLocalRef(threadClass);
-    return directory;
+    return appCacheDirectory() + "/pdf-jsi-cache";
 }
 
 std::string cacheDirectory() {

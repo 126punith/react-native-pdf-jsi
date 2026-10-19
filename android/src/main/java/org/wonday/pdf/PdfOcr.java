@@ -1,17 +1,14 @@
 package org.wonday.pdf;
 
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.pdf.PdfRenderer;
-import android.os.ParcelFileDescriptor;
+import android.graphics.BitmapFactory;
 
-import java.io.File;
 import java.lang.reflect.Method;
 
 /**
  * On-device OCR that is not a React Native module. ML Kit is optional; when the
  * dependency is absent, {@link #isAvailable()} is false and recognize throws.
+ * Pages are rendered by PDFium first, so passwords and unsaved edits apply.
  */
 public final class PdfOcr {
     private PdfOcr() {}
@@ -25,39 +22,13 @@ public final class PdfOcr {
         }
     }
 
-    public static String recognizePage(String filePath, int pageIndex, boolean fast) throws Exception {
+    public static String recognizeImage(String imagePath) throws Exception {
         if (!isAvailable()) {
             throw new IllegalStateException("OCR is disabled. Set pdfJsiEnableOcr=true and rebuild.");
         }
-        String path = filePath != null && filePath.startsWith("file://")
-            ? filePath.substring("file://".length())
-            : filePath;
-        if (path == null || path.isEmpty()) {
-            throw new IllegalArgumentException("File path is required");
-        }
-        ParcelFileDescriptor descriptor = ParcelFileDescriptor.open(new File(path), ParcelFileDescriptor.MODE_READ_ONLY);
-        Bitmap bitmap = null;
-        try (PdfRenderer renderer = new PdfRenderer(descriptor)) {
-            descriptor = null;
-            if (pageIndex < 0 || pageIndex >= renderer.getPageCount()) {
-                throw new IndexOutOfBoundsException("Page index out of range: " + pageIndex);
-            }
-            PdfRenderer.Page page = renderer.openPage(pageIndex);
-            try {
-                float scale = fast ? 1.5f : (200f / 72f);
-                int width = Math.max(1, Math.round(page.getWidth() * scale));
-                int height = Math.max(1, Math.round(page.getHeight() * scale));
-                bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-                Canvas canvas = new Canvas(bitmap);
-                canvas.drawColor(Color.WHITE);
-                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
-            } finally {
-                page.close();
-            }
-        } finally {
-            if (descriptor != null) {
-                descriptor.close();
-            }
+        Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
+        if (bitmap == null) {
+            throw new IllegalArgumentException("Could not decode " + imagePath);
         }
         try {
             return runMlKit(bitmap);

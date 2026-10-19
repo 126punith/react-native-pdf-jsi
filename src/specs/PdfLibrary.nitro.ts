@@ -207,9 +207,12 @@ export interface PdfDocument
   extractAllText(): Promise<string>;
   recognizeText(index: number, fast: boolean): Promise<string>;
 
+  /** Turns the page clockwise by `degrees` (a multiple of 90) from its current rotation. */
   rotatePage(index: number, degrees: number): Promise<void>;
   deletePage(index: number): Promise<void>;
+  /** Moves page `from` so that it ends up at index `to`. */
   movePage(from: number, to: number): Promise<void>;
+  /** Inserts `pages` (default: all) of another PDF so the first lands at `atIndex`. */
   insertPages(fromPath: string, atIndex: number, pages?: number[], password?: string): Promise<void>;
 
   addAnnotation(annotation: AnnotationInput): Promise<number>;
@@ -217,7 +220,9 @@ export interface PdfDocument
   removeAnnotation(page: number, index: number): Promise<void>;
 
   getFormFields(): Promise<PdfFormField[]>;
+  /** Checkboxes take "true"/"false" (or their export value); radio groups take the export value of one button. */
   setFormFieldValues(values: Record<string, string>): Promise<void>;
+  /** Draws form fields and annotations into the page content. iOS 16 or later on iOS. */
   flattenForms(): Promise<void>;
 
   save(outputPath: string, options?: SaveOptions): Promise<string>;

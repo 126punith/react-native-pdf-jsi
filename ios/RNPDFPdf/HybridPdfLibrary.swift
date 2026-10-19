@@ -4,9 +4,7 @@ import PDFKit
 import UIKit
 
 public final class HybridPdfLibrary: HybridPdfLibrarySpec {
-  public var jsiStats: JSIStats {
-    JSIStats(version: "5.1.0", performanceLevel: "high", directMemoryAccess: true, bridgeOptimized: true, initialized: true)
-  }
+  public var version: String { "6.0.0" }
 
   public var kb16Support: KB16Support {
     KB16Support(
@@ -24,36 +22,56 @@ public final class HybridPdfLibrary: HybridPdfLibrarySpec {
     return false
   }
 
-  public func open(path: String) throws -> Promise<(any HybridPdfDocumentSpec)> {
+  public func open(path: String, password: String?) throws -> Promise<(any HybridPdfDocumentSpec)> {
     Promise.parallel {
       let document = HybridPdfDocument()
-      try document.openFile(path)
+      try document.openFile(path, password: password)
       return document
     }
   }
 
+  private static func write(_ document: PDFDocument, to output: String) throws {
+    guard let data = document.dataRepresentation() else {
+      throw pdfError("io-error", "Failed to serialise \(output)")
+    }
+    do {
+      try FileManager.default.createDirectory(
+        at: URL(fileURLWithPath: output).deletingLastPathComponent(),
+        withIntermediateDirectories: true
+      )
+      try data.write(to: URL(fileURLWithPath: output), options: .atomic)
+    } catch {
+      throw pdfError("io-error", "Failed to write \(output): \(error.localizedDescription)")
+    }
+  }
+
+  private static var stamp: String { String(Int(Date().timeIntervalSince1970 * 1000)) }
+
   public func mergePDFs(filePaths: [String], outputPath: String) throws -> Promise<String> {
     Promise.parallel {
       guard filePaths.count >= 2 else {
-        throw RuntimeError.error(withMessage: "At least 2 PDF files are required for merging")
+        throw pdfError("invalid-argument", "At least 2 PDF files are required for merging")
       }
       let merged = PDFDocument()
+      var sources: [PDFDocument] = []
       for rawPath in filePaths {
         let path = HybridPdfPaths.normalize(rawPath)
-        guard let source = PDFDocument(url: URL(fileURLWithPath: path)) else {
-          throw RuntimeError.error(withMessage: "Failed to open PDF: \(path)")
+        let source = try HybridPdfDocument.load(path, password: nil)
+        guard source.pageCount > 0 else {
+          throw pdfError("unsupported-pdf", "PDF has no pages: \(path)")
         }
+        sources.append(source)
         for index in 0..<source.pageCount {
           guard let page = source.page(at: index) else { continue }
-          merged.insert(page, at: merged.pageCount)
+          merged.insert((page.copy() as? PDFPage) ?? page, at: merged.pageCount)
         }
       }
       let output = outputPath.isEmpty
-        ? HybridPdfPaths.sibling(filePaths[0], suffix: "-merged.pdf")
+        ? URL(fileURLWithPath: HybridPdfPaths.normalize(filePaths[0])).deletingLastPathComponent()
+            .appendingPathComponent("merged-\(Self.stamp).pdf").path
         : HybridPdfPaths.normalize(outputPath)
-      guard merged.write(to: URL(fileURLWithPath: output)) else {
-        throw RuntimeError.error(withMessage: "Failed to write merged PDF")
-      }
+      try Self.write(merged, to: output)
+      withExtendedLifetime(sources) {}
       return output
     }
   }
@@ -61,29 +79,26 @@ public final class HybridPdfLibrary: HybridPdfLibrarySpec {
   public func splitPDF(filePath: String, pageRangesJson: String, outputDir: String) throws -> Promise<String> {
     Promise.parallel {
       let path = HybridPdfPaths.normalize(filePath)
-      guard let source = PDFDocument(url: URL(fileURLWithPath: path)) else {
-        throw RuntimeError.error(withMessage: "Failed to open PDF: \(path)")
-      }
+      let source = try HybridPdfDocument.load(path, password: nil)
       let directory = outputDir.isEmpty
         ? URL(fileURLWithPath: path).deletingLastPathComponent().path
         : HybridPdfPaths.normalize(outputDir)
-      let ranges = HybridPdfPaths.ranges(pageRangesJson)
+      let stamp = Self.stamp
       var outputs: [String] = []
-      for range in ranges {
+      for (start, end) in HybridPdfPaths.ranges(pageRangesJson) {
+        guard start >= 0, end < source.pageCount, end >= start else {
+          throw pdfError("invalid-page", "Invalid page range [\(start), \(end)]")
+        }
         let piece = PDFDocument()
-        let start = min(range.0, range.1)
-        let end = max(range.0, range.1)
-        for index in start...end where index >= 0 && index < source.pageCount {
+        for index in start...end {
           if let page = source.page(at: index) {
-            piece.insert(page, at: piece.pageCount)
+            piece.insert((page.copy() as? PDFPage) ?? page, at: piece.pageCount)
           }
         }
         let output = URL(fileURLWithPath: directory)
-          .appendingPathComponent("split-\(start)-\(end).pdf")
+          .appendingPathComponent("split-\(start)-\(end)-\(stamp).pdf")
           .path
-        guard piece.write(to: URL(fileURLWithPath: output)) else {
-          throw RuntimeError.error(withMessage: "Failed to write split PDF")
-        }
+        try Self.write(piece, to: output)
         outputs.append(output)
       }
       let data = try JSONSerialization.data(withJSONObject: outputs)
@@ -94,21 +109,23 @@ public final class HybridPdfLibrary: HybridPdfLibrarySpec {
   public func extractPages(filePath: String, pageNumbersJson: String, outputPath: String) throws -> Promise<String> {
     Promise.parallel {
       let path = HybridPdfPaths.normalize(filePath)
-      guard let source = PDFDocument(url: URL(fileURLWithPath: path)) else {
-        throw RuntimeError.error(withMessage: "Failed to open PDF: \(path)")
+      let source = try HybridPdfDocument.load(path, password: nil)
+      let pages = HybridPdfPaths.intArray(pageNumbersJson)
+      guard !pages.isEmpty else {
+        throw pdfError("invalid-argument", "No pages to extract")
       }
       let extracted = PDFDocument()
-      for index in HybridPdfPaths.intArray(pageNumbersJson) where index >= 0 && index < source.pageCount {
-        if let page = source.page(at: index) {
-          extracted.insert(page, at: extracted.pageCount)
+      for index in pages {
+        guard index >= 0, index < source.pageCount, let page = source.page(at: index) else {
+          throw pdfError("invalid-page", "Page \(index) is out of range")
         }
+        extracted.insert((page.copy() as? PDFPage) ?? page, at: extracted.pageCount)
       }
       let output = outputPath.isEmpty
-        ? HybridPdfPaths.sibling(path, suffix: "-extract.pdf")
+        ? URL(fileURLWithPath: path).deletingLastPathComponent()
+            .appendingPathComponent("extract-\(Self.stamp).pdf").path
         : HybridPdfPaths.normalize(outputPath)
-      guard extracted.write(to: URL(fileURLWithPath: output)) else {
-        throw RuntimeError.error(withMessage: "Failed to write extracted PDF")
-      }
+      try Self.write(extracted, to: output)
       return output
     }
   }
@@ -117,9 +134,7 @@ public final class HybridPdfLibrary: HybridPdfLibrarySpec {
     Promise.parallel {
       let started = Date()
       let input = HybridPdfPaths.normalize(inputPath)
-      guard let source = PDFDocument(url: URL(fileURLWithPath: input)) else {
-        throw RuntimeError.error(withMessage: "Failed to open PDF: \(input)")
-      }
+      let source = try HybridPdfDocument.load(input, password: nil)
       let originalSize = (try? FileManager.default.attributesOfItem(atPath: input)[.size] as? NSNumber)?.doubleValue ?? 0
       let level = min(9, max(0, compressionLevel))
       let scale = 1.0 - (level / 9.0) * 0.55
@@ -127,29 +142,44 @@ public final class HybridPdfLibrary: HybridPdfLibrarySpec {
       let compressed = PDFDocument()
       for index in 0..<source.pageCount {
         guard let page = source.page(at: index) else { continue }
-        let bounds = page.bounds(for: .mediaBox)
-        let image = page.thumbnail(
-          of: CGSize(width: bounds.width * scale, height: bounds.height * scale),
-          for: .mediaBox
-        )
-        guard let jpeg = image.jpegData(compressionQuality: quality),
-              let redrawn = UIImage(data: jpeg),
-              let newPage = PDFPage(image: redrawn) else {
-          continue
+        try autoreleasepool {
+          let size = PdfPageSpace(page).size
+          let image = HybridPdfDocument.draw(page, size: CGSize(width: size.width * scale, height: size.height * scale), background: .white)
+          guard let jpeg = image.jpegData(compressionQuality: quality),
+                let redrawn = UIImage(data: jpeg),
+                let newPage = PDFPage(image: redrawn) else {
+            throw pdfError("page-render-failed", "Failed to recompress page \(index)")
+          }
+          newPage.setBounds(CGRect(origin: .zero, size: size), for: .mediaBox)
+          compressed.insert(newPage, at: compressed.pageCount)
         }
-        compressed.insert(newPage, at: compressed.pageCount)
       }
       let output = outputPath.isEmpty
-        ? HybridPdfPaths.sibling(input, suffix: "-compressed.pdf")
+        ? URL(fileURLWithPath: input).deletingLastPathComponent()
+            .appendingPathComponent("compressed-\(Self.stamp).pdf").path
         : HybridPdfPaths.normalize(outputPath)
-      guard compressed.write(to: URL(fileURLWithPath: output)) else {
-        throw RuntimeError.error(withMessage: "Failed to write compressed PDF")
+      try Self.write(compressed, to: output)
+      var compressedSize = (try? FileManager.default.attributesOfItem(atPath: output)[.size] as? NSNumber)?.doubleValue ?? 0
+      if compressedSize <= 0 || compressedSize >= originalSize {
+        if input != output {
+          try? FileManager.default.removeItem(atPath: output)
+          do {
+            try FileManager.default.copyItem(atPath: input, toPath: output)
+          } catch {
+            throw pdfError("io-error", "Failed to copy the original PDF")
+          }
+        }
+        compressedSize = originalSize
       }
-      let compressedSize = (try? FileManager.default.attributesOfItem(atPath: output)[.size] as? NSNumber)?.doubleValue ?? 0
       let duration = Date().timeIntervalSince(started) * 1000
       let ratio = originalSize > 0 ? compressedSize / originalSize : 1
       let saved = (1 - ratio) * 100
-      return "{\"success\":true,\"originalSize\":\(originalSize),\"compressedSize\":\(compressedSize),\"durationMs\":\(duration),\"compressionRatio\":\(ratio),\"spaceSavedPercent\":\(saved),\"outputPath\":\"\(output)\"}"
+      let result: [String: Any] = [
+        "success": true, "originalSize": originalSize, "compressedSize": compressedSize,
+        "durationMs": duration, "compressionRatio": ratio, "spaceSavedPercent": saved, "outputPath": output,
+      ]
+      let data = try JSONSerialization.data(withJSONObject: result)
+      return String(data: data, encoding: .utf8) ?? "{}"
     }
   }
 
@@ -202,7 +232,7 @@ enum HybridPdfDiskCache {
   static func store(_ base64: String, identifier: String) throws -> PdfCacheInfo {
     guard let data = Data(base64Encoded: base64, options: .ignoreUnknownCharacters),
           data.starts(with: Data("%PDF-".utf8)) else {
-      throw RuntimeError.error(withMessage: "Invalid PDF data")
+      throw pdfError("invalid-source", "Invalid PDF data")
     }
     evictIfNeeded(adding: UInt64(data.count))
     let url = file(for: identifier)

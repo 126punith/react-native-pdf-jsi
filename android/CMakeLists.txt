@@ -17,6 +17,8 @@ add_library(NitroPdfJsi SHARED
     src/main/cpp/HybridPdfLibrary.cpp
     src/main/cpp/HybridPdfDocument.cpp
     src/main/cpp/PdfDiskCache.cpp
+    src/main/cpp/PdfJni.cpp
+    src/main/cpp/PdfViewerJni.cpp
 )
 
 set_target_properties(NitroPdfJsi PROPERTIES
@@ -31,6 +33,6 @@ target_include_directories(NitroPdfJsi PRIVATE
 )
 
 target_link_options(NitroPdfJsi PRIVATE "-Wl,-z,max-page-size=16384")
-target_link_libraries(NitroPdfJsi pdfium log)
+target_link_libraries(NitroPdfJsi pdfium log jnigraphics)
 
 include(${CMAKE_SOURCE_DIR}/../nitrogen/generated/android/NitroPdfJsi+autolinking.cmake)

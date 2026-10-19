@@ -8,10 +8,11 @@ class HybridPdfLibrary : public HybridPdfLibrarySpec {
 public:
     HybridPdfLibrary() : HybridObject(TAG) {}
 
-    JSIStats getJsiStats() override;
+    std::string getVersion() override;
     KB16Support getKb16Support() override;
     bool getOcrAvailable() override;
-    std::shared_ptr<Promise<std::shared_ptr<HybridPdfDocumentSpec>>> open(const std::string& path) override;
+    std::shared_ptr<Promise<std::shared_ptr<HybridPdfDocumentSpec>>> open(const std::string& path,
+                                                                          const std::optional<std::string>& password) override;
     std::shared_ptr<Promise<std::string>> mergePDFs(const std::vector<std::string>& filePaths, const std::string& outputPath) override;
     std::shared_ptr<Promise<std::string>> splitPDF(const std::string& filePath, const std::string& pageRangesJson, const std::string& outputDir) override;
     std::shared_ptr<Promise<std::string>> extractPages(const std::string& filePath, const std::string& pageNumbersJson, const std::string& outputPath) override;

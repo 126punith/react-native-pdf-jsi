@@ -71,7 +71,6 @@
     "bugs": {
         "url": "https://github.com/126punith/react-native-pdf-jsi/issues"
     },
-    "dependencies": {},
     "devDependencies": {
         "@babel/core": "^7.25.2",
         "@babel/preset-env": "^7.25.3",
@@ -99,7 +98,8 @@
         "prepare": "bob build",
         "prepublishOnly": "npm run nitrogen && npm run build:plugin && npm run typecheck && npm test",
         "clean:for-publish": "node -e \"const fs=require('fs'),path=require('path');['android/.cxx','android/.gradle','android/build'].forEach(p=>{try{fs.rmSync(path.join(__dirname,p),{recursive:true});console.log('Removed',p);}catch(e){}})\"",
-        "prepack": "npm run clean:for-publish"
+        "prepack": "npm run clean:for-publish",
+        "test:native": "./scripts/run-native-tests.sh"
     },
     "peerDependencies": {
         "expo": ">=52.0.0",
