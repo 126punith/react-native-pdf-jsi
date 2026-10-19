@@ -1,0 +1,69 @@
+%PDF-1.7
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [8 0 R 9 0 R 10 0 R] /DA (/Helv 12 Tf 0 g) /DR << /Font << /Helv 12 0 R /ZaDb 5 0 R >> >> /NeedAppearances true >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 11 0 R /Annots [8 0 R 9 0 R 10 0 R] >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /ZapfDingbats >>
+endobj
+6 0 obj
+<< /Length 44 /Type /XObject /Subtype /Form /BBox [0 0 20 20] /Resources << /Font << /ZaDb 5 0 R >> >> >>
+stream
+q 0 0 0 rg BT /ZaDb 14 Tf 2 4 Td (4) Tj ET Q
+endstream
+endobj
+7 0 obj
+<< /Length 0 /Type /XObject /Subtype /Form /BBox [0 0 20 20] >>
+stream
+
+endstream
+endobj
+8 0 obj
+<< /Type /Annot /Subtype /Widget /FT /Tx /T (name) /V () /Rect [150 650 400 675] /F 4 /P 3 0 R /DA (/Helv 12 Tf 0 g) /MK << /BC [0 0 0] >> >>
+endobj
+9 0 obj
+<< /Type /Annot /Subtype /Widget /FT /Btn /T (agree) /V /Off /AS /Off /Rect [150 600 170 620] /F 4 /P 3 0 R /MK << /BC [0 0 0] /CA (4) >> /AP << /N << /Yes 6 0 R /Off 7 0 R >> >> >>
+endobj
+10 0 obj
+<< /Type /Annot /Subtype /Widget /FT /Ch /Ff 131072 /T (color) /V (Red) /Opt [(Red) (Green) (Blue)] /Rect [150 550 300 575] /F 4 /P 3 0 R /DA (/Helv 12 Tf 0 g) >>
+endobj
+11 0 obj
+<< /Length 113  >>
+stream
+BT /F1 14 Tf 72 655 Td (Name:) Tj ET
+BT /F1 14 Tf 72 605 Td (Agree:) Tj ET
+BT /F1 14 Tf 72 555 Td (Colour:) Tj ET
+endstream
+endobj
+12 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 13
+0000000000 65535 f 
+0000000015 00000 n 
+0000000200 00000 n 
+0000000257 00000 n 
+0000000413 00000 n 
+0000000483 00000 n 
+0000000556 00000 n 
+0000000739 00000 n 
+0000000836 00000 n 
+0000000993 00000 n 
+0000001190 00000 n 
+0000001369 00000 n 
+0000001535 00000 n 
+trailer
+<< /Size 13 /Root 1 0 R  >>
+startxref
+1633
+%%EOF

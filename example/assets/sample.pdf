@@ -1,0 +1,112 @@
+%PDF-1.7
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /Outlines 16 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R] /Count 5 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 11 0 R /Annots [9 0 R 10 0 R] >>
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 12 0 R  /Rotate 90 >>
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 13 0 R  >>
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 14 0 R  >>
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 15 0 R  >>
+endobj
+9 0 obj
+<< /Type /Annot /Subtype /Link /Rect [72 500 300 530] /Border [0 0 0] /Dest [6 0 R /Fit] >>
+endobj
+10 0 obj
+<< /Type /Annot /Subtype /Link /Rect [72 450 300 480] /Border [0 0 0] /A << /S /URI /URI (https://example.com/) >> >>
+endobj
+11 0 obj
+<< /Length 205  >>
+stream
+BT /F1 36 Tf 72 672 Td (Page 1) Tj ET
+BT /F1 14 Tf 72 600 Td (The quick brown fox jumps over the lazy dog on page 1.) Tj ET
+BT /F1 14 Tf 72 578 Td (Needle) Tj ET
+BT /F1 14 Tf 72 528 Td (Go to page 3) Tj ET
+endstream
+endobj
+12 0 obj
+<< /Length 161  >>
+stream
+BT /F1 36 Tf 72 672 Td (Page 2) Tj ET
+BT /F1 14 Tf 72 600 Td (The quick brown fox jumps over the lazy dog on page 2.) Tj ET
+BT /F1 14 Tf 72 578 Td (Needle) Tj ET
+endstream
+endobj
+13 0 obj
+<< /Length 161  >>
+stream
+BT /F1 36 Tf 72 672 Td (Page 3) Tj ET
+BT /F1 14 Tf 72 600 Td (The quick brown fox jumps over the lazy dog on page 3.) Tj ET
+BT /F1 14 Tf 72 578 Td (Needle) Tj ET
+endstream
+endobj
+14 0 obj
+<< /Length 161  >>
+stream
+BT /F1 36 Tf 72 672 Td (Page 4) Tj ET
+BT /F1 14 Tf 72 600 Td (The quick brown fox jumps over the lazy dog on page 4.) Tj ET
+BT /F1 14 Tf 72 578 Td (Needle) Tj ET
+endstream
+endobj
+15 0 obj
+<< /Length 161  >>
+stream
+BT /F1 36 Tf 72 672 Td (Page 5) Tj ET
+BT /F1 14 Tf 72 600 Td (The quick brown fox jumps over the lazy dog on page 5.) Tj ET
+BT /F1 14 Tf 72 578 Td (Needle) Tj ET
+endstream
+endobj
+16 0 obj
+<< /Type /Outlines /First 17 0 R /Last 18 0 R /Count 3 >>
+endobj
+17 0 obj
+<< /Title (Introduction) /Parent 16 0 R /Next 18 0 R /Dest [4 0 R /Fit] >>
+endobj
+18 0 obj
+<< /Title (Chapter Two) /Parent 16 0 R /Prev 17 0 R /First 19 0 R /Last 19 0 R /Count 1 /Dest [5 0 R /Fit] >>
+endobj
+19 0 obj
+<< /Title (Section 2.1) /Parent 18 0 R /Dest [6 0 R /Fit] >>
+endobj
+xref
+0 20
+0000000000 65535 f 
+0000000015 00000 n 
+0000000081 00000 n 
+0000000162 00000 n 
+0000000232 00000 n 
+0000000382 00000 n 
+0000000521 00000 n 
+0000000649 00000 n 
+0000000777 00000 n 
+0000000905 00000 n 
+0000001012 00000 n 
+0000001146 00000 n 
+0000001404 00000 n 
+0000001618 00000 n 
+0000001832 00000 n 
+0000002046 00000 n 
+0000002260 00000 n 
+0000002334 00000 n 
+0000002425 00000 n 
+0000002551 00000 n 
+trailer
+<< /Size 20 /Root 1 0 R  >>
+startxref
+2628
+%%EOF

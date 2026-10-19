@@ -23,6 +23,6 @@ public class RNPDFPackage implements ReactPackage {
 
     @Override
     public List<ViewManager> createViewManagers(ReactApplicationContext reactContext) {
-        return Collections.singletonList(new PdfManager(reactContext));
+        return Collections.singletonList(new PdfViewManager());
     }
 }

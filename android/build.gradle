@@ -21,15 +21,6 @@ buildscript {
 
 repositories {
     mavenCentral()
-    maven {
-        // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
-        url "$projectDir/../node_modules/react-native/android"
-        content {
-            // Use Jitpack only for AndroidPdfViewer; the rest is hosted at mavenCentral.
-            includeGroup "com.github.zacharee"
-        }
-    }
-    maven { url 'https://jitpack.io' }
     google()
 }
 
@@ -196,17 +187,6 @@ android {
 
 dependencies {
     implementation 'com.facebook.react:react-native:+'
-    // NOTE: The original repo at com.github.barteksc is abandoned by the maintainer; there will be no more updates coming from that repo.
-    // The repo from zacharee is based on PdfiumAndroidKt, a much newer fork of PdfiumAndroid, with better maintenance and updated native libraries.
-    // Keep viewer at a Java 17-compatible version; exclude bundled PdfiumAndroid
-    implementation('com.github.zacharee:AndroidPdfViewer:4.0.1') {
-        exclude group: 'com.github.barteksc', module: 'PdfiumAndroid'
-    }
-    // Depend on PdfiumAndroidKt directly so this can be updated independently of AndroidPdfViewer as updates are provided.
-    implementation 'io.legere:pdfiumandroid:1.0.32'
-    implementation 'com.google.code.gson:gson:2.11.0'
-    
-    // 🚀 Android dependencies for JSI
     implementation 'androidx.annotation:annotation:1.7.0'
     implementation 'androidx.core:core:1.12.0'
 

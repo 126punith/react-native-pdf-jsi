@@ -85,7 +85,7 @@ public:
      */
     void renderRegion(int pageIndex, void* pixels, int stride, int width, int height,
                       double pageWidthPx, double pageHeightPx, double offsetX, double offsetY,
-                      uint32_t background);
+                      uint32_t background, bool annotations = true);
     std::vector<PageLink> links(int pageIndex);
 
     std::vector<SearchResult> search(const std::string& term, int startPage, int endPage);

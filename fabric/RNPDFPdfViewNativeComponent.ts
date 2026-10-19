@@ -1,4 +1,5 @@
 import type * as React from 'react';
+import { codegenNativeCommands, codegenNativeComponent } from 'react-native';
 import type { HostComponent, ViewProps } from 'react-native';
 import type {
   BubblingEventHandler,
@@ -6,8 +7,6 @@ import type {
   Int32,
   WithDefault,
 } from 'react-native/Libraries/Types/CodegenTypes';
-import codegenNativeCommands from 'react-native/Libraries/Utilities/codegenNativeCommands';
-import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNativeComponent';
 
 /** A JSON-encoded viewer event; see `src/viewerEvents.ts`. */
 export type ViewerChangeEvent = Readonly<{

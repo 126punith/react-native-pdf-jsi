@@ -39,6 +39,34 @@ std::string toString(JNIEnv* env, jstring value) {
     return out;
 }
 
+/** NewStringUTF expects modified UTF-8; going through UTF-16 handles every code point. */
+jstring newJavaString(JNIEnv* env, const std::string& utf8) {
+    std::u16string out;
+    for (size_t index = 0; index < utf8.size();) {
+        const unsigned char lead = static_cast<unsigned char>(utf8[index]);
+        uint32_t code = lead;
+        size_t extra = lead < 0x80 ? 0 : (lead & 0xE0) == 0xC0 ? 1 : (lead & 0xF0) == 0xE0 ? 2 : 3;
+        if (extra > 0) {
+            code = lead & (0x3F >> extra);
+        }
+        if (index + extra >= utf8.size()) {
+            break;
+        }
+        for (size_t step = 1; step <= extra; step++) {
+            code = (code << 6) | (static_cast<unsigned char>(utf8[index + step]) & 0x3F);
+        }
+        index += extra + 1;
+        if (code <= 0xFFFF) {
+            out.push_back(static_cast<char16_t>(code));
+        } else {
+            code -= 0x10000;
+            out.push_back(static_cast<char16_t>(0xD800 + (code >> 10)));
+            out.push_back(static_cast<char16_t>(0xDC00 + (code & 0x3FF)));
+        }
+    }
+    return env->NewString(reinterpret_cast<const jchar*>(out.data()), static_cast<jsize>(out.size()));
+}
+
 void throwJava(JNIEnv* env, const std::string& message) {
     jclass clazz = env->FindClass("java/lang/IllegalStateException");
     if (clazz != nullptr) {
@@ -101,7 +129,8 @@ JNIEXPORT jfloatArray JNICALL Java_org_wonday_pdf_viewer_PdfiumBridge_nativePage
 JNIEXPORT jboolean JNICALL Java_org_wonday_pdf_viewer_PdfiumBridge_nativeRender(JNIEnv* env, jclass, jlong handle, jint page,
                                                                                 jobject bitmap, jfloat pageWidthPx,
                                                                                 jfloat pageHeightPx, jfloat offsetX,
-                                                                                jfloat offsetY, jint background) {
+                                                                                jfloat offsetY, jint background,
+                                                                                jboolean annotations) {
     auto document = fromHandle(handle);
     if (document == nullptr) {
         return JNI_FALSE;
@@ -119,7 +148,7 @@ JNIEXPORT jboolean JNICALL Java_org_wonday_pdf_viewer_PdfiumBridge_nativeRender(
     try {
         document->renderRegion(page, pixels, static_cast<int>(info.stride), static_cast<int>(info.width),
                                static_cast<int>(info.height), pageWidthPx, pageHeightPx, offsetX, offsetY,
-                               static_cast<uint32_t>(background));
+                               static_cast<uint32_t>(background), annotations == JNI_TRUE);
     } catch (const std::exception&) {
         ok = false;
     }
@@ -168,12 +197,51 @@ JNIEXPORT jobjectArray JNICALL Java_org_wonday_pdf_viewer_PdfiumBridge_nativeLin
     jobjectArray out = env->NewObjectArray(static_cast<jsize>(links.size()), stringClass, nullptr);
     for (size_t index = 0; index < links.size(); index++) {
         if (!links[index].uri.empty()) {
-            jstring uri = env->NewStringUTF(links[index].uri.c_str());
+            jstring uri = newJavaString(env, links[index].uri);
             env->SetObjectArrayElement(out, static_cast<jsize>(index), uri);
             env->DeleteLocalRef(uri);
         }
     }
     env->DeleteLocalRef(stringClass);
+    return out;
+}
+
+/** Outline titles, flattened depth-first. */
+JNIEXPORT jobjectArray JNICALL Java_org_wonday_pdf_viewer_PdfiumBridge_nativeOutlineTitles(JNIEnv* env, jclass, jlong handle) {
+    jclass stringClass = env->FindClass("java/lang/String");
+    std::vector<margelo::nitro::pdfjsi::OutlineItem> items;
+    if (auto document = fromHandle(handle)) {
+        try {
+            items = document->outline();
+        } catch (const std::exception&) {
+            items.clear();
+        }
+    }
+    jobjectArray out = env->NewObjectArray(static_cast<jsize>(items.size()), stringClass, nullptr);
+    for (size_t index = 0; index < items.size(); index++) {
+        jstring title = newJavaString(env, items[index].title);
+        env->SetObjectArrayElement(out, static_cast<jsize>(index), title);
+        env->DeleteLocalRef(title);
+    }
+    env->DeleteLocalRef(stringClass);
+    return out;
+}
+
+/** Two ints per outline item: target page (-1 if none) and level. */
+JNIEXPORT jintArray JNICALL Java_org_wonday_pdf_viewer_PdfiumBridge_nativeOutlineInfo(JNIEnv* env, jclass, jlong handle) {
+    std::vector<jint> values;
+    if (auto document = fromHandle(handle)) {
+        try {
+            for (const auto& item : document->outline()) {
+                values.push_back(static_cast<jint>(item.page));
+                values.push_back(static_cast<jint>(item.level));
+            }
+        } catch (const std::exception&) {
+            values.clear();
+        }
+    }
+    jintArray out = env->NewIntArray(static_cast<jsize>(values.size()));
+    env->SetIntArrayRegion(out, 0, static_cast<jsize>(values.size()), values.data());
     return out;
 }
 

@@ -1032,7 +1032,8 @@ RenderedImage OpenPdf::render(int pageIndex, const RenderRequest& request) {
 }
 
 void OpenPdf::renderRegion(int pageIndex, void* pixels, int stride, int width, int height, double pageWidthPx,
-                           double pageHeightPx, double offsetX, double offsetY, uint32_t background) {
+                           double pageHeightPx, double offsetX, double offsetY, uint32_t background,
+                           bool annotations) {
     std::lock_guard<std::mutex> lock(impl_->mutex);
     std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);
     FPDF_DOCUMENT document = impl_->requireDocument();
@@ -1048,7 +1049,8 @@ void OpenPdf::renderRegion(int pageIndex, void* pixels, int stride, int width, i
     page.page = loadPage(document, pageIndex);
     FPDF_RenderPageBitmap(bitmap.bitmap, page.page, -static_cast<int>(std::lround(offsetX)),
                           -static_cast<int>(std::lround(offsetY)), static_cast<int>(std::lround(pageWidthPx)),
-                          static_cast<int>(std::lround(pageHeightPx)), 0, FPDF_ANNOT | FPDF_REVERSE_BYTE_ORDER);
+                          static_cast<int>(std::lround(pageHeightPx)), 0,
+                          (annotations ? FPDF_ANNOT : 0) | FPDF_REVERSE_BYTE_ORDER);
 }
 
 std::vector<PageLink> OpenPdf::links(int pageIndex) {
