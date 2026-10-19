@@ -99,7 +99,8 @@
         "prepublishOnly": "npm run nitrogen && npm run build:plugin && npm run typecheck && npm test",
         "clean:for-publish": "node -e \"const fs=require('fs'),path=require('path');['android/.cxx','android/.gradle','android/build'].forEach(p=>{try{fs.rmSync(path.join(__dirname,p),{recursive:true});console.log('Removed',p);}catch(e){}})\"",
         "prepack": "npm run clean:for-publish",
-        "test:native": "./scripts/run-native-tests.sh"
+        "test:native": "./scripts/run-native-tests.sh",
+        "test:e2e": "./scripts/run-maestro.sh"
     },
     "peerDependencies": {
         "expo": ">=52.0.0",

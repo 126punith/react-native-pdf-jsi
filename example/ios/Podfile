@@ -30,5 +30,46 @@ target 'PdfJsiExample' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+    # Swift explicit modules cannot build glog's module map (it includes headers
+    # inside a namespace). React Native turns them off only for prebuilt cores.
+    ReactNativePodsUtils.set_build_setting(installer, build_setting: 'SWIFT_ENABLE_EXPLICIT_MODULES', value: 'NO')
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_config|
+        build_config.build_settings['SWIFT_ENABLE_EXPLICIT_MODULES'] = 'NO'
+        # fmt 11 turns on a consteval path under C++20 that newer Apple Clang rejects.
+        build_config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17' if target.name == 'fmt'
+      end
+    end
+
+    # Swift targets (Nitro) import fmt as a C++20 Clang module, where the target
+    # setting above does not apply, so consteval is switched off in the header.
+    fmt_base = File.join(installer.sandbox.root, 'fmt/include/fmt/base.h')
+    if File.exist?(fmt_base)
+      source = File.read(fmt_base)
+      patched = source.sub('defined(__apple_build_version__) && __apple_build_version__ < 14000029L',
+                           'defined(__apple_build_version__)')
+      if patched != source
+        File.chmod(0644, fmt_base)
+        File.write(fmt_base, patched)
+      end
+    end
+
+    # glog's logging.h includes its other headers inside namespace google, which
+    # Clang rejects as module imports; textual headers keep them plain includes.
+    glog_modulemap = <<~MODULEMAP
+      module glog {
+        textual header "glog-umbrella.h"
+        textual header "glog/logging.h"
+        textual header "glog/log_severity.h"
+        textual header "glog/raw_logging.h"
+        textual header "glog/stl_logging.h"
+        textual header "glog/vlog_is_on.h"
+        export *
+      }
+    MODULEMAP
+    Dir.glob(File.join(installer.sandbox.root, '**/glog.modulemap')).each do |path|
+      File.chmod(0644, path)
+      File.write(path, glog_modulemap)
+    end
   end
 end

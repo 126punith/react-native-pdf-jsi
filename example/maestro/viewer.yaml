@@ -1,0 +1,45 @@
+# Viewer basics: load event, thumbnails (PdfPage), navigation commands, zoom and taps.
+appId: ${APP_ID}
+---
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible: "load pages=5 outline=3"
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible: "Refreshing..."
+    timeout: 20000
+- assertVisible: "page 1/5"
+- extendedWaitUntil:
+    visible: "thumbnails rendered 5"
+    timeout: 10000
+- tapOn:
+    id: "thumbnail-3"
+- extendedWaitUntil:
+    visible: "page 4/5"
+    timeout: 5000
+- tapOn:
+    id: "go-last"
+- extendedWaitUntil:
+    visible: "page 5/5"
+    timeout: 5000
+- tapOn:
+    id: "go-first"
+- extendedWaitUntil:
+    visible: "page 1/5"
+    timeout: 5000
+- tapOn:
+    id: "zoom-2"
+- extendedWaitUntil:
+    visible: "scale 2.00"
+    timeout: 5000
+- tapOn:
+    id: "zoom-1"
+- extendedWaitUntil:
+    visible: "scale 1.00"
+    timeout: 5000
+- tapOn:
+    point: "50%,80%"
+- extendedWaitUntil:
+    visible: "tap page=.*"
+    timeout: 5000

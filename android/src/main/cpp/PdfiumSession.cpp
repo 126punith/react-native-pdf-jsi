@@ -915,6 +915,36 @@ const std::string& OpenPdf::path() const {
     return impl_->path;
 }
 
+bool OpenPdf::isOpen() {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    return !impl_->closed && impl_->document != nullptr;
+}
+
+namespace {
+std::mutex gSharedMutex;
+std::unordered_map<std::string, std::weak_ptr<OpenPdf>> gShared;
+} // namespace
+
+void shareOpenPdf(const std::shared_ptr<OpenPdf>& document) {
+    std::lock_guard<std::mutex> lock(gSharedMutex);
+    for (auto it = gShared.begin(); it != gShared.end();) {
+        it = it->second.expired() ? gShared.erase(it) : std::next(it);
+    }
+    gShared[document->path()] = document;
+}
+
+std::shared_ptr<OpenPdf> findSharedOpenPdf(const std::string& path) {
+    std::shared_ptr<OpenPdf> document;
+    {
+        std::lock_guard<std::mutex> lock(gSharedMutex);
+        auto it = gShared.find(normalizePdfPath(path));
+        if (it != gShared.end()) {
+            document = it->second.lock();
+        }
+    }
+    return document != nullptr && document->isOpen() ? document : nullptr;
+}
+
 int OpenPdf::pageCount() {
     std::lock_guard<std::mutex> lock(impl_->mutex);
     std::lock_guard<std::mutex> pdfiumLock(gPdfiumMutex);

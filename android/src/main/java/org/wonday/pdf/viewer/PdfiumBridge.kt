@@ -11,7 +11,14 @@ object PdfiumBridge {
     /** Throws IllegalStateException with a `[code] message` text on failure. */
     @JvmStatic external fun nativeOpen(path: String, password: String?): Long
 
+    /** Handle to the document a PdfDocument has open at `path`, or 0. Free it with [nativeRelease]. */
+    @JvmStatic external fun nativeOpenShared(path: String): Long
+
+    /** Closes the document and frees the handle. */
     @JvmStatic external fun nativeClose(handle: Long)
+
+    /** Frees a handle from [nativeOpenShared]; the document stays open for its owner. */
+    @JvmStatic external fun nativeRelease(handle: Long)
 
     /** Width and height in points, rotation applied, two floats per page. */
     @JvmStatic external fun nativePageSizes(handle: Long): FloatArray

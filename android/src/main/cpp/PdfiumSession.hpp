@@ -70,6 +70,7 @@ public:
     OpenPdf& operator=(const OpenPdf&) = delete;
 
     const std::string& path() const;
+    bool isOpen();
     int pageCount();
     bool isEncrypted();
     bool hasUnsavedChanges();
@@ -115,6 +116,11 @@ private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };
+
+/** Makes an open document findable by path (weakly held), so page views can reuse it. */
+void shareOpenPdf(const std::shared_ptr<OpenPdf>& document);
+/** The most recently shared open document for `path`, or null. */
+std::shared_ptr<OpenPdf> findSharedOpenPdf(const std::string& path);
 
 void pdfiumInit();
 std::string normalizePdfPath(const std::string& filePath);

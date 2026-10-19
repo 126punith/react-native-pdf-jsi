@@ -53,6 +53,7 @@ public final class HybridPdfDocument: HybridPdfDocumentSpec {
     fileSize = size
     encrypted = pdf.isEncrypted
     lock.unlock()
+    HybridPdfShared.register(pdf, path: path)
   }
 
   static func load(_ path: String, password: String?) throws -> PDFDocument {
@@ -778,6 +779,30 @@ enum HybridPdfOcr {
     let lines = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
     return lines.joined(separator: "\n")
   }
+}
+
+/// Open documents by path, held weakly, so page views can draw the unlocked, edited document.
+enum HybridPdfShared {
+  private static let lock = NSLock()
+  private static let documents = NSMapTable<NSString, PDFDocument>.strongToWeakObjects()
+
+  static func register(_ document: PDFDocument, path: String) {
+    lock.lock()
+    documents.setObject(document, forKey: path as NSString)
+    lock.unlock()
+  }
+
+  static func find(_ path: String) -> PDFDocument? {
+    lock.lock()
+    defer { lock.unlock() }
+    return documents.object(forKey: HybridPdfPaths.normalize(path) as NSString)
+  }
+}
+
+/// Lookup for RNPDFPdfPageView.mm, which cannot import the Swift module header.
+@_cdecl("RNPDFSharedDocument")
+public func RNPDFSharedDocument(_ path: NSString) -> PDFDocument? {
+  HybridPdfShared.find(path as String)
 }
 
 enum HybridPdfPaths {

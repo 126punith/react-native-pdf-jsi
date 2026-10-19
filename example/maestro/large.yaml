@@ -1,0 +1,33 @@
+# 1000-page document: opens, jumps to the end and back, scrolls.
+appId: ${APP_ID}
+---
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible: "load pages=5 outline=3"
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible: "Refreshing..."
+    timeout: 20000
+- tapOn:
+    id: "open-pages1000"
+- extendedWaitUntil:
+    visible: "load pages=1000 outline=0"
+    timeout: 20000
+- tapOn:
+    id: "go-last"
+- extendedWaitUntil:
+    visible: "page 1000/1000"
+    timeout: 10000
+- tapOn:
+    id: "go-first"
+- extendedWaitUntil:
+    visible: "page 1/1000"
+    timeout: 10000
+- swipe:
+    start: "50%,85%"
+    end: "50%,45%"
+    duration: 1200
+- extendedWaitUntil:
+    visible: "page ([2-9]|[1-9][0-9])/1000"
+    timeout: 5000

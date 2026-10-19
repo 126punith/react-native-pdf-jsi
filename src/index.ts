@@ -8,6 +8,9 @@
 export { PdfView, PdfView as default } from './PdfView';
 export type { PdfViewProps, PdfViewRef, PdfFitPolicy, NavigationOptions } from './PdfView';
 
+export { PdfPage } from './PdfPage';
+export type { PdfPageProps } from './PdfPage';
+
 export { usePdfDocument } from './usePdfDocument';
 export type { UsePdfDocumentOptions, UsePdfDocumentResult } from './usePdfDocument';
 

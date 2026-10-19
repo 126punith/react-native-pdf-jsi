@@ -1,5 +1,6 @@
 package org.wonday.pdf;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -23,6 +24,6 @@ public class RNPDFPackage implements ReactPackage {
 
     @Override
     public List<ViewManager> createViewManagers(ReactApplicationContext reactContext) {
-        return Collections.singletonList(new PdfViewManager());
+        return Arrays.asList(new PdfViewManager(), new PdfPageViewManager());
     }
 }

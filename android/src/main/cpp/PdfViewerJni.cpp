@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+using margelo::nitro::pdfjsi::findSharedOpenPdf;
 using margelo::nitro::pdfjsi::OpenPdf;
 using margelo::nitro::pdfjsi::PageGeometry;
 using margelo::nitro::pdfjsi::PageLink;
@@ -94,6 +95,12 @@ JNIEXPORT jlong JNICALL Java_org_wonday_pdf_viewer_PdfiumBridge_nativeOpen(JNIEn
     }
 }
 
+/** Reuses the document a PdfDocument has open at `path`; returns 0 when none is open. */
+JNIEXPORT jlong JNICALL Java_org_wonday_pdf_viewer_PdfiumBridge_nativeOpenShared(JNIEnv* env, jclass, jstring path) {
+    auto document = findSharedOpenPdf(toString(env, path));
+    return document == nullptr ? 0 : reinterpret_cast<jlong>(new Handle(document));
+}
+
 JNIEXPORT void JNICALL Java_org_wonday_pdf_viewer_PdfiumBridge_nativeClose(JNIEnv*, jclass, jlong handle) {
     if (handle == 0) {
         return;
@@ -101,6 +108,11 @@ JNIEXPORT void JNICALL Java_org_wonday_pdf_viewer_PdfiumBridge_nativeClose(JNIEn
     auto* pointer = reinterpret_cast<Handle*>(handle);
     (*pointer)->close();
     delete pointer;
+}
+
+/** Drops a handle from nativeOpenShared without closing the document its owner still uses. */
+JNIEXPORT void JNICALL Java_org_wonday_pdf_viewer_PdfiumBridge_nativeRelease(JNIEnv*, jclass, jlong handle) {
+    delete reinterpret_cast<Handle*>(handle);
 }
 
 JNIEXPORT jfloatArray JNICALL Java_org_wonday_pdf_viewer_PdfiumBridge_nativePageSizes(JNIEnv* env, jclass, jlong handle) {

@@ -3,9 +3,9 @@
  * the testIDs below; `status` shows the last viewer event as text.
  */
 import { useRef, useState } from 'react';
-import { Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { PdfView, type PdfViewRef, type PdfSource } from 'react-native-pdf-jsi';
+import { PdfPage, PdfView, usePdfDocument, type PdfViewRef, type PdfSource } from 'react-native-pdf-jsi';
 
 const DOCUMENTS: Record<string, { source: PdfSource; password?: string }> = {
   sample: { source: require('./assets/sample.pdf') },
@@ -20,6 +20,33 @@ function Button({ id, label, onPress }: { id: string; label: string; onPress: ()
     <Pressable testID={id} onPress={onPress} style={styles.button}>
       <Text style={styles.buttonText}>{label}</Text>
     </Pressable>
+  );
+}
+
+/** PdfPage thumbnails of the open document; tapping one jumps there. */
+function Thumbnails({ source, password, onSelect }: { source: PdfSource; password?: string; onSelect: (page: number) => void }) {
+  const { document, error } = usePdfDocument(source, { password });
+  const [rendered, setRendered] = useState(0);
+  if (error) {
+    return <Text style={styles.status}>thumbnails: {error.code}</Text>;
+  }
+  if (!document) {
+    return null;
+  }
+  const count = Math.min(document.pageCount, 12);
+  return (
+    <View>
+      <ScrollView horizontal style={styles.thumbnails} contentContainerStyle={styles.thumbnailRow}>
+        {Array.from({ length: count }, (_, page) => (
+          <Pressable key={page} testID={`thumbnail-${page}`} onPress={() => onSelect(page)}>
+            <PdfPage document={document} page={page} style={styles.thumbnail} onRender={() => setRendered((n) => n + 1)} />
+          </Pressable>
+        ))}
+      </ScrollView>
+      <Text testID="thumbnails" style={styles.status}>
+        thumbnails rendered {rendered}
+      </Text>
+    </View>
   );
 }
 
@@ -55,6 +82,14 @@ function App() {
         <Text testID="page" style={styles.status}>
           page {page}
         </Text>
+        {name !== 'locked' && (
+          <Thumbnails
+            key={name}
+            source={document.source}
+            password={document.password}
+            onSelect={(page) => viewer.current?.goToPage(page)}
+          />
+        )}
         <PdfView
           ref={viewer}
           testID="viewer"
@@ -84,6 +119,9 @@ const styles = StyleSheet.create({
   buttonText: { color: 'white', fontSize: 12 },
   status: { paddingHorizontal: 8, fontSize: 12, color: '#111' },
   viewer: { flex: 1, backgroundColor: '#ccc' },
+  thumbnails: { flexGrow: 0 },
+  thumbnailRow: { padding: 4, gap: 6, alignItems: 'center' },
+  thumbnail: { height: 64 },
 });
 
 export default App;

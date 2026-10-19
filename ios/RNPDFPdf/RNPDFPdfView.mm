@@ -1,1852 +1,657 @@
-/**
- * Copyright (c) 2017-present, Wonday (@wonday.org)
- * All rights reserved.
- *
- * This source code is licensed under the MIT-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
 #import "RNPDFPdfView.h"
-#import "SearchRegistry.h"
 
-#import <Foundation/Foundation.h>
-#import <QuartzCore/QuartzCore.h>
 #import <PDFKit/PDFKit.h>
-
-#if __has_include(<React/RCTAssert.h>)
-#import <React/RCTBridgeModule.h>
-#import <React/RCTEventDispatcher.h>
-#import <React/UIView+React.h>
-#import <React/RCTLog.h>
-#import <React/RCTBlobManager.h>
-#else
-#import "RCTBridgeModule.h"
-#import "RCTEventDispatcher.h"
-#import "UIView+React.h"
-#import "RCTLog.h"
-#import <RCTBlobManager.h">
-#endif
-
-#ifdef RCT_NEW_ARCH_ENABLED
 #import <React/RCTConversions.h>
 #import <React/RCTFabricComponentsPlugins.h>
 #import <react/renderer/components/rnpdf/ComponentDescriptors.h>
+#import <react/renderer/components/rnpdf/EventEmitters.h>
 #import <react/renderer/components/rnpdf/Props.h>
 #import <react/renderer/components/rnpdf/RCTComponentViewHelpers.h>
 
-// Some RN private method hacking below similar to how it is done in RNScreens:
-// https://github.com/software-mansion/react-native-screens/blob/90e548739f35b5ded2524a9d6410033fc233f586/ios/RNSScreenStackHeaderConfig.mm#L30
-@interface RCTBridge (Private)
-+ (RCTBridge *)currentBridge;
-@end
-
-#endif
-
-#ifndef __OPTIMIZE__
-// only output log when debug
-#define DLog( s, ... ) NSLog( @"<%p %@:(%d)> %@", self, [[NSString stringWithUTF8String:__FILE__] lastPathComponent], __LINE__, [NSString stringWithFormat:(s), ##__VA_ARGS__] )
-#else
-#define DLog( s, ... )
-#endif
-
-// output log both debug and release
-#define RLog( s, ... ) NSLog( @"<%p %@:(%d)> %@", self, [[NSString stringWithUTF8String:__FILE__] lastPathComponent], __LINE__, [NSString stringWithFormat:(s), ##__VA_ARGS__] )
-
-const float MAX_SCALE = 3.0f;
-const float MIN_SCALE = 1.0f;
-
-
-/** Overlay that draws highlight rects on top of the PDF view. */
-@interface HighlightOverlayView : UIView
-@property (nonatomic, weak) PDFView *pdfView;
-@property (nonatomic, copy) NSArray<NSDictionary *> *highlightRects;
-@end
-
-@implementation HighlightOverlayView
-- (void)drawRect:(CGRect)rect {
-    PDFView *pv = self.pdfView;
-    NSArray *items = self.highlightRects;
-    if (!pv || !pv.document || !items.count) return;
-    PDFDocument *doc = pv.document;
-    [[UIColor colorWithRed:1 green:1 blue:0 alpha:0.35] setFill];
-    for (NSDictionary *item in items) {
-        NSNumber *pageNum = item[@"page"];
-        NSString *rectStr = item[@"rect"];
-        if (!pageNum || !rectStr.length) continue;
-        int page1 = pageNum.intValue;
-        if (page1 < 1) continue;
-        PDFPage *page = [doc pageAtIndex:(NSUInteger)(page1 - 1)];
-        if (!page) continue;
-        NSArray<NSString *> *parts = [rectStr componentsSeparatedByString:@","];
-        if (parts.count != 4) continue;
-        CGFloat left = parts[0].doubleValue, top = parts[1].doubleValue, right = parts[2].doubleValue, bottom = parts[3].doubleValue;
-        CGRect pageRect = CGRectMake(left, bottom, right - left, top - bottom);
-        CGRect viewRect = [pv convertRect:pageRect fromPage:page];
-        CGContextFillRect(UIGraphicsGetCurrentContext(), viewRect);
-    }
-}
-@end
-
-@interface RNPDFScrollViewDelegateProxy : NSObject <UIScrollViewDelegate>
-- (instancetype)initWithPrimary:(id<UIScrollViewDelegate>)primary secondary:(id<UIScrollViewDelegate>)secondary;
-@end
-
-@implementation RNPDFScrollViewDelegateProxy {
-    __weak id<UIScrollViewDelegate> _primary;
-    __weak id<UIScrollViewDelegate> _secondary;
-}
-
-- (instancetype)initWithPrimary:(id<UIScrollViewDelegate>)primary secondary:(id<UIScrollViewDelegate>)secondary {
-    if (self = [super init]) {
-        _primary = primary;
-        _secondary = secondary;
-    }
-    return self;
-}
-
-- (BOOL)respondsToSelector:(SEL)aSelector {
-    return [super respondsToSelector:aSelector]
-        || (_primary && [_primary respondsToSelector:aSelector])
-        || (_secondary && [_secondary respondsToSelector:aSelector]);
-}
-
-- (id)forwardingTargetForSelector:(SEL)aSelector {
-    if (_primary && [_primary respondsToSelector:aSelector]) {
-        return _primary;
-    }
-    if (_secondary && [_secondary respondsToSelector:aSelector]) {
-        return _secondary;
-    }
-    return [super forwardingTargetForSelector:aSelector];
-}
-
-- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
-    if (_primary && [_primary respondsToSelector:@selector(scrollViewDidScroll:)]) {
-        [_primary scrollViewDidScroll:scrollView];
-    }
-    if (_secondary && [_secondary respondsToSelector:@selector(scrollViewDidScroll:)]) {
-        [_secondary scrollViewDidScroll:scrollView];
-    }
-}
-
-- (UIView *)viewForZoomingInScrollView:(UIScrollView *)scrollView {
-    // First check if primary delegate (PDFView's internal) handles it
-    if (_primary && [_primary respondsToSelector:@selector(viewForZoomingInScrollView:)]) {
-        UIView *zoomView = [_primary viewForZoomingInScrollView:scrollView];
-        if (zoomView != nil) {
-            NSLog(@"🔍 [iOS Zoom Delegate] Primary delegate returned zoom view: %@", NSStringFromClass([zoomView class]));
-            return zoomView;
-        }
-    }
-
-    // PDFKit's scroll view needs to zoom the PDFDocumentView
-    // Search for it in the hierarchy
-    for (UIView *subview in scrollView.subviews) {
-        NSString *className = NSStringFromClass([subview class]);
-        if ([className containsString:@"PDFDocumentView"] || [className containsString:@"PDFPage"]) {
-            NSLog(@"🔍 [iOS Zoom Delegate] Found PDF view for zooming: %@", className);
-            return subview;
-        }
-    }
-
-    // Fallback to first subview if it exists
-    UIView *fallback = scrollView.subviews.firstObject;
-    if (fallback) {
-        NSLog(@"🔍 [iOS Zoom Delegate] Using fallback zoom view: %@", NSStringFromClass([fallback class]));
-    } else {
-        NSLog(@"⚠️ [iOS Zoom Delegate] WARNING: No view found for zooming! Scroll view has %lu subviews", (unsigned long)scrollView.subviews.count);
-    }
-    return fallback;
-}
-
-@end
-
-@interface RNPDFPdfView() <PDFDocumentDelegate, PDFViewDelegate
-#ifdef RCT_NEW_ARCH_ENABLED
-, RCTRNPDFPdfViewViewProtocol
-#endif
->
-@end
-
-@implementation RNPDFPdfView
-{
-    RCTBridge *_bridge;
-    PDFDocument *_pdfDocument;
-    PDFView *_pdfView;
-    UIScrollView *_internalScrollView;
-    id<UIScrollViewDelegate> _originalScrollDelegate;
-    RNPDFScrollViewDelegateProxy *_scrollDelegateProxy;
-    PDFOutline *root;
-    float _fixScaleFactor;
-    bool _initialed;
-    NSArray<NSString *> *_changedProps;
-    UITapGestureRecognizer *_doubleTapRecognizer;
-    UITapGestureRecognizer *_singleTapRecognizer;
-    UILongPressGestureRecognizer *_longPressRecognizer;
-    UITapGestureRecognizer *_doubleTapEmptyRecognizer;
-    
-    // Enhanced progressive loading properties
-    BOOL _enableCaching;
-    BOOL _enablePreloading;
-    int _preloadRadius;
-    BOOL _enableTextSelection;
-    BOOL _showPerformanceMetrics;
-    int _cacheSize;
-    int _renderQuality;
-    
-    // Performance tracking
-    CFAbsoluteTime _loadStartTime;
-    CFAbsoluteTime _loadTime;
-    int _pageCount;
-    NSMutableDictionary *_pageCache;
-    NSMutableSet *_preloadedPages;
-    NSMutableDictionary *_performanceMetrics;
-    NSCache *_searchCache;
-    NSString *_currentPdfId;
-    NSOperationQueue *_preloadQueue;
-    
-    // Page navigation state tracking
-    int _previousPage;
-    BOOL _isNavigating;
-    BOOL _documentLoaded;
-    
-    // Track usePageViewController state to prevent unnecessary reconfiguration
-    BOOL _currentUsePageViewController;
-    BOOL _usePageViewControllerStateInitialized;
-    
-    // Search and highlight (iOS parity with Android)
-    NSString *_pdfId;
-    NSArray *_highlightRects;
-    HighlightOverlayView *_highlightOverlay;
-    /// Local file path when document loaded (used for SearchRegistry; may differ from _path which can be URI)
-    NSString *_lastLoadedPath;
-}
-
-#ifdef RCT_NEW_ARCH_ENABLED
-
 using namespace facebook::react;
+
+/// Page and scale events wait this long after the last scroll or zoom change.
+static const NSTimeInterval kSettleDelay = 0.15;
+
+static NSString *NormalizePath(NSString *path)
+{
+  if ([path hasPrefix:@"file://"]) {
+    NSURL *url = [NSURL URLWithString:path];
+    return url.path ?: [path substringFromIndex:7];
+  }
+  return path;
+}
+
+/// Display space: points from the top-left of the crop box as shown, rotation applied.
+/// Same mapping as `PdfPageSpace` in HybridPdfDocument.swift.
+static CGSize DisplaySize(PDFPage *page)
+{
+  CGRect box = [page boundsForBox:kPDFDisplayBoxCropBox];
+  NSInteger rotation = ((page.rotation % 360) + 360) % 360;
+  return rotation % 180 == 0 ? box.size : CGSizeMake(box.size.height, box.size.width);
+}
+
+static CGPoint PageToDisplay(PDFPage *page, CGPoint point)
+{
+  CGPoint rotated = CGPointApplyAffineTransform(point, [page transformForBox:kPDFDisplayBoxCropBox]);
+  return CGPointMake(rotated.x, DisplaySize(page).height - rotated.y);
+}
+
+static CGRect DisplayToPage(PDFPage *page, CGRect rect)
+{
+  CGFloat height = DisplaySize(page).height;
+  CGRect flipped = CGRectMake(rect.origin.x, height - rect.origin.y - rect.size.height, rect.size.width, rect.size.height);
+  return CGRectApplyAffineTransform(flipped, CGAffineTransformInvert([page transformForBox:kPDFDisplayBoxCropBox]));
+}
+
+@interface RNPDFPdfView () <RCTRNPDFPdfViewViewProtocol, PDFViewDelegate, UIGestureRecognizerDelegate>
+@end
+
+@implementation RNPDFPdfView {
+  PDFView *_pdfView;
+  UITapGestureRecognizer *_tap;
+
+  NSString *_path;
+  NSString *_password;
+  int _initialPage;
+  float _initialScale;
+  float _minScale;
+  float _maxScale;
+  BOOL _horizontal;
+  BOOL _paging;
+  BOOL _rtl;
+  BOOL _singlePage;
+  int _fitPolicy;
+  int _spacing;
+  BOOL _doubleTapZoom;
+  BOOL _scrollEnabled;
+  BOOL _annotations;
+  BOOL _showsHorizontalIndicator;
+  BOOL _showsVerticalIndicator;
+  NSArray<NSDictionary *> *_highlights;
+
+  NSUInteger _generation;
+  PDFDocument *_document;
+  NSMutableArray<PDFAnnotation *> *_highlightAnnotations;
+  CGFloat _baseScale;
+  BOOL _positioned;
+  int _lastPage;
+  float _lastScale;
+  NSMutableArray<NSDictionary *> *_pendingEvents;
+}
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
 {
-  // Defensive check: Ensure the descriptor class exists before returning
-  // This prevents nil object insertion in RCTThirdPartyComponentsProvider
-  // The component name must match the codegen name: "RNPDFPdfView"
-  // Using static to ensure the provider is initialized only once
-  static ComponentDescriptorProvider provider = concreteComponentDescriptorProvider<RNPDFPdfViewComponentDescriptor>();
-  return provider;
+  return concreteComponentDescriptorProvider<RNPDFPdfViewComponentDescriptor>();
 }
 
-// Needed because of this: https://github.com/facebook/react-native/pull/37274
-+ (void)load
++ (BOOL)shouldBeRecycled
 {
-  [super load];
-  
-  // Force class to be loaded before React Native tries to register it
-  // This ensures RNPDFPdfViewCls() returns a valid class, preventing nil insertion
-  static dispatch_once_t onceToken;
-  dispatch_once(&onceToken, ^{
-    // Force class initialization by accessing the class
-    Class cls = [self class];
-    if (cls == nil) {
-      RCTLogError(@"RNPDFPdfView: Class is nil in +load");
-      return;
-    }
-    
-    // Ensure component name is properly set for registration
-    // This helps React Native's RCTThirdPartyComponentsProvider find the component
-    // The component name must match the codegen name: "RNPDFPdfView"
-    NSString *componentName = NSStringFromClass(cls);
-    if (componentName == nil || componentName.length == 0) {
-      RCTLogError(@"RNPDFPdfView: Component name is nil or empty");
-    } else if (![componentName isEqualToString:@"RNPDFPdfView"]) {
-      RCTLogWarn(@"RNPDFPdfView: Component name mismatch. Expected 'RNPDFPdfView', got '%@'", componentName);
-    }
-    
-    // Verify class is accessible (RNPDFPdfViewCls is defined later, so we just verify the class itself)
-    if (cls != RNPDFPdfView.class) {
-      RCTLogError(@"RNPDFPdfView: Class mismatch in +load");
-    }
-  });
+  return NO;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
 {
-    if (self = [super initWithFrame:frame]) {
-        static const auto defaultProps = std::make_shared<const RNPDFPdfViewProps>();
-        _props = defaultProps;
-        [self initCommonProps];
-    }
-    return self;
+  if (self = [super initWithFrame:frame]) {
+    static const auto defaultProps = std::make_shared<const RNPDFPdfViewProps>();
+    _props = defaultProps;
+
+    _initialScale = 1;
+    _minScale = 1;
+    _maxScale = 4;
+    _spacing = 8;
+    _doubleTapZoom = YES;
+    _scrollEnabled = YES;
+    _annotations = YES;
+    _showsHorizontalIndicator = YES;
+    _showsVerticalIndicator = YES;
+    _highlights = @[];
+    _highlightAnnotations = [NSMutableArray new];
+    _pendingEvents = [NSMutableArray new];
+    _lastPage = -1;
+    _lastScale = NAN;
+
+    _pdfView = [[PDFView alloc] initWithFrame:self.bounds];
+    _pdfView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    _pdfView.backgroundColor = UIColor.clearColor;
+    _pdfView.autoScales = NO;
+    _pdfView.displayMode = kPDFDisplaySinglePageContinuous;
+    _pdfView.displayBox = kPDFDisplayBoxCropBox;
+    _pdfView.delegate = self;
+    [self addSubview:_pdfView];
+
+    _tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTap:)];
+    _tap.delegate = self;
+    [_pdfView addGestureRecognizer:_tap];
+
+    NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+    [center addObserver:self selector:@selector(viewportChanged) name:PDFViewPageChangedNotification object:_pdfView];
+    [center addObserver:self selector:@selector(viewportChanged) name:PDFViewScaleChangedNotification object:_pdfView];
+    [center addObserver:self selector:@selector(viewportChanged) name:PDFViewVisiblePagesChangedNotification object:_pdfView];
+  }
+  return self;
 }
+
+- (void)dealloc
+{
+  [NSNotificationCenter.defaultCenter removeObserver:self];
+  [NSObject cancelPreviousPerformRequestsWithTarget:self];
+}
+
+#pragma mark - Props
 
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
 {
-    const auto &newProps = *std::static_pointer_cast<const RNPDFPdfViewProps>(props);
-    NSMutableArray<NSString *> *updatedPropNames = [NSMutableArray new];
-    if (_path != RCTNSStringFromStringNilIfEmpty(newProps.path)) {
-        _path = RCTNSStringFromStringNilIfEmpty(newProps.path);
-        [updatedPropNames addObject:@"path"];
-    }
-    if (_page != newProps.page) {
-        _page = newProps.page;
-        [updatedPropNames addObject:@"page"];
-    }
-    if (_scale != newProps.scale) {
-        _scale = newProps.scale;
-        [updatedPropNames addObject:@"scale"];
-    }
-    if (_minScale != newProps.minScale) {
-        _minScale = newProps.minScale;
-        [updatedPropNames addObject:@"minScale"];
-    }
-    if (_maxScale != newProps.maxScale) {
-        _maxScale = newProps.maxScale;
-        [updatedPropNames addObject:@"maxScale"];
-    }
-    if (_horizontal != newProps.horizontal) {
-        RCTLogInfo(@"🔄 [iOS Scroll] Horizontal prop changed: %d -> %d", _horizontal, newProps.horizontal);
-        _horizontal = newProps.horizontal;
-        [updatedPropNames addObject:@"horizontal"];
-    }
-    if (_enablePaging != newProps.enablePaging) {
-        _enablePaging = newProps.enablePaging;
-        [updatedPropNames addObject:@"enablePaging"];
-    }
-    if (_enableRTL != newProps.enableRTL) {
-        _enableRTL = newProps.enableRTL;
-        [updatedPropNames addObject:@"enableRTL"];
-    }
-    if (_enableAnnotationRendering != newProps.enableAnnotationRendering) {
-        _enableAnnotationRendering = newProps.enableAnnotationRendering;
-        [updatedPropNames addObject:@"enableAnnotationRendering"];
-    }
-    if (_enableDoubleTapZoom != newProps.enableDoubleTapZoom) {
-        _enableDoubleTapZoom = newProps.enableDoubleTapZoom;
-        [updatedPropNames addObject:@"enableDoubleTapZoom"];
-    }
-    if (_fitPolicy != newProps.fitPolicy) {
-        _fitPolicy = newProps.fitPolicy;
-        [updatedPropNames addObject:@"fitPolicy"];
-    }
-    if (_spacing != newProps.spacing) {
-        _spacing = newProps.spacing;
-        [updatedPropNames addObject:@"spacing"];
-    }
-    if (_password != RCTNSStringFromStringNilIfEmpty(newProps.password)) {
-        _password = RCTNSStringFromStringNilIfEmpty(newProps.password);
-        [updatedPropNames addObject:@"password"];
-    }
-    if (_singlePage != newProps.singlePage) {
-        RCTLogInfo(@"🔄 [iOS Scroll] SinglePage prop changed: %d -> %d", _singlePage, newProps.singlePage);
-        _singlePage = newProps.singlePage;
-        [updatedPropNames addObject:@"singlePage"];
-    }
-    if (_showsHorizontalScrollIndicator != newProps.showsHorizontalScrollIndicator) {
-        _showsHorizontalScrollIndicator = newProps.showsHorizontalScrollIndicator;
-        [updatedPropNames addObject:@"showsHorizontalScrollIndicator"];
-    }
-    if (_showsVerticalScrollIndicator != newProps.showsVerticalScrollIndicator) {
-        _showsVerticalScrollIndicator = newProps.showsVerticalScrollIndicator;
-        [updatedPropNames addObject:@"showsVerticalScrollIndicator"];
-    }
+  const auto &next = *std::static_pointer_cast<const RNPDFPdfViewProps>(props);
 
-    if (_scrollEnabled != newProps.scrollEnabled) {
-        _scrollEnabled = newProps.scrollEnabled;
-        [updatedPropNames addObject:@"scrollEnabled"];
-    }
-    NSString *newPdfId = RCTNSStringFromStringNilIfEmpty(newProps.pdfId);
-    if (_pdfId != newPdfId && ![newPdfId isEqualToString:_pdfId]) {
-        if (_pdfId.length) [SearchRegistry unregisterPath:_pdfId];
-        _pdfId = [newPdfId copy];
-        [updatedPropNames addObject:@"pdfId"];
-        // Only register local file paths; never register URIs - onDocumentChanged will register when we have local path
-        NSString *pathToRegister = nil;
-        if (_lastLoadedPath.length > 0) {
-            pathToRegister = _lastLoadedPath;
-        } else if (_path.length > 0 && [_path hasPrefix:@"/"]) {
-            pathToRegister = _path;
-        }
-        if (_pdfId.length && pathToRegister.length > 0) {
-            [SearchRegistry registerPath:_pdfId path:pathToRegister];
-            RCTLogInfo(@"✅ [iOS] SearchRegistry registered path for pdfId: %@ (from updateProps)", _pdfId);
-        }
-    }
-    // Convert codegen vector of {page, rect} to NSArray for setHighlightRects
-    NSMutableArray *newHighlightRects = [NSMutableArray array];
-    for (const auto &item : newProps.highlightRects) {
-      [newHighlightRects addObject:@{ @"page": @(item.page), @"rect": [NSString stringWithUTF8String:item.rect.c_str()] }];
-    }
-    [self setHighlightRects:[newHighlightRects copy]];
-    [updatedPropNames addObject:@"highlightRects"];
-    
-    [super updateProps:props oldProps:oldProps];
-    [self didSetProps:updatedPropNames];
+  NSString *path = RCTNSStringFromStringNilIfEmpty(next.path);
+  NSString *password = RCTNSStringFromStringNilIfEmpty(next.password);
+  BOOL reload = !((path == _path || [path isEqualToString:_path]) &&
+                  (password == _password || [password isEqualToString:_password]));
+  BOOL relayout = _horizontal != next.horizontal || _paging != next.enablePaging || _rtl != next.enableRTL ||
+      _singlePage != next.singlePage || _fitPolicy != next.fitPolicy || _spacing != next.spacing ||
+      (_singlePage && _initialPage != next.initialPage);
+  BOOL annotationsChanged = _annotations != next.enableAnnotationRendering;
+  BOOL limitsChanged = _minScale != next.minScale || _maxScale != next.maxScale;
+
+  _path = path;
+  _password = password;
+  _initialPage = MAX(0, next.initialPage);
+  _initialScale = next.initialScale > 0 ? next.initialScale : 1;
+  _minScale = next.minScale > 0 ? next.minScale : 1;
+  _maxScale = next.maxScale > 0 ? next.maxScale : 4;
+  _horizontal = next.horizontal;
+  _paging = next.enablePaging;
+  _rtl = next.enableRTL;
+  _singlePage = next.singlePage;
+  _fitPolicy = next.fitPolicy;
+  _spacing = MAX(0, next.spacing);
+  _doubleTapZoom = next.enableDoubleTapZoom;
+  _scrollEnabled = next.scrollEnabled;
+  _annotations = next.enableAnnotationRendering;
+  _showsHorizontalIndicator = next.showsHorizontalScrollIndicator;
+  _showsVerticalIndicator = next.showsVerticalScrollIndicator;
+
+  NSMutableArray<NSDictionary *> *highlights = [NSMutableArray arrayWithCapacity:next.highlightRects.size()];
+  for (const auto &rect : next.highlightRects) {
+    [highlights addObject:@{
+      @"page" : @(rect.page),
+      @"rect" : [NSValue valueWithCGRect:CGRectMake(rect.x, rect.y, rect.width, rect.height)],
+    }];
+  }
+  BOOL highlightsChanged = ![highlights isEqualToArray:_highlights];
+  _highlights = highlights;
+
+  [super updateProps:props oldProps:oldProps];
+
+  if (reload) {
+    [self load];
+    return;
+  }
+  [self applyInteraction];
+  if (relayout) {
+    [self applyDisplay];
+  } else if (limitsChanged) {
+    [self applyScaleLimits];
+  }
+  if (annotationsChanged) {
+    [self applyAnnotationVisibility];
+  }
+  if (highlightsChanged) {
+    [self applyHighlights];
+  }
 }
 
-// already added in case https://github.com/facebook/react-native/pull/35378 has been merged
-- (BOOL)shouldBeRecycled
-{
-    return NO;
-}
-
-- (void)prepareForRecycle
-{
-    [super prepareForRecycle];
-    [self teardown];
-
-    // remove old recognizers before adding new ones
-    [self removeGestureRecognizer:_doubleTapRecognizer];
-    [self removeGestureRecognizer:_singleTapRecognizer];
-    [self removeGestureRecognizer:_longPressRecognizer];
-    [self removeGestureRecognizer:_doubleTapEmptyRecognizer];
-
-    [self initCommonProps];
-}
-
-- (void)updateLayoutMetrics:(const facebook::react::LayoutMetrics &)layoutMetrics oldLayoutMetrics:(const facebook::react::LayoutMetrics &)oldLayoutMetrics
-{
-    // Fabric equivalent of `reactSetFrame` method
-    [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
-    _pdfView.frame = CGRectMake(0, 0, layoutMetrics.frame.size.width, layoutMetrics.frame.size.height);
-
-    NSMutableArray *mProps = [_changedProps mutableCopy];
-    if (_initialed) {
-        [mProps removeObject:@"path"];
-    }
-    _initialed = YES;
-
-    [self didSetProps:mProps];
-    
-    // Configure scroll view after layout to ensure it's found
-    // This is important because PDFKit creates the scroll view lazily
-    if (_documentLoaded && _pdfDocument) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            RCTLogInfo(@"🔍 [iOS Scroll] updateLayoutMetrics called, configuring scroll view after layout");
-            [self configureScrollView:self->_pdfView enabled:self->_scrollEnabled depth:0];
-        });
-    }
-}
+#pragma mark - Commands
 
 - (void)handleCommand:(const NSString *)commandName args:(const NSArray *)args
 {
   RCTRNPDFPdfViewHandleCommand(self, commandName, args);
 }
 
-- (void)setNativePage:(NSInteger)page
+- (void)goToPage:(NSInteger)page animated:(BOOL)animated
 {
-    // #13: Imperative setNativePage must navigate even when page number equals _previousPage
-    _previousPage = -1;
-    _page = (int)page;
-    [self didSetProps:[NSArray arrayWithObject:@"page"]];
+  if (_document == nil || _document.pageCount == 0) {
+    return;
+  }
+  NSInteger index = MIN(MAX(page, 0), (NSInteger)_document.pageCount - 1);
+  PDFPage *target = [_document pageAtIndex:index];
+  void (^go)(void) = ^{
+    [self->_pdfView goToPage:target];
+  };
+  if (animated) {
+    [UIView animateWithDuration:0.25 animations:go completion:^(BOOL finished) { [self scheduleSettle]; }];
+  } else {
+    go();
+    [self scheduleSettle];
+  }
 }
 
-#endif
-
-- (instancetype)initWithBridge:(RCTBridge *)bridge
+- (void)zoomTo:(float)scale animated:(BOOL)animated
 {
-    self = [super init];
-    if (self) {
-        _bridge = bridge;
-        [self initCommonProps];
-    }
-
-    return self;
+  if (_document == nil || _baseScale <= 0) {
+    return;
+  }
+  CGFloat target = _baseScale * MIN(MAX(scale, _minScale), _maxScale);
+  if (animated) {
+    [UIView animateWithDuration:0.25 animations:^{ self->_pdfView.scaleFactor = target; }
+                     completion:^(BOOL finished) { [self scheduleSettle]; }];
+  } else {
+    _pdfView.scaleFactor = target;
+    [self scheduleSettle];
+  }
 }
 
-- (void)initCommonProps
+#pragma mark - Document
+
+- (void)load
 {
-    _page = 1;
-    _scale = 1;
-    _minScale = MIN_SCALE;
-    _maxScale = MAX_SCALE;
-    _horizontal = NO;
-    _enablePaging = NO;
-    _enableRTL = NO;
-    _enableAnnotationRendering = YES;
-    _enableDoubleTapZoom = YES;
-    _fitPolicy = 2;
-    _spacing = 10;
-    _singlePage = NO;
-    _showsHorizontalScrollIndicator = YES;
-    _showsVerticalScrollIndicator = YES;
-    _scrollEnabled = YES;
-    
-    // Initialize page navigation state
-    _previousPage = -1;
-    _isNavigating = NO;
-    _documentLoaded = NO;
-    
-    // Initialize usePageViewController state tracking
-    _currentUsePageViewController = NO;
-    _usePageViewControllerStateInitialized = NO;
-    
-    // Enhanced properties
-    _enableCaching = YES;
-    _enablePreloading = YES;
-    _preloadRadius = 3;
-    _enableTextSelection = NO;
-    _showPerformanceMetrics = NO;
-    _cacheSize = 32768; // 32MB
-    _renderQuality = 2; // High quality
-
-    // Initialize enhanced features
-    _pageCache = [NSMutableDictionary dictionary];
-    _preloadedPages = [NSMutableSet set];
-    _performanceMetrics = [NSMutableDictionary dictionary];
-    _searchCache = [[NSCache alloc] init];
-    _searchCache.countLimit = 50;
-    
-    // Create preload queue
-    _preloadQueue = [[NSOperationQueue alloc] init];
-    _preloadQueue.maxConcurrentOperationCount = 3;
-    _preloadQueue.qualityOfService = NSQualityOfServiceBackground;
-
-    _pdfId = nil;
-    _highlightRects = nil;
-    _lastLoadedPath = nil;
-    _highlightOverlay = nil;
-
-    // init and config PDFView
-    _pdfView = [[PDFView alloc] initWithFrame:CGRectMake(0, 0, 500, 500)];
-    _pdfView.displayMode = kPDFDisplaySinglePageContinuous;
-    _pdfView.autoScales = YES;
-    _pdfView.displaysPageBreaks = YES;
-    _pdfView.displayBox = kPDFDisplayBoxCropBox;
-    _pdfView.backgroundColor = [UIColor clearColor];
-
-    _fixScaleFactor = -1.0f;
-    _initialed = NO;
-    _changedProps = NULL;
-
-    [self addSubview:_pdfView];
-
-
-    // register notification
-    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
-    [center addObserver:self selector:@selector(onDocumentChanged:) name:PDFViewDocumentChangedNotification object:_pdfView];
-    [center addObserver:self selector:@selector(onPageChanged:) name:PDFViewPageChangedNotification object:_pdfView];
-    [center addObserver:self selector:@selector(onScaleChanged:) name:PDFViewScaleChangedNotification object:_pdfView];
-
-    [[_pdfView document] setDelegate: self];
-    [_pdfView setDelegate: self];
-
-    // Only disable double-tap recognizers to avoid conflicts with custom double-tap
-    // Leave all other gestures (including pinch) enabled
-    for (UIGestureRecognizer *recognizer in _pdfView.gestureRecognizers) {
-        if ([recognizer isKindOfClass:[UITapGestureRecognizer class]]) {
-            UITapGestureRecognizer *tapGesture = (UITapGestureRecognizer *)recognizer;
-            if (tapGesture.numberOfTapsRequired == 2) {
-                recognizer.enabled = NO;
-            }
-        }
+  NSUInteger token = ++_generation;
+  [self closeDocument];
+  NSString *path = _path.length > 0 ? NormalizePath(_path) : nil;
+  if (path == nil) {
+    return;
+  }
+  NSString *password = _password;
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+    NSString *code = nil;
+    NSString *message = nil;
+    PDFDocument *document = nil;
+    if (![NSFileManager.defaultManager fileExistsAtPath:path]) {
+      code = @"invalid-source";
+      message = [NSString stringWithFormat:@"File not found: %@", path];
+    } else if ((document = [[PDFDocument alloc] initWithURL:[NSURL fileURLWithPath:path]]) == nil) {
+      code = @"unsupported-pdf";
+      message = [NSString stringWithFormat:@"Not a PDF or the file is damaged: %@", path];
+    } else if (document.isLocked && ![document unlockWithPassword:@""]) {
+      if (password.length == 0) {
+        code = @"password-required";
+      } else if (![document unlockWithPassword:password]) {
+        code = @"password-incorrect";
+      }
     }
-
-    [self bindTap];
+    if (code == nil && document.pageCount == 0) {
+      code = @"unsupported-pdf";
+      message = @"The document has no pages";
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{
+      if (token != self->_generation) {
+        return;
+      }
+      if ([code isEqualToString:@"password-required"] || [code isEqualToString:@"password-incorrect"]) {
+        [self emit:@{@"type" : @"passwordRequired", @"incorrect" : @([code isEqualToString:@"password-incorrect"])}];
+      } else if (code != nil) {
+        [self emit:@{@"type" : @"error", @"code" : code, @"message" : message ?: @""}];
+      } else {
+        [self didOpen:document path:path];
+      }
+    });
+  });
 }
 
-// #13: Paper — re-applying the same `page` must still run navigation (controlled lists / setNativeProps)
-- (void)setPage:(int)pageValue
+- (void)closeDocument
 {
-    if (_documentLoaded && pageValue == _page) {
-        _previousPage = -1;
+  [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(settle) object:nil];
+  [_highlightAnnotations removeAllObjects];
+  _document = nil;
+  _pdfView.document = nil;
+  _positioned = NO;
+  _baseScale = 0;
+  _lastPage = -1;
+  _lastScale = NAN;
+}
+
+- (void)didOpen:(PDFDocument *)document path:(NSString *)path
+{
+  _document = document;
+  CGSize first = DisplaySize([document pageAtIndex:0]);
+  NSMutableArray *outline = [NSMutableArray new];
+  [self flattenOutline:document.outlineRoot level:-1 into:outline];
+  [self emit:@{
+    @"type" : @"load",
+    @"pageCount" : @(document.pageCount),
+    @"width" : @(first.width),
+    @"height" : @(first.height),
+    @"path" : path,
+    @"outline" : outline,
+  }];
+  [self applyDisplay];
+  [self applyAnnotationVisibility];
+  [self applyHighlights];
+}
+
+- (void)flattenOutline:(PDFOutline *)node level:(NSInteger)level into:(NSMutableArray *)items
+{
+  if (node == nil) {
+    return;
+  }
+  if (level >= 0) {
+    PDFPage *page = node.destination.page ?: ([node.action isKindOfClass:PDFActionGoTo.class]
+                                                  ? ((PDFActionGoTo *)node.action).destination.page
+                                                  : nil);
+    NSInteger index = page != nil ? (NSInteger)[_document indexForPage:page] : 0;
+    [items addObject:@{@"title" : node.label ?: @"", @"page" : @(index == NSNotFound ? 0 : index), @"level" : @(level)}];
+  }
+  for (NSUInteger child = 0; child < node.numberOfChildren; child++) {
+    [self flattenOutline:[node childAtIndex:child] level:level + 1 into:items];
+  }
+}
+
+#pragma mark - Display
+
+- (void)layoutSubviews
+{
+  [super layoutSubviews];
+  _pdfView.frame = self.bounds;
+  if (_document != nil && !CGRectIsEmpty(self.bounds)) {
+    CGFloat relative = _baseScale > 0 ? _pdfView.scaleFactor / _baseScale : 0;
+    [self computeBaseScale];
+    if (_positioned && relative > 0) {
+      [self applyScaleLimits];
+      _pdfView.scaleFactor = _baseScale * relative;
+    } else {
+      [self applyDisplay];
     }
-    _page = pageValue;
+  }
+}
+
+- (void)computeBaseScale
+{
+  PDFPage *page = _singlePage ? [_document pageAtIndex:MIN((NSUInteger)_initialPage, _document.pageCount - 1)]
+                              : [_document pageAtIndex:0];
+  CGSize size = DisplaySize(page);
+  CGSize viewport = self.bounds.size;
+  if (size.width <= 0 || size.height <= 0 || viewport.width <= 0 || viewport.height <= 0) {
+    _baseScale = 1;
+    return;
+  }
+  CGFloat width = viewport.width / size.width;
+  CGFloat height = viewport.height / size.height;
+  switch (_fitPolicy) {
+    case 1:
+      _baseScale = height;
+      break;
+    case 2:
+      _baseScale = MIN(width, height);
+      break;
+    default:
+      _baseScale = width;
+      break;
+  }
+  if (_singlePage) {
+    _baseScale = MIN(width, height);
+  }
+}
+
+- (void)applyScaleLimits
+{
+  if (_baseScale <= 0) {
+    return;
+  }
+  CGFloat minimum = _singlePage ? _baseScale : _baseScale * _minScale;
+  CGFloat maximum = _singlePage ? _baseScale : _baseScale * _maxScale;
+  _pdfView.minScaleFactor = MIN(minimum, _pdfView.maxScaleFactor);
+  _pdfView.maxScaleFactor = maximum;
+  _pdfView.minScaleFactor = minimum;
+  _pdfView.scaleFactor = MIN(MAX(_pdfView.scaleFactor, minimum), maximum);
+}
+
+/// Applies layout props. Keeps the current page unless the document was just opened.
+- (void)applyDisplay
+{
+  if (_document == nil || CGRectIsEmpty(self.bounds)) {
+    return;
+  }
+  NSInteger anchor = _positioned ? [self currentPageIndex] : _initialPage;
+  CGFloat relative = _positioned && _baseScale > 0 ? _pdfView.scaleFactor / _baseScale : _initialScale;
+
+  [_pdfView usePageViewController:(_paging && !_singlePage) withViewOptions:nil];
+  _pdfView.displayMode = _singlePage ? kPDFDisplaySinglePage : kPDFDisplaySinglePageContinuous;
+  _pdfView.displayDirection = _horizontal ? kPDFDisplayDirectionHorizontal : kPDFDisplayDirectionVertical;
+  _pdfView.displaysRTL = _rtl;
+  _pdfView.displaysPageBreaks = !_singlePage;
+  CGFloat half = _spacing / 2.0;
+  _pdfView.pageBreakMargins = _horizontal ? UIEdgeInsetsMake(0, half, 0, half) : UIEdgeInsetsMake(half, 0, half, 0);
+  if (_pdfView.document != _document) {
+    _pdfView.document = _document;
+  }
+
+  [self computeBaseScale];
+  [self applyScaleLimits];
+  _pdfView.scaleFactor = _baseScale * (_singlePage ? 1 : MIN(MAX(relative, _minScale), _maxScale));
+  [self applyInteraction];
+
+  [_pdfView layoutDocumentView];
+  PDFPage *page = [_document pageAtIndex:MIN(MAX(anchor, 0), (NSInteger)_document.pageCount - 1)];
+  [_pdfView goToPage:page];
+  [self centreCrossAxis];
+  _positioned = YES;
+  [self scheduleSettle];
+}
+
+/// PDFView keeps a stale offset across the scroll axis after a scale change; centre the content there.
+- (void)centreCrossAxis
+{
+  UIScrollView *scroll = [self scrollView];
+  if (scroll == nil || _paging) {
+    return;
+  }
+  CGPoint offset = scroll.contentOffset;
+  UIEdgeInsets inset = scroll.adjustedContentInset;
+  if (_horizontal) {
+    CGFloat spare = scroll.contentSize.height + inset.top + inset.bottom - scroll.bounds.size.height;
+    offset.y = spare > 0 ? spare / 2 - inset.top : -inset.top;
+  } else {
+    CGFloat spare = scroll.contentSize.width + inset.left + inset.right - scroll.bounds.size.width;
+    offset.x = spare > 0 ? spare / 2 - inset.left : -inset.left;
+  }
+  [scroll setContentOffset:offset animated:NO];
+}
+
+- (UIScrollView *)scrollView
+{
+  NSMutableArray<UIView *> *queue = [NSMutableArray arrayWithObject:_pdfView];
+  while (queue.count > 0) {
+    UIView *view = queue.firstObject;
+    [queue removeObjectAtIndex:0];
+    if ([view isKindOfClass:UIScrollView.class]) {
+      return (UIScrollView *)view;
+    }
+    [queue addObjectsFromArray:view.subviews];
+  }
+  return nil;
+}
+
+- (void)applyInteraction
+{
+  BOOL interactive = !_singlePage;
+  _pdfView.userInteractionEnabled = interactive;
+  UIScrollView *scroll = [self scrollView];
+  scroll.scrollEnabled = _scrollEnabled && interactive;
+  scroll.showsHorizontalScrollIndicator = _showsHorizontalIndicator;
+  scroll.showsVerticalScrollIndicator = _showsVerticalIndicator;
+  [self setDoubleTapEnabled:_doubleTapZoom inView:_pdfView];
+}
+
+- (void)setDoubleTapEnabled:(BOOL)enabled inView:(UIView *)view
+{
+  for (UIGestureRecognizer *recognizer in view.gestureRecognizers) {
+    if (recognizer != _tap && [recognizer isKindOfClass:UITapGestureRecognizer.class] &&
+        ((UITapGestureRecognizer *)recognizer).numberOfTapsRequired == 2) {
+      recognizer.enabled = enabled;
+    }
+  }
+  for (UIView *child in view.subviews) {
+    [self setDoubleTapEnabled:enabled inView:child];
+  }
+}
+
+- (void)applyAnnotationVisibility
+{
+  for (NSUInteger index = 0; index < _document.pageCount; index++) {
+    for (PDFAnnotation *annotation in [_document pageAtIndex:index].annotations) {
+      if (![_highlightAnnotations containsObject:annotation]) {
+        annotation.shouldDisplay = _annotations;
+      }
+    }
+  }
+}
+
+/// Highlights are temporary annotations so PDFKit keeps them in place while scrolling and zooming.
+- (void)applyHighlights
+{
+  for (PDFAnnotation *annotation in _highlightAnnotations) {
+    [annotation.page removeAnnotation:annotation];
+  }
+  [_highlightAnnotations removeAllObjects];
+  if (_document == nil) {
+    return;
+  }
+  for (NSDictionary *item in _highlights) {
+    NSInteger index = [item[@"page"] integerValue];
+    if (index < 0 || index >= (NSInteger)_document.pageCount) {
+      continue;
+    }
+    PDFPage *page = [_document pageAtIndex:index];
+    CGRect bounds = DisplayToPage(page, [item[@"rect"] CGRectValue]);
+    PDFAnnotation *annotation = [[PDFAnnotation alloc] initWithBounds:bounds forType:PDFAnnotationSubtypeSquare withProperties:nil];
+    annotation.color = UIColor.clearColor;
+    annotation.interiorColor = [UIColor colorWithRed:1 green:0.84 blue:0 alpha:0.35];
+    PDFBorder *border = [PDFBorder new];
+    border.lineWidth = 0;
+    annotation.border = border;
+    [page addAnnotation:annotation];
+    [_highlightAnnotations addObject:annotation];
+  }
+}
+
+#pragma mark - Events
+
+- (NSInteger)currentPageIndex
+{
+  if (_document == nil) {
+    return 0;
+  }
+  UIScrollView *scroll = [self scrollView];
+  if (scroll != nil && !_paging) {
+    CGFloat maxX = scroll.contentSize.width - scroll.bounds.size.width + scroll.adjustedContentInset.right;
+    CGFloat maxY = scroll.contentSize.height - scroll.bounds.size.height + scroll.adjustedContentInset.bottom;
+    BOOL atEnd = _horizontal ? (maxX > 1 && scroll.contentOffset.x >= maxX - 1) : (maxY > 1 && scroll.contentOffset.y >= maxY - 1);
+    if (atEnd) {
+      return _horizontal && _rtl ? 0 : (NSInteger)_document.pageCount - 1;
+    }
+  }
+  CGPoint centre = CGPointMake(CGRectGetMidX(_pdfView.bounds), CGRectGetMidY(_pdfView.bounds));
+  PDFPage *page = [_pdfView pageForPoint:centre nearest:YES] ?: _pdfView.currentPage;
+  NSUInteger index = page != nil ? [_document indexForPage:page] : 0;
+  return index == NSNotFound ? 0 : (NSInteger)index;
+}
+
+- (void)viewportChanged
+{
+  [self scheduleSettle];
+}
+
+- (void)scheduleSettle
+{
+  [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(settle) object:nil];
+  [self performSelector:@selector(settle) withObject:nil afterDelay:kSettleDelay];
+}
+
+/// Sends page and scale events once scrolling and zooming have stopped.
+- (void)settle
+{
+  if (_document == nil || !_positioned || _baseScale <= 0) {
+    return;
+  }
+  UIScrollView *scroll = [self scrollView];
+  if (scroll.isTracking || scroll.isDragging || scroll.isDecelerating || scroll.isZooming || scroll.isZoomBouncing) {
+    [self scheduleSettle];
+    return;
+  }
+  int page = (int)[self currentPageIndex];
+  if (page != _lastPage) {
+    _lastPage = page;
+    [self emit:@{@"type" : @"pageChange", @"page" : @(page), @"pageCount" : @(_document.pageCount)}];
+  }
+  float scale = (float)(_pdfView.scaleFactor / _baseScale);
+  if (isnan(_lastScale) || fabsf(_lastScale - scale) > 0.001f) {
+    BOOL first = isnan(_lastScale);
+    _lastScale = scale;
+    if (!first || fabsf(scale - 1) > 0.001f) {
+      [self emit:@{@"type" : @"scaleChange", @"scale" : @(scale)}];
+    }
+  }
+}
+
+- (void)handleTap:(UITapGestureRecognizer *)recognizer
+{
+  if (_document == nil || recognizer.state != UIGestureRecognizerStateEnded) {
+    return;
+  }
+  CGPoint location = [recognizer locationInView:_pdfView];
+  PDFPage *page = [_pdfView pageForPoint:location nearest:NO];
+  if (page == nil) {
+    return;
+  }
+  CGPoint pagePoint = [_pdfView convertPoint:location toPage:page];
+  PDFAnnotation *annotation = [page annotationAtPoint:pagePoint];
+  if (annotation != nil && [annotation.type isEqualToString:@"Link"]) {
+    return; // PDFView follows internal links and reports URLs through the delegate.
+  }
+  CGPoint display = PageToDisplay(page, pagePoint);
+  [self emit:@{
+    @"type" : @"tap",
+    @"page" : @([_document indexForPage:page]),
+    @"x" : @(display.x),
+    @"y" : @(display.y),
+  }];
 }
 
 - (void)PDFViewWillClickOnLink:(PDFView *)sender withURL:(NSURL *)url
 {
-    NSString *_url = url.absoluteString;
-    [self notifyOnChangeWithMessage:
-                     [[NSString alloc] initWithString:
-                      [NSString stringWithFormat:
-                       @"linkPressed|%s", _url.UTF8String]]];
+  [self emit:@{@"type" : @"link", @"url" : url.absoluteString ?: @""}];
 }
 
-- (void)didSetProps:(NSArray<NSString *> *)changedProps
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
+    shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
 {
-    if (!_initialed) {
-
-        _changedProps = changedProps;
-
-    } else {
-        // Log all didSetProps calls to understand what's triggering reconfigurations
-        RCTLogInfo(@"📥 [iOS Scroll] didSetProps called - changedProps=%@, initialized=%d, currentUsePageVC=%d", 
-                  changedProps, _usePageViewControllerStateInitialized, _currentUsePageViewController);
-
-        // Create filtered changedProps array - remove "path" if it hasn't actually changed
-        // This prevents unnecessary reconfigurations when path is in changedProps but value unchanged
-        NSArray<NSString *> *effectiveChangedProps = changedProps;
-        BOOL pathActuallyChanged = NO;
-
-        if ([changedProps containsObject:@"path"]) {
-            // CRITICAL FIX: Only reset state if the path actually changed
-            // React Native sometimes includes path in changedProps even when only page changes
-            
-            if (_pdfDocument != Nil && _pdfDocument.documentURL != nil) {
-                // Compare new path with existing document's path
-                NSString *currentPath = _pdfDocument.documentURL.path;
-                NSString *newPath = _path;
-                // Normalize paths for comparison (remove trailing slashes, resolve symlinks, etc.)
-                if (![currentPath isEqualToString:newPath]) {
-                    pathActuallyChanged = YES;
-                }
-            } else {
-                // No existing document, so this is a new path (or initial load)
-                pathActuallyChanged = YES;
-            }
-            
-            RCTLogInfo(@"🔄 [iOS Scroll] Path prop in changedProps - hadDocument=%d, pathActuallyChanged=%d", 
-                      (_pdfDocument != Nil), pathActuallyChanged);
-            
-            // Filter out "path" from effectiveChangedProps if it hasn't actually changed
-            if (!pathActuallyChanged) {
-                RCTLogInfo(@"⏭️ [iOS Scroll] Path value unchanged, filtering out 'path' from effectiveChangedProps");
-                NSMutableArray<NSString *> *filtered = [changedProps mutableCopy];
-                [filtered removeObject:@"path"];
-                effectiveChangedProps = filtered;
-            } else {
-                // Path actually changed, use changedProps as-is
-                effectiveChangedProps = changedProps;
-            }
-            
-            if (!pathActuallyChanged) {
-                RCTLogInfo(@"⏭️ [iOS Scroll] Path value unchanged, skipping document reload");
-                // Skip the rest of path handling
-            } else {
-                // Reset document load state when path actually changes
-                _documentLoaded = NO;
-                _previousPage = -1;
-                _isNavigating = NO;
-
-                [_pageCache removeAllObjects];
-                [_preloadedPages removeAllObjects];
-                [_searchCache removeAllObjects];
-
-                // Release old doc if it exists
-            if (_pdfDocument != Nil) {
-                _pdfDocument = Nil;
-                    _usePageViewControllerStateInitialized = NO;
-                    _currentUsePageViewController = NO;
-                    RCTLogInfo(@"🔄 [iOS Scroll] Reset usePageViewController state - path changed (hadDocument=YES)");
-                } else {
-                    RCTLogInfo(@"⏭️ [iOS Scroll] No previous document to reset");
-            }
-            
-            if ([_path hasPrefix:@"blob:"]) {
-                RCTBlobManager *blobManager = [
-#ifdef RCT_NEW_ARCH_ENABLED
-        [RCTBridge currentBridge]
-#else
-        _bridge
-#endif // RCT_NEW_ARCH_ENABLED
-                    moduleForName:@"BlobModule"];
-                NSURL *blobURL = [NSURL URLWithString:_path];
-                NSData *blobData = [blobManager resolveURL:blobURL];
-                if (blobData != nil) {
-                    _pdfDocument = [[PDFDocument alloc] initWithData:blobData];
-                }
-            } else {
-            
-                // decode file path
-                _path = (__bridge_transfer NSString *)CFURLCreateStringByReplacingPercentEscapes(NULL, (CFStringRef)_path, CFSTR(""));
-                NSURL *fileURL = [NSURL fileURLWithPath:_path];
-                _pdfDocument = [[PDFDocument alloc] initWithURL:fileURL];
-            }
-
-            if (_pdfDocument) {
-
-                //check need password or not
-                if (_pdfDocument.isLocked && ![_pdfDocument unlockWithPassword:_password]) {
-
-                    [self notifyOnChangeWithMessage:@"error|Password required or incorrect password."];
-
-                    _pdfDocument = Nil;
-                    _pdfView.document = nil;
-                    return;
-                }
-
-                _pdfView.document = _pdfDocument;
-                _documentLoaded = YES;
-                
-                // Configure scroll view after document is set
-                // PDFKit creates the scroll view lazily, so we need to wait a bit
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    RCTLogInfo(@"🔍 [iOS Scroll] Document set, searching for scroll view");
-                    [self configureScrollView:self->_pdfView enabled:self->_scrollEnabled depth:0];
-                    
-                    // Retry after a short delay to catch cases where scroll view is created asynchronously
-                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                        RCTLogInfo(@"🔍 [iOS Scroll] Retry search for scroll view after delay");
-                        [self configureScrollView:self->_pdfView enabled:self->_scrollEnabled depth:0];
-                    });
-                });
-            } else {
-
-                [self notifyOnChangeWithMessage:[[NSString alloc] initWithString:[NSString stringWithFormat:@"error|Load pdf failed. path=%s",_path.UTF8String]]];
-
-                _pdfDocument = Nil;
-                _pdfView.document = nil;
-                return;
-                }
-            }
-        }
-
-        if (_pdfDocument && ([effectiveChangedProps containsObject:@"path"] || [changedProps containsObject:@"spacing"])) {
-            if (_horizontal) {
-                _pdfView.pageBreakMargins = UIEdgeInsetsMake(0,_spacing,0,0);
-                if (_spacing==0) {
-                    if (@available(iOS 12.0, *)) {
-                        _pdfView.pageShadowsEnabled = NO;
-                    }
-                } else {
-                    if (@available(iOS 12.0, *)) {
-                        _pdfView.pageShadowsEnabled = YES;
-                    }
-                }
-            } else {
-                _pdfView.pageBreakMargins = UIEdgeInsetsMake(0,0,_spacing,0);
-                if (_spacing==0) {
-                    if (@available(iOS 12.0, *)) {
-                        _pdfView.pageShadowsEnabled = NO;
-                    }
-                } else {
-                    if (@available(iOS 12.0, *)) {
-                        _pdfView.pageShadowsEnabled = YES;
-                    }
-                }
-            }
-        }
-
-        if (_pdfDocument && ([effectiveChangedProps containsObject:@"path"] || [changedProps containsObject:@"enableRTL"])) {
-            _pdfView.displaysRTL = _enableRTL;
-        }
-
-        if (_pdfDocument && ([effectiveChangedProps containsObject:@"path"] || [changedProps containsObject:@"enableAnnotationRendering"])) {
-            if (!_enableAnnotationRendering) {
-                for (unsigned long i=0; i<_pdfView.document.pageCount; i++) {
-                    PDFPage *pdfPage = [_pdfView.document pageAtIndex:i];
-                    for (unsigned long j=0; j<pdfPage.annotations.count; j++) {
-                        pdfPage.annotations[j].shouldDisplay = _enableAnnotationRendering;
-                    }
-                }
-            }
-        }
-
-        if (_pdfDocument && ([effectiveChangedProps containsObject:@"path"] || [changedProps containsObject:@"fitPolicy"] || [changedProps containsObject:@"minScale"] || [changedProps containsObject:@"maxScale"])) {
-
-            PDFPage *pdfPage = _pdfView.currentPage ? _pdfView.currentPage : [_pdfDocument pageAtIndex:_pdfDocument.pageCount-1];
-            CGRect pdfPageRect = [pdfPage boundsForBox:kPDFDisplayBoxCropBox];
-
-            // some pdf with rotation, then adjust it
-            if (pdfPage.rotation == 90 || pdfPage.rotation == 270) {
-                pdfPageRect = CGRectMake(0, 0, pdfPageRect.size.height, pdfPageRect.size.width);
-            }
-
-            if (_fitPolicy == 0) {
-                _fixScaleFactor = self.frame.size.width/pdfPageRect.size.width;
-                _pdfView.scaleFactor = _scale * _fixScaleFactor;
-                _pdfView.minScaleFactor = _fixScaleFactor*_minScale;
-                _pdfView.maxScaleFactor = _fixScaleFactor*_maxScale;
-            } else if (_fitPolicy == 1) {
-                _fixScaleFactor = self.frame.size.height/pdfPageRect.size.height;
-                _pdfView.scaleFactor = _scale * _fixScaleFactor;
-                _pdfView.minScaleFactor = _fixScaleFactor*_minScale;
-                _pdfView.maxScaleFactor = _fixScaleFactor*_maxScale;
-            } else {
-                float pageAspect = pdfPageRect.size.width/pdfPageRect.size.height;
-                float reactViewAspect = self.frame.size.width/self.frame.size.height;
-                if (reactViewAspect>pageAspect) {
-                    _fixScaleFactor = self.frame.size.height/pdfPageRect.size.height;
-                    _pdfView.scaleFactor = _scale * _fixScaleFactor;
-                    _pdfView.minScaleFactor = _fixScaleFactor*_minScale;
-                    _pdfView.maxScaleFactor = _fixScaleFactor*_maxScale;
-                } else {
-                    _fixScaleFactor = self.frame.size.width/pdfPageRect.size.width;
-                    _pdfView.scaleFactor = _scale * _fixScaleFactor;
-                    _pdfView.minScaleFactor = _fixScaleFactor*_minScale;
-                    _pdfView.maxScaleFactor = _fixScaleFactor*_maxScale;
-                }
-            }
-            
-            // CRITICAL: Also configure the internal scroll view zoom scales
-            // This must be done AFTER _fixScaleFactor is set above
-            if (_internalScrollView && _fixScaleFactor > 0) {
-                _internalScrollView.minimumZoomScale = _fixScaleFactor * _minScale;
-                _internalScrollView.maximumZoomScale = _fixScaleFactor * _maxScale;
-                _internalScrollView.zoomScale = _pdfView.scaleFactor;
-                RCTLogInfo(@"🔍 [iOS Zoom] Configured internal scroll view zoom scales - min=%f, max=%f, current=%f", 
-                          _internalScrollView.minimumZoomScale, 
-                          _internalScrollView.maximumZoomScale, 
-                          _internalScrollView.zoomScale);
-            }
-
-        }
-
-        if (_pdfDocument && ([effectiveChangedProps containsObject:@"path"] || [changedProps containsObject:@"scale"])) {
-            _pdfView.scaleFactor = _scale * _fixScaleFactor;
-            if (_pdfView.scaleFactor>_pdfView.maxScaleFactor) _pdfView.scaleFactor = _pdfView.maxScaleFactor;
-            if (_pdfView.scaleFactor<_pdfView.minScaleFactor) _pdfView.scaleFactor = _pdfView.minScaleFactor;
-            
-            // Also update internal scroll view zoom scale when scale changes
-            if (_internalScrollView && _fixScaleFactor > 0) {
-                _internalScrollView.zoomScale = _pdfView.scaleFactor;
-                RCTLogInfo(@"🔍 [iOS Zoom] Updated internal scroll view zoom scale to %f", _internalScrollView.zoomScale);
-            }
-        }
-
-        if (_pdfDocument && ([effectiveChangedProps containsObject:@"path"] || [changedProps containsObject:@"horizontal"])) {
-            if (_horizontal) {
-                _pdfView.displayDirection = kPDFDisplayDirectionHorizontal;
-                _pdfView.pageBreakMargins = UIEdgeInsetsMake(0,_spacing,0,0);
-                RCTLogInfo(@"➡️ [iOS Scroll] Set display direction to HORIZONTAL (spacing=%d)", _spacing);
-            } else {
-                _pdfView.displayDirection = kPDFDisplayDirectionVertical;
-                _pdfView.pageBreakMargins = UIEdgeInsetsMake(0,0,_spacing,0);
-                RCTLogInfo(@"⬇️ [iOS Scroll] Set display direction to VERTICAL (spacing=%d)", _spacing);
-            }
-        }
-
-        // CRITICAL FIX: Only configure usePageViewController when path changes (document loading)
-        // This prevents unnecessary reconfigurations during scrolling and layout updates
-        // Once configured, usePageViewController doesn't need to be reconfigured unless the document changes
-        if (_pdfDocument && [effectiveChangedProps containsObject:@"path"]) {
-            // Fix: Disable usePageViewController when horizontal is true, as it conflicts with horizontal scrolling
-            // UIPageViewController doesn't work well with horizontal PDFView display direction
-            BOOL shouldUsePageViewController = _enablePaging && !_horizontal;
-            
-            RCTLogInfo(@"🔄 [iOS Scroll] Configuring usePageViewController on document load - enablePaging=%d, horizontal=%d, usePageVC=%d", 
-                      _enablePaging, _horizontal, shouldUsePageViewController);
-            
-            // Set state immediately
-            _currentUsePageViewController = shouldUsePageViewController;
-            _usePageViewControllerStateInitialized = YES;
-            
-            // Configure usePageViewController - this only happens on document load
-            if (shouldUsePageViewController) {
-                // Only use page view controller for vertical orientation
-                [_pdfView usePageViewController:YES withViewOptions:@{UIPageViewControllerOptionSpineLocationKey:@(UIPageViewControllerSpineLocationMin),UIPageViewControllerOptionInterPageSpacingKey:@(_spacing)}];
-                RCTLogInfo(@"✅ [iOS Scroll] Enabled UIPageViewController (vertical paging mode)");
-            } else {
-                // For horizontal or when paging is disabled, use regular scrolling
-                [_pdfView usePageViewController:NO withViewOptions:Nil];
-                RCTLogInfo(@"✅ [iOS Scroll] Disabled UIPageViewController (using regular scrolling)");
-            }
-            
-            // Reconfigure scroll view after usePageViewController changes
-            // PDFView's internal scroll view hierarchy changes when usePageViewController is toggled
-            dispatch_async(dispatch_get_main_queue(), ^{
-                // Reset scroll view references to allow reconfiguration
-                RCTLogInfo(@"🔄 [iOS Scroll] Resetting scroll view references for reconfiguration");
-                self->_internalScrollView = nil;
-                self->_originalScrollDelegate = nil;
-                self->_scrollDelegateProxy = nil;
-                
-                // Reconfigure scroll view after view hierarchy updates
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    RCTLogInfo(@"🔧 [iOS Scroll] Reconfiguring scroll view after usePageViewController change (scrollEnabled=%d)", self->_scrollEnabled);
-                    [self configureScrollView:self->_pdfView enabled:self->_scrollEnabled depth:0];
-                });
-            });
-        }
-
-        if (_pdfDocument && ([effectiveChangedProps containsObject:@"path"] || [changedProps containsObject:@"singlePage"])) {
-            if (_singlePage) {
-                _pdfView.displayMode = kPDFDisplaySinglePage;
-                _pdfView.userInteractionEnabled = NO;
-                RCTLogInfo(@"📄 [iOS Scroll] Set to SINGLE PAGE mode (userInteractionEnabled=NO)");
-            } else {
-                _pdfView.displayMode = kPDFDisplaySinglePageContinuous;
-                _pdfView.userInteractionEnabled = YES;
-                RCTLogInfo(@"📄 [iOS Scroll] Set to CONTINUOUS PAGE mode (userInteractionEnabled=YES)");
-            }
-        }
-
-        if (_pdfDocument && ([effectiveChangedProps containsObject:@"path"] || [changedProps containsObject:@"showsHorizontalScrollIndicator"] || [changedProps containsObject:@"showsVerticalScrollIndicator"])) {
-            [self setScrollIndicators:self horizontal:_showsHorizontalScrollIndicator vertical:_showsVerticalScrollIndicator depth:0];
-        }
-
-        // Configure scroll view (scrollEnabled)
-        if (_pdfDocument && ([effectiveChangedProps containsObject:@"path"] || 
-                             [changedProps containsObject:@"scrollEnabled"])) {
-            RCTLogInfo(@"🔧 [iOS Scroll] Configuring scroll enabled=%d (path changed=%d, scrollEnabled changed=%d)", 
-                      _scrollEnabled, 
-                      [effectiveChangedProps containsObject:@"path"], 
-                      [changedProps containsObject:@"scrollEnabled"]);
-            
-            // If path changed, restore original delegate before reconfiguring
-            if ([effectiveChangedProps containsObject:@"path"] && _internalScrollView) {
-                RCTLogInfo(@"🔄 [iOS Scroll] Restoring original scroll delegate (path changed)");
-                if (_originalScrollDelegate) {
-                    _internalScrollView.delegate = _originalScrollDelegate;
-                } else {
-                    _internalScrollView.delegate = nil;
-                }
-                _internalScrollView = nil;
-                _originalScrollDelegate = nil;
-                _scrollDelegateProxy = nil;
-            }
-            
-            // Use dispatch_async to ensure view hierarchy is fully set up after document load
-            dispatch_async(dispatch_get_main_queue(), ^{
-                // Search within _pdfView's hierarchy for scroll views
-                RCTLogInfo(@"🔍 [iOS Scroll] Starting scroll view search in PDFView hierarchy");
-                [self configureScrollView:self->_pdfView enabled:self->_scrollEnabled depth:0];
-            });
-        }
-
-        // Separate page navigation logic - only navigate when page prop actually changes
-        // Skip navigation on initial load (when path changes) to avoid conflicts
-        BOOL shouldNavigateToPage = _documentLoaded && 
-                                     [changedProps containsObject:@"page"] && 
-                                     !_isNavigating &&
-                                     _page != _previousPage &&
-                                     _page > 0 &&
-                                     _page <= (int)_pdfDocument.pageCount;
-        
-        if (shouldNavigateToPage) {
-            _isNavigating = YES;
-            PDFPage *pdfPage = [_pdfDocument pageAtIndex:_page-1];
-            
-            if (pdfPage) {
-                // Use smooth navigation instead of instant jump to prevent full rerender
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    if (!self->_enablePaging) {
-                        // For non-paging mode, use animated navigation
-                        CGRect pdfPageRect = [pdfPage boundsForBox:kPDFDisplayBoxCropBox];
-                        
-                        // Handle page rotation
-                        if (pdfPage.rotation == 90 || pdfPage.rotation == 270) {
-                            pdfPageRect = CGRectMake(0, 0, pdfPageRect.size.height, pdfPageRect.size.width);
-                        }
-                        
-                        CGPoint pointLeftTop = CGPointMake(0, pdfPageRect.size.height);
-                        PDFDestination *pdfDest = [[PDFDestination alloc] initWithPage:pdfPage atPoint:pointLeftTop];
-                        
-                        // Use goToDestination for smooth navigation
-                        [self->_pdfView goToDestination:pdfDest];
-                        self->_pdfView.scaleFactor = self->_fixScaleFactor * self->_scale;
-                    } else {
-                        // For paging mode, use goToRect for better page alignment
-                        if (self->_page == 1) {
-                            // Special case for first page
-                            [self->_pdfView goToRect:CGRectMake(0, NSUIntegerMax, 1, 1) onPage:pdfPage];
-                        } else {
-                            CGRect pdfPageRect = [pdfPage boundsForBox:kPDFDisplayBoxCropBox];
-                            if (pdfPage.rotation == 90 || pdfPage.rotation == 270) {
-                                pdfPageRect = CGRectMake(0, 0, pdfPageRect.size.height, pdfPageRect.size.width);
-                            }
-                            CGPoint pointLeftTop = CGPointMake(0, pdfPageRect.size.height);
-                            PDFDestination *pdfDest = [[PDFDestination alloc] initWithPage:pdfPage atPoint:pointLeftTop];
-                            [self->_pdfView goToDestination:pdfDest];
-                            self->_pdfView.scaleFactor = self->_fixScaleFactor * self->_scale;
-                        }
-                    }
-                    
-                    self->_previousPage = self->_page;
-                    self->_isNavigating = NO;
-                });
-            } else {
-                _isNavigating = NO;
-            }
-        }
-        
-        // Handle initial page on document load (only when path changes)
-        // This handles the case where the document was just loaded and we need to navigate to the initial page
-        // Use pathActuallyChanged instead of checking changedProps to ensure we only handle initial page when path actually changed
-        if (_pdfDocument && pathActuallyChanged && _documentLoaded) {
-            PDFPage *pdfPage = [_pdfDocument pageAtIndex:_page-1];
-            if (pdfPage && _page == 1) {
-                // Special case workaround for first page alignment
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [self->_pdfView goToRect:CGRectMake(0, NSUIntegerMax, 1, 1) onPage:pdfPage];
-                    self->_previousPage = self->_page;
-                });
-            } else if (pdfPage) {
-                CGRect pdfPageRect = [pdfPage boundsForBox:kPDFDisplayBoxCropBox];
-                if (pdfPage.rotation == 90 || pdfPage.rotation == 270) {
-                    pdfPageRect = CGRectMake(0, 0, pdfPageRect.size.height, pdfPageRect.size.width);
-                }
-                CGPoint pointLeftTop = CGPointMake(0, pdfPageRect.size.height);
-                PDFDestination *pdfDest = [[PDFDestination alloc] initWithPage:pdfPage atPoint:pointLeftTop];
-                [_pdfView goToDestination:pdfDest];
-                _pdfView.scaleFactor = _fixScaleFactor*_scale;
-                _previousPage = _page;
-            }
-        }
-
-        _pdfView.backgroundColor = [UIColor clearColor];
-        [_pdfView layoutDocumentView];
-        [self setNeedsDisplay];
-    }
+  return YES;
 }
 
-
-- (void)reactSetFrame:(CGRect)frame
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
+    shouldRequireFailureOfGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
 {
-    [super reactSetFrame:frame];
-    _pdfView.frame = CGRectMake(0, 0, frame.size.width, frame.size.height);
-
-    NSMutableArray *mProps = [_changedProps mutableCopy];
-    if (_initialed) {
-        [mProps removeObject:@"path"];
-    }
-    _initialed = YES;
-
-    [self didSetProps:mProps];
-    
-    // Configure scroll view after layout to ensure it's found
-    // This is important because PDFKit creates the scroll view lazily
-    if (_documentLoaded && _pdfDocument) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            RCTLogInfo(@"🔍 [iOS Scroll] reactSetFrame called, configuring scroll view after layout");
-            [self configureScrollView:self->_pdfView enabled:self->_scrollEnabled depth:0];
-        });
-    }
+  return gestureRecognizer == _tap && _doubleTapZoom && [otherGestureRecognizer isKindOfClass:UITapGestureRecognizer.class] &&
+      ((UITapGestureRecognizer *)otherGestureRecognizer).numberOfTapsRequired == 2;
 }
 
-
-- (void)notifyOnChangeWithMessage:(NSString *)message
+- (void)updateEventEmitter:(EventEmitter::Shared const &)eventEmitter
 {
-#ifdef RCT_NEW_ARCH_ENABLED
-    if (_eventEmitter != nullptr) {
-             std::dynamic_pointer_cast<const RNPDFPdfViewEventEmitter>(_eventEmitter)
-                 ->onChange(RNPDFPdfViewEventEmitter::OnChange{.message = RCTStringFromNSString(message)});
-           }
-#else
-    _onChange(@{ @"message": message});
-#endif
+  [super updateEventEmitter:eventEmitter];
+  NSArray<NSDictionary *> *pending = [_pendingEvents copy];
+  [_pendingEvents removeAllObjects];
+  for (NSDictionary *event in pending) {
+    [self emit:event];
+  }
 }
 
-/// Releases the document, caches, observers and registry entry. Safe to call more than once;
-/// prepareForRecycle re-creates state with initCommonProps afterwards.
-- (void)teardown
+/// Events sent before Fabric hands over the emitter wait in `_pendingEvents`.
+- (void)emit:(NSDictionary *)event
 {
-    [_preloadQueue cancelAllOperations];
-
-    if (_pdfId.length) {
-        [SearchRegistry unregisterPath:_pdfId];
-    }
-
-    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
-    [center removeObserver:self name:PDFViewDocumentChangedNotification object:nil];
-    [center removeObserver:self name:PDFViewPageChangedNotification object:nil];
-    [center removeObserver:self name:PDFViewScaleChangedNotification object:nil];
-
-    [_pageCache removeAllObjects];
-    [_preloadedPages removeAllObjects];
-    [_performanceMetrics removeAllObjects];
-    [_searchCache removeAllObjects];
-
-    [_highlightOverlay removeFromSuperview];
-    _highlightOverlay = nil;
-
-    _pdfDocument = nil;
-    if (_pdfView) {
-        _pdfView.delegate = nil;
-        _pdfView.document = nil;
-        [_pdfView removeFromSuperview];
-        _pdfView = nil;
-    }
-    _lastLoadedPath = nil;
-}
-
-- (void)dealloc{
-    [self teardown];
-    _preloadQueue = nil;
-
-    _doubleTapRecognizer = nil;
-    _singleTapRecognizer = nil;
-    _longPressRecognizer = nil;
-    _doubleTapEmptyRecognizer = nil;
-}
-
-#pragma mark notification process
-- (void)onDocumentChanged:(NSNotification *)noti
-{
-
-    if (_pdfDocument) {
-
-        unsigned long numberOfPages = _pdfDocument.pageCount;
-        PDFPage *page = [_pdfDocument pageAtIndex:_pdfDocument.pageCount-1];
-        CGSize pageSize = [_pdfView rowSizeForPage:page];
-        NSString *jsonString = [self getTableContents];
-        
-        // Include path in loadComplete message for consistency with Android and reliable path access in JS
-        // Format: loadComplete|numberOfPages|width|height|path|tableContents
-        NSString *pathValue = @"";
-        if (_path != nil && _path.length > 0) {
-            pathValue = _path;
-        } else if (_pdfDocument.documentURL != nil) {
-            // Fallback: try to get path from document URL
-            pathValue = _pdfDocument.documentURL.path;
-        }
-        
-        // Debug logging to verify path is being included (using RCTLog so it shows in all builds)
-        RCTLogInfo(@"🔍 [iOS] loadComplete: numberOfPages=%lu, width=%f, height=%f, path='%@', pathLength=%lu", 
-                   numberOfPages, pageSize.width, pageSize.height, pathValue, (unsigned long)pathValue.length);
-        
-        // Ensure path is always included in message (even if empty) for consistent parsing
-        // Format: loadComplete|numberOfPages|width|height|path|tableContents
-        // Use explicit format to ensure path segment is always present
-        NSString *message = [NSString stringWithFormat:@"loadComplete|%lu|%f|%f|%@|%@", 
-                            numberOfPages, pageSize.width, pageSize.height, 
-                            (pathValue != nil ? pathValue : @""), jsonString];
-        
-        RCTLogInfo(@"🔍 [iOS] loadComplete message: %@", message);
-        
-        [self notifyOnChangeWithMessage:message];
-        
-        // Store local path so we can register when pdfId is set (Fabric may set pdfId after document load)
-        _lastLoadedPath = [pathValue copy];
-        // Register path for searchTextDirect (iOS parity with Android)
-        if (_pdfId.length && pathValue.length) {
-            [SearchRegistry registerPath:_pdfId path:pathValue];
-            RCTLogInfo(@"✅ [iOS] SearchRegistry registered path for pdfId: %@ (from onDocumentChanged)", _pdfId);
-        }
-    }
-
-}
-
-- (void)setPdfId:(NSString *)pdfId {
-    if (_pdfId.length && ![pdfId isEqualToString:_pdfId]) {
-        [SearchRegistry unregisterPath:_pdfId];
-    }
-    _pdfId = [pdfId copy];
-    // If document already loaded, register path now (Fabric may set pdfId after path/document load).
-    // Only register local file paths; never register URIs (http/https) - PDFDocument needs file path.
-    NSString *pathToRegister = nil;
-    if (_lastLoadedPath.length > 0) {
-        pathToRegister = _lastLoadedPath;
-    } else if (_path.length > 0 && [_path hasPrefix:@"/"]) {
-        pathToRegister = _path;
-    }
-    if (_pdfId.length && pathToRegister.length > 0) {
-        [SearchRegistry registerPath:_pdfId path:pathToRegister];
-        RCTLogInfo(@"✅ [iOS] SearchRegistry registered path for pdfId: %@ (from setPdfId)", _pdfId);
-    }
-}
-
-- (void)setHighlightRects:(NSArray *)highlightRects {
-    _highlightRects = [highlightRects copy];
-    if (!_pdfView) return;
-    if (_highlightRects.count > 0) {
-        if (!_highlightOverlay) {
-            _highlightOverlay = [[HighlightOverlayView alloc] initWithFrame:_pdfView.bounds];
-            _highlightOverlay.backgroundColor = [UIColor clearColor];
-            _highlightOverlay.userInteractionEnabled = NO;
-            _highlightOverlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-            _highlightOverlay.pdfView = _pdfView;
-            [_pdfView addSubview:_highlightOverlay];
-            [_pdfView bringSubviewToFront:_highlightOverlay];
-        }
-        _highlightOverlay.highlightRects = _highlightRects;
-        [_highlightOverlay setNeedsDisplay];
-    } else if (_highlightOverlay) {
-        _highlightOverlay.highlightRects = @[];
-        [_highlightOverlay setNeedsDisplay];
-    }
-}
-
--(NSString *) getTableContents
-{
-
-    NSMutableArray<PDFOutline *> *arrTableOfContents = [[NSMutableArray alloc] init];
-
-    if (_pdfDocument.outlineRoot) {
-
-        PDFOutline *currentRoot = _pdfDocument.outlineRoot;
-        NSMutableArray<PDFOutline *> *stack = [[NSMutableArray alloc] init];
-
-        [stack addObject:currentRoot];
-
-        while (stack.count > 0) {
-
-            PDFOutline *currentOutline = stack.lastObject;
-            [stack removeLastObject];
-
-            if (currentOutline.label.length > 0){
-                [arrTableOfContents addObject:currentOutline];
-            }
-
-            for ( NSInteger i= currentOutline.numberOfChildren; i > 0; i-- )
-            {
-                [stack addObject:[currentOutline childAtIndex:i-1]];
-            }
-        }
-    }
-
-    NSMutableArray *arrParentsContents = [[NSMutableArray alloc] init];
-
-    for ( NSInteger i= 0; i < arrTableOfContents.count; i++ )
-    {
-        PDFOutline *currentOutline = [arrTableOfContents objectAtIndex:i];
-
-        NSInteger indentationLevel = -1;
-
-        PDFOutline *parentOutline = currentOutline.parent;
-
-        while (parentOutline != nil) {
-            indentationLevel += 1;
-            parentOutline = parentOutline.parent;
-        }
-
-        if (indentationLevel == 0) {
-
-            NSMutableDictionary *DXParentsContent = [[NSMutableDictionary alloc] init];
-
-            [DXParentsContent setObject:[[NSMutableArray alloc] init] forKey:@"children"];
-            [DXParentsContent setObject:@"" forKey:@"mNativePtr"];
-            [DXParentsContent setObject:[NSString stringWithFormat:@"%lu", [_pdfDocument indexForPage:currentOutline.destination.page]] forKey:@"pageIdx"];
-            [DXParentsContent setObject:currentOutline.label forKey:@"title"];
-
-            //currentOutlin
-            //mNativePtr
-            [arrParentsContents addObject:DXParentsContent];
-        }
-        else {
-            NSMutableDictionary *DXParentsContent = [arrParentsContents lastObject];
-
-            NSMutableArray *arrChildren = [DXParentsContent valueForKey:@"children"];
-
-            while (indentationLevel > 1) {
-                NSMutableDictionary *DXchild = [arrChildren lastObject];
-                arrChildren = [DXchild valueForKey:@"children"];
-                indentationLevel--;
-            }
-
-            NSMutableDictionary *DXChildContent = [[NSMutableDictionary alloc] init];
-            [DXChildContent setObject:[[NSMutableArray alloc] init] forKey:@"children"];
-            [DXChildContent setObject:@"" forKey:@"mNativePtr"];
-            [DXChildContent setObject:[NSString stringWithFormat:@"%lu", [_pdfDocument indexForPage:currentOutline.destination.page]] forKey:@"pageIdx"];
-            [DXChildContent setObject:currentOutline.label forKey:@"title"];
-            [arrChildren addObject:DXChildContent];
-
-        }
-    }
-
-    NSError *error;
-    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:arrParentsContents options:NSJSONWritingPrettyPrinted error:&error];
-
-    NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
-
-    return jsonString;
-
-}
-
-- (void)onPageChanged:(NSNotification *)noti
-{
-
-    if (_pdfDocument) {
-        PDFPage *currentPage = _pdfView.currentPage;
-        unsigned long page = [_pdfDocument indexForPage:currentPage];
-        unsigned long numberOfPages = _pdfDocument.pageCount;
-
-        // Update current page for preloading
-        int newPage = (int)page + 1;
-        
-        // CRITICAL FIX: Update _previousPage to the new page value when page changes from PDFView notifications
-        // This prevents updateProps from triggering programmatic navigation when React Native
-        // receives the pageChanged notification and updates the page prop back to us.
-        // By setting _previousPage = newPage, when updateProps checks _page != _previousPage,
-        // they will be equal (since the page prop will match the new page), and navigation will be skipped.
-        if (newPage != _page) {
-            _previousPage = newPage;  // Set to newPage to prevent navigation loop
-            _page = newPage;
-        } else {
-            // If page didn't actually change, just ensure _previousPage matches to prevent navigation
-            _previousPage = _page;
-        }
-        
-        _pageCount = (int)numberOfPages;
-        if (_enablePreloading) {
-            [self preloadAdjacentPages:_page];
-        }
-
-        RLog(@"Enhanced PDF: Navigated to page %d", _page);
-        [self notifyOnChangeWithMessage:[[NSString alloc] initWithString:[NSString stringWithFormat:@"pageChanged|%lu|%lu", page+1, numberOfPages]]];
-        if (_highlightOverlay) [_highlightOverlay setNeedsDisplay];
-    }
-
-}
-
-- (void)onScaleChanged:(NSNotification *)noti
-{
-    if (_initialed && _fixScaleFactor>0) {
-        float newScale = _pdfView.scaleFactor/_fixScaleFactor;
-        // Only notify if scale changed significantly (threshold of 0.01 to prevent excessive callbacks)
-        if (fabs(_scale - newScale) > 0.01f) {
-            _scale = newScale;
-            [self notifyOnChangeWithMessage:[[NSString alloc] initWithString:[NSString stringWithFormat:@"scaleChanged|%f", _scale]]];
-        }
-    }
-    if (_highlightOverlay) [_highlightOverlay setNeedsDisplay];
-}
-
-#pragma mark gesture process
-
-/**
- *  Empty double tap handler
- *
- *
- */
-- (void)handleDoubleTapEmpty:(UITapGestureRecognizer *)recognizer {}
-
-/**
- *  Tap
- *  zoom reset or zoom in
- *
- *  @param recognizer The tap gesture recognizer
- */
-- (void)handleDoubleTap:(UITapGestureRecognizer *)recognizer
-{
-
-    // Prevent double tap from selecting text.
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self->_pdfView clearSelection];
-    });
-
-    // Event appears to be consumed; broadcast for JS.
-    // _onChange(@{ @"message": @"pageDoubleTap" });
-
-    if (!_enableDoubleTapZoom) {
-        return;
-    }
-
-    // Cycle through min/mid/max scale factors to be consistent with Android
-    float min = self->_pdfView.minScaleFactor/self->_fixScaleFactor;
-    float max = self->_pdfView.maxScaleFactor/self->_fixScaleFactor;
-    float mid = (max - min) / 2 + min;
-    float scale = self->_scale;
-    if (self->_scale < mid) {
-        scale = mid;
-    } else if (self->_scale < max) {
-        scale = max;
-    } else {
-        scale = min;
-    }
-
-    CGFloat newScale = scale * self->_fixScaleFactor;
-    CGPoint tapPoint = [recognizer locationInView:self->_pdfView];
-
-    PDFPage *tappedPdfPage = [_pdfView pageForPoint:tapPoint nearest:NO];
-    PDFPage *pageRef;
-    if (tappedPdfPage) {
-        pageRef = tappedPdfPage;
-    }   else {
-        pageRef = self->_pdfView.currentPage;
-    }
-    tapPoint = [self->_pdfView convertPoint:tapPoint toPage:pageRef];
-
-    CGRect tempZoomRect = CGRectZero;
-    tempZoomRect.size.width = self->_pdfView.frame.size.width;
-    tempZoomRect.size.height = 1;
-    tempZoomRect.origin = tapPoint;
-
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [UIView animateWithDuration:0.3 animations:^{
-            [self->_pdfView setScaleFactor:newScale];
-
-            [self->_pdfView goToRect:tempZoomRect onPage:pageRef];
-            CGPoint defZoomOrigin = [self->_pdfView convertPoint:tempZoomRect.origin fromPage:pageRef];
-            defZoomOrigin.x = defZoomOrigin.x - self->_pdfView.frame.size.width / 2;
-            defZoomOrigin.y = defZoomOrigin.y - self->_pdfView.frame.size.height / 2;
-            defZoomOrigin = [self->_pdfView convertPoint:defZoomOrigin toPage:pageRef];
-            CGRect defZoomRect =  CGRectOffset(
-                tempZoomRect,
-                defZoomOrigin.x - tempZoomRect.origin.x,
-                defZoomOrigin.y - tempZoomRect.origin.y
-            );
-            [self->_pdfView goToRect:defZoomRect onPage:pageRef];
-
-            [self setNeedsDisplay];
-            [self onScaleChanged:Nil];
-        }];
-    });
-}
-
-/**
- *  Single Tap
- *  stop zoom
- *
- *  @param sender The tap gesture recognizer
- */
-- (void)handleSingleTap:(UITapGestureRecognizer *)sender
-{
-    //_pdfView.scaleFactor = _pdfView.minScaleFactor;
-
-    CGPoint point = [sender locationInView:self];
-    PDFPage *pdfPage = [_pdfView pageForPoint:point nearest:NO];
-    if (pdfPage) {
-        unsigned long page = [_pdfDocument indexForPage:pdfPage];
-        [self notifyOnChangeWithMessage:
-         [[NSString alloc] initWithString:[NSString stringWithFormat:@"pageSingleTap|%lu|%f|%f", page+1, point.x, point.y]]];
-    }
-
-    //[self setNeedsDisplay];
-    //[self onScaleChanged:Nil];
-
-
-}
-
-/**
- *  Do nothing on long Press
- *
- *
- */
-- (void)handleLongPress:(UILongPressGestureRecognizer *)sender{
-
-}
-
-/**
- *  Bind tap
- *
- *
- */
-- (void)bindTap
-{
-    UITapGestureRecognizer *doubleTapRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self
-                                                                                          action:@selector(handleDoubleTap:)];
-    //trigger by one finger and double touch
-    doubleTapRecognizer.numberOfTapsRequired = 2;
-    doubleTapRecognizer.numberOfTouchesRequired = 1;
-    doubleTapRecognizer.delegate = self;
-
-    [self addGestureRecognizer:doubleTapRecognizer];
-    _doubleTapRecognizer = doubleTapRecognizer;
-
-    UITapGestureRecognizer *singleTapRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self
-                                                                                          action:@selector(handleSingleTap:)];
-    //trigger by one finger and one touch
-    singleTapRecognizer.numberOfTapsRequired = 1;
-    singleTapRecognizer.numberOfTouchesRequired = 1;
-    singleTapRecognizer.delegate = self;
-
-    [self addGestureRecognizer:singleTapRecognizer];
-    _singleTapRecognizer = singleTapRecognizer;
-
-    [singleTapRecognizer requireGestureRecognizerToFail:doubleTapRecognizer];
-
-    UILongPressGestureRecognizer *longPressRecognizer = [[UILongPressGestureRecognizer alloc] initWithTarget:self
-                                                                                            action:@selector(handleLongPress:)];
-    // Making sure the allowable movement isn not too narrow
-    longPressRecognizer.allowableMovement=100;
-    // Important: The duration must be long enough to allow taps but not longer than the period in which view opens the magnifying glass
-    longPressRecognizer.minimumPressDuration=0.3;
-
-    [self addGestureRecognizer:longPressRecognizer];
-    _longPressRecognizer = longPressRecognizer;
-
-    // Override the _pdfView double tap gesture recognizer so that it doesn't confilict with custom double tap
-    UITapGestureRecognizer *doubleTapEmptyRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self
-                                                                                          action:@selector(handleDoubleTapEmpty:)];
-    doubleTapEmptyRecognizer.numberOfTapsRequired = 2;
-    [_pdfView addGestureRecognizer:doubleTapEmptyRecognizer];
-    _doubleTapEmptyRecognizer = doubleTapEmptyRecognizer;
-}
-
-- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer
-
-{
-    return !_singlePage;
-}
-
-- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
-{
-    return !_singlePage;
-}
-
-- (void)setScrollIndicators:(UIView *)view horizontal:(BOOL)horizontal vertical:(BOOL)vertical depth:(int)depth {
-    // max depth, prevent infinite loop
-    if (depth > 10) {
-        return;
-    }
-    
-    if ([view isKindOfClass:[UIScrollView class]]) {
-        UIScrollView *scrollView = (UIScrollView *)view;
-        scrollView.showsHorizontalScrollIndicator = horizontal;
-        scrollView.showsVerticalScrollIndicator = vertical;
-    }
-    
-    for (UIView *subview in view.subviews) {
-        [self setScrollIndicators:subview horizontal:horizontal vertical:vertical depth:depth + 1];
-    }
-}
-
-- (void)configureScrollView:(UIView *)view enabled:(BOOL)enabled depth:(int)depth {
-    // Log entry to track all calls
-    if (depth == 0) {
-        RCTLogInfo(@"🚀 [iOS Scroll] configureScrollView called - enabled=%d, view=%@", enabled, NSStringFromClass([view class]));
-    }
-    
-    // max depth, prevent infinite loop
-    if (depth > 10) {
-        RCTLogWarn(@"⚠️ [iOS Scroll] Max depth reached in configureScrollView (depth=%d)", depth);
-        return;
-    }
-    
-    if ([view isKindOfClass:[UIScrollView class]]) {
-        UIScrollView *scrollView = (UIScrollView *)view;
-        RCTLogInfo(@"📱 [iOS Scroll] Found UIScrollView at depth=%d, frame=%@, contentSize=%@, enabled=%d", 
-                  depth, 
-                  NSStringFromCGRect(scrollView.frame),
-                  NSStringFromCGSize(scrollView.contentSize),
-                  enabled);
-        
-        // Since we're starting the recursion from _pdfView, all scroll views found are within its hierarchy
-        // Configure scroll properties
-        BOOL previousScrollEnabled = scrollView.scrollEnabled;
-        scrollView.scrollEnabled = enabled;
-        
-        if (previousScrollEnabled != enabled) {
-            RCTLogInfo(@"🔄 [iOS Scroll] Changed scrollEnabled: %d -> %d", previousScrollEnabled, enabled);
-        }
-        
-        // Conditionally set horizontal bouncing based on scroll direction
-        // Allow horizontal bounce when horizontal scrolling is enabled
-        BOOL previousAlwaysBounceHorizontal = scrollView.alwaysBounceHorizontal;
-        if (_horizontal) {
-            scrollView.alwaysBounceHorizontal = YES;
-        } else {
-            // Disable horizontal bouncing for vertical scrolling to prevent interference with navigation swipe-back
-        scrollView.alwaysBounceHorizontal = NO;
-        }
-        
-        if (previousAlwaysBounceHorizontal != scrollView.alwaysBounceHorizontal) {
-            RCTLogInfo(@"🔄 [iOS Scroll] Changed alwaysBounceHorizontal: %d -> %d (horizontal=%d)", 
-                      previousAlwaysBounceHorizontal, 
-                      scrollView.alwaysBounceHorizontal,
-                      _horizontal);
-        }
-        
-        // Keep vertical bounce enabled for natural scrolling feel
-        scrollView.bounces = YES;
-        
-        // Configure scroll view zoom scales to match PDFView's scale factors
-        // This enables native pinch-to-zoom gestures
-        if (_fixScaleFactor > 0) {
-            scrollView.minimumZoomScale = _fixScaleFactor * _minScale;
-            scrollView.maximumZoomScale = _fixScaleFactor * _maxScale;
-            scrollView.zoomScale = _pdfView.scaleFactor;
-            RCTLogInfo(@"🔍 [iOS Zoom] Configured zoom scales - min=%f, max=%f, current=%f", 
-                      scrollView.minimumZoomScale, 
-                      scrollView.maximumZoomScale, 
-                      scrollView.zoomScale);
-        }
-        
-        RCTLogInfo(@"📊 [iOS Scroll] ScrollView config - scrollEnabled=%d, alwaysBounceHorizontal=%d, bounces=%d, delegate=%@", 
-                  scrollView.scrollEnabled,
-                  scrollView.alwaysBounceHorizontal,
-                  scrollView.bounces,
-                  scrollView.delegate != nil ? @"set" : @"nil");
-        
-        // IMPORTANT: PDFKit relies on the scrollView delegate for pinch-zoom (viewForZoomingInScrollView).
-        // Install a proxy delegate that forwards to the original delegate, while still letting us observe scroll events.
-        // CRITICAL FIX: Always set up delegate for new scroll views (PDFView may recreate scroll view on document load)
-        if (!_internalScrollView || _internalScrollView != scrollView) {
-            RCTLogInfo(@"✅ [iOS Scroll] Setting up scroll view delegate (new=%d)", _internalScrollView == nil);
-            _internalScrollView = scrollView;
-            
-            // Get the current delegate (might be PDFView's internal delegate)
-            id<UIScrollViewDelegate> currentDelegate = scrollView.delegate;
-            
-            // Only capture original delegate if it's not us or our proxy
-            if (currentDelegate && currentDelegate != self && ![currentDelegate isKindOfClass:[RNPDFScrollViewDelegateProxy class]]) {
-                _originalScrollDelegate = currentDelegate;
-                RCTLogInfo(@"📝 [iOS Scroll] Captured original scroll delegate: %@", NSStringFromClass([currentDelegate class]));
-            }
-            
-            if (_originalScrollDelegate) {
-                _scrollDelegateProxy = [[RNPDFScrollViewDelegateProxy alloc] initWithPrimary:_originalScrollDelegate secondary:(id<UIScrollViewDelegate>)self];
-                scrollView.delegate = (id<UIScrollViewDelegate>)_scrollDelegateProxy;
-                RCTLogInfo(@"🔗 [iOS Scroll] Installed scroll delegate proxy");
-            } else {
-                scrollView.delegate = self;
-                RCTLogInfo(@"🔗 [iOS Scroll] Set self as scroll delegate (no original delegate)");
-            }
-        } else {
-            RCTLogInfo(@"⚠️ [iOS Scroll] Same scroll view, delegate already configured");
-        }
-    }
-    
-    for (UIView *subview in view.subviews) {
-        [self configureScrollView:subview enabled:enabled depth:depth + 1];
-    }
-    
-    // Log at root level if no scroll view was found
-    if (depth == 0 && !_internalScrollView) {
-        RCTLogWarn(@"⚠️ [iOS Scroll] No UIScrollView found in view hierarchy (view=%@, subviewCount=%lu)", 
-                  NSStringFromClass([view class]), 
-                  (unsigned long)[view.subviews count]);
-    }
-}
-
-#pragma mark - UIScrollViewDelegate
-
-- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
-    // Redraw highlight overlay so rects stay aligned when user scrolls (pan)
-    if (_highlightOverlay) [_highlightOverlay setNeedsDisplay];
-    static int scrollEventCount = 0;
-    scrollEventCount++;
-
-    // Log scroll events periodically (every 10th event to avoid spam)
-    if (scrollEventCount % 10 == 0) {
-        RCTLogInfo(@"📜 [iOS Scroll] scrollViewDidScroll #%d - offset=(%.2f, %.2f), contentSize=(%.2f, %.2f), bounds=(%.2f, %.2f), scrollEnabled=%d", 
-                  scrollEventCount,
-                  scrollView.contentOffset.x,
-                  scrollView.contentOffset.y,
-                  scrollView.contentSize.width,
-                  scrollView.contentSize.height,
-                  scrollView.bounds.size.width,
-                  scrollView.bounds.size.height,
-                  scrollView.scrollEnabled);
-    }
-
-    if (!_pdfDocument || _singlePage) {
-        if (scrollEventCount % 10 == 0) {
-            RCTLogInfo(@"⏭️ [iOS Scroll] Skipping scroll handling - pdfDocument=%d, singlePage=%d", 
-                      _pdfDocument != nil, _singlePage);
-        }
-        return;
-    }
-    
-    // Calculate visible page based on scroll position
-    // Use the center point of the visible viewport
-    CGPoint centerPoint = CGPointMake(
-        scrollView.contentOffset.x + scrollView.bounds.size.width / 2,
-        scrollView.contentOffset.y + scrollView.bounds.size.height / 2
-    );
-    
-    // Convert to PDFView coordinates
-    CGPoint pdfPoint = [scrollView convertPoint:centerPoint toView:_pdfView];
-    PDFPage *visiblePage = [_pdfView pageForPoint:pdfPoint nearest:YES];
-    
-    if (visiblePage) {
-        unsigned long pageIndex = [_pdfDocument indexForPage:visiblePage];
-        int newPage = (int)pageIndex + 1;
-        
-        // Only update if page actually changed and is valid
-        if (newPage != _page && newPage > 0 && newPage <= (int)_pdfDocument.pageCount) {
-            RCTLogInfo(@"📄 [iOS Scroll] Page changed: %d -> %d (from scroll position)", _page, newPage);
-            
-            // CRITICAL FIX: Update _previousPage to the new page value when page changes from user scrolling
-            // This prevents updateProps from triggering programmatic navigation when React Native
-            // receives the pageChanged notification and updates the page prop back to us.
-            // By setting _previousPage = newPage, when updateProps checks _page != _previousPage,
-            // they will be equal (since React Native will set _page = newPage), and navigation will be skipped.
-            int oldPage = _page;
-            _page = newPage;
-            _previousPage = newPage;  // Set to newPage to prevent navigation loop
-            _pageCount = (int)_pdfDocument.pageCount;
-            
-            // Trigger preloading if enabled
-            if (_enablePreloading) {
-                [self preloadAdjacentPages:_page];
-            }
-            
-            // Notify about page change
-            [self notifyOnChangeWithMessage:[[NSString alloc] initWithString:[NSString stringWithFormat:@"pageChanged|%d|%lu", newPage, _pdfDocument.pageCount]]];
-        }
-    } else {
-        if (scrollEventCount % 50 == 0) {
-            RCTLogWarn(@"⚠️ [iOS Scroll] No visible page found for scroll position (%.2f, %.2f)", 
-                      pdfPoint.x, pdfPoint.y);
-        }
-    }
-}
-
-#pragma mark - UIScrollViewDelegate Zoom Support
-
-- (void)scrollViewDidZoom:(UIScrollView *)scrollView {
-    // Called during pinch-to-zoom — redraw highlight overlay so rects stay aligned with zoomed content
-    if (_highlightOverlay) [_highlightOverlay setNeedsDisplay];
-    if (_fixScaleFactor > 0 && _pdfView.scaleFactor > 0) {
-        float newScale = _pdfView.scaleFactor / _fixScaleFactor;
-
-        // Only notify if scale changed significantly (prevent spam)
-        if (fabs(_scale - newScale) > 0.01f) {
-            _scale = newScale;
-            RCTLogInfo(@"🔍 [iOS Zoom] Pinch zoom - scale changed to %f", _scale);
-            [self notifyOnChangeWithMessage:[[NSString alloc] initWithString:
-                [NSString stringWithFormat:@"scaleChanged|%f", _scale]]];
-        }
-    }
-}
-
-// CRITICAL: Return the view that should be zoomed
-- (UIView *)viewForZoomingInScrollView:(UIScrollView *)scrollView {
-    // Search for PDFDocumentView in the scroll view's hierarchy
-    for (UIView *subview in scrollView.subviews) {
-        NSString *className = NSStringFromClass([subview class]);
-        if ([className containsString:@"PDFDocumentView"] || [className containsString:@"PDFPage"]) {
-            RCTLogInfo(@"🔍 [iOS Zoom] viewForZoomingInScrollView returning: %@", className);
-            return subview;
-        }
-    }
-    
-    // Fallback to first subview
-    UIView *fallback = scrollView.subviews.firstObject;
-    if (fallback) {
-        RCTLogInfo(@"🔍 [iOS Zoom] viewForZoomingInScrollView using fallback: %@", NSStringFromClass([fallback class]));
-        return fallback;
-    }
-    
-    RCTLogInfo(@"⚠️ [iOS Zoom] viewForZoomingInScrollView returning NIL - no view to zoom!");
-    return nil;
-}
-
-- (void)scrollViewWillBeginZooming:(UIScrollView *)scrollView withView:(UIView *)view {
-    // Optional: Track zoom start
-    RCTLogInfo(@"🔍 [iOS Zoom] Will begin zooming");
-}
-
-- (void)scrollViewDidEndZooming:(UIScrollView *)scrollView
-                        withView:(UIView *)view
-                         atScale:(CGFloat)scale {
-    // Redraw highlight overlay so rects match final zoom level
-    if (_highlightOverlay) [_highlightOverlay setNeedsDisplay];
-    RCTLogInfo(@"🔍 [iOS Zoom] Did end zooming at scale %f", scale);
-}
-
-// Enhanced progressive loading methods
-- (void)preloadAdjacentPages:(int)currentPage
-{
-    if (!_enablePreloading || !_pdfDocument) {
-        return;
-    }
-    
-    int startPage = MAX(1, currentPage - _preloadRadius);
-    int endPage = MIN((int)_pdfDocument.pageCount, currentPage + _preloadRadius);
-    
-    for (int page = startPage; page <= endPage; page++) {
-        if (![_preloadedPages containsObject:@(page)]) {
-            [_preloadedPages addObject:@(page)];
-            
-            // Add preload operation to queue
-            NSBlockOperation *preloadOp = [NSBlockOperation blockOperationWithBlock:^{
-                // Preload page content (this is a simplified version)
-                // In a real implementation, you might preload page thumbnails or other content
-                RLog(@"Enhanced PDF: Preloading page %d", page);
-            }];
-            
-            [_preloadQueue addOperation:preloadOp];
-        }
-    }
-}
-
-- (NSDictionary *)getPerformanceMetrics
-{
-    NSMutableDictionary *metrics = [_performanceMetrics mutableCopy];
-    metrics[@"cacheHitCount"] = @([_pageCache count]);
-    metrics[@"preloadedPages"] = @([_preloadedPages count]);
-    metrics[@"cacheSize"] = @(_cacheSize);
-    return metrics;
-}
-
-- (void)clearCache
-{
-    [_pageCache removeAllObjects];
-    [_preloadedPages removeAllObjects];
-    [_searchCache removeAllObjects];
-    RLog(@"Enhanced PDF: Cache cleared");
-}
-
-- (void)preloadPagesFrom:(int)startPage to:(int)endPage
-{
-    if (!_enablePreloading || !_pdfDocument) {
-        return;
-    }
-    
-    int actualStartPage = MAX(1, startPage);
-    int actualEndPage = MIN((int)_pdfDocument.pageCount, endPage);
-    
-    for (int page = actualStartPage; page <= actualEndPage; page++) {
-        if (![_preloadedPages containsObject:@(page)]) {
-            [_preloadedPages addObject:@(page)];
-            RLog(@"Enhanced PDF: Preloading page %d", page);
-        }
-    }
-}
-
-- (NSDictionary *)searchText:(NSString *)searchTerm
-{
-    if (!searchTerm || searchTerm.length == 0 || !_pdfDocument) {
-        return @{@"totalMatches": @0, @"results": @[]};
-    }
-    
-    // Check cache first
-    NSString *cacheKey = [NSString stringWithFormat:@"%@_%@", _currentPdfId, searchTerm];
-    NSDictionary *cached = [_searchCache objectForKey:cacheKey];
-    if (cached) {
-        RLog(@"Enhanced PDF: Search cache hit for '%@'", searchTerm);
-        return cached;
-    }
-    
-    NSMutableArray *results = [NSMutableArray array];
-    int totalMatches = 0;
-    
-    for (int pageIndex = 0; pageIndex < _pdfDocument.pageCount; pageIndex++) {
-        PDFPage *page = [_pdfDocument pageAtIndex:pageIndex];
-        
-        // Search for text in the page
-        PDFSelection *selection = [page selectionForRange:NSMakeRange(0, page.string.length)];
-        if (selection && selection.string.length > 0) {
-            NSString *text = selection.string;
-            if ([text localizedCaseInsensitiveContainsString:searchTerm]) {
-                // Get the bounds of the selection
-                CGRect selectionBounds = [selection boundsForPage:page];
-                
-                [results addObject:@{
-                    @"page": @(pageIndex + 1),
-                    @"text": text,
-                    @"rect": NSStringFromCGRect(selectionBounds)
-                }];
-                totalMatches++;
-            }
-        }
-    }
-    
-    NSDictionary *searchResults = @{
-        @"totalMatches": @(totalMatches),
-        @"results": results
-    };
-    
-    // Cache the results
-    [_searchCache setObject:searchResults forKey:cacheKey];
-    
-    RLog(@"Enhanced PDF: Search completed for '%@', found %d matches", searchTerm, totalMatches);
-    return searchResults;
+  if (_eventEmitter == nullptr) {
+    [_pendingEvents addObject:event];
+    return;
+  }
+  NSData *data = [NSJSONSerialization dataWithJSONObject:event options:0 error:nil];
+  NSString *message = data != nil ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : @"{}";
+  std::static_pointer_cast<const RNPDFPdfViewEventEmitter>(_eventEmitter)
+      ->onChange(RNPDFPdfViewEventEmitter::OnChange{.message = RCTStringFromNSString(message)});
 }
 
 @end
 
-#ifdef RCT_NEW_ARCH_ENABLED
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 Class<RCTComponentViewProtocol> RNPDFPdfViewCls(void)
 {
-    // Defensive check: Ensure class is loaded and valid before returning
-    // This prevents nil object insertion in RCTThirdPartyComponentsProvider
-    Class cls = RNPDFPdfView.class;
-    if (cls == nil) {
-        RCTLogError(@"RNPDFPdfView: Class is nil in RNPDFPdfViewCls");
-        // Return a fallback to prevent crash, though this shouldn't happen
-        return [RCTViewComponentView class];
-    }
-    return cls;
+  return RNPDFPdfView.class;
 }
-
-// Alias function based on codegen name "rnpdf" - ensures codegen can find the function
-// even if it uses the codegen name instead of componentProvider name
-Class<RCTComponentViewProtocol> rnpdfCls(void)
-{
-    return RNPDFPdfViewCls();
-}
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif

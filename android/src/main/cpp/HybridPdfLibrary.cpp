@@ -31,6 +31,7 @@ std::shared_ptr<Promise<std::shared_ptr<HybridPdfDocumentSpec>>> HybridPdfLibrar
     const std::optional<std::string>& password) {
     return Promise<std::shared_ptr<HybridPdfDocumentSpec>>::async([path, password]() {
         auto session = std::make_shared<OpenPdf>(path, password);
+        shareOpenPdf(session);
         auto document = std::make_shared<HybridPdfDocument>(std::move(session));
         return std::static_pointer_cast<HybridPdfDocumentSpec>(document);
     });
