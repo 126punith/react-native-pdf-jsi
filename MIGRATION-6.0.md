@@ -110,7 +110,7 @@ require('./manual.pdf')
 
 `cache: true` still means `'session'` and `cache: false` means `'none'`. `expiration` and `cacheFileName` are gone; use `maxAgeMs` and `cacheKey`.
 
-Cached documents are revalidated with `If-None-Match` / `If-Modified-Since`. When the device is offline, the stored copy is used. Large files are downloaded in ranges and resume after an interruption. The cache keeps at most 200 MB by default:
+Cached documents are revalidated with `If-None-Match` / `If-Modified-Since`. When the device is offline (or the server answers with a 5xx), the stored copy is used. Files of 32 MB and more resume with a `Range` request after an interruption instead of starting over. Concurrent requests for the same document share one download. The `session` cache keeps at most 200 MB by default, removing the least recently used copies first; `persistent` copies stay until you remove them:
 
 ```ts
 import { PdfCache, PdfFiles } from 'react-native-pdf-jsi';

@@ -91,6 +91,7 @@
     },
     "scripts": {
         "test": "jest",
+        "test:jvm": "example/android/gradlew -p android/jvm-tests test",
         "typecheck": "tsc --noEmit",
         "build": "bob build",
         "build:plugin": "tsc -p plugin/tsconfig.json",
@@ -121,6 +122,7 @@
         "!android/.cxx",
         "!android/.gradle",
         "!android/src/test/",
+        "!android/jvm-tests/",
         "ios/",
         "nitrogen/",
         "nitro.json",

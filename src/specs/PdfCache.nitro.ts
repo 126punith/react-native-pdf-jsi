@@ -59,7 +59,10 @@ export interface PdfCache
   remove(key: string): Promise<boolean>;
   clear(): Promise<void>;
   getByteSize(): Promise<number>;
-  /** Least recently used copies are removed once the cache grows past this. 0 turns the cap off. */
+  /**
+   * Least recently used `session` copies are removed once they grow past this
+   * (default 200 MB). `persistent` copies are only removed explicitly. 0 turns the cap off.
+   */
   maxCacheBytes: number;
 
   /**

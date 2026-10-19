@@ -15,6 +15,7 @@ buildscript {
 
     dependencies {
         classpath("com.android.tools.build:gradle:8.2.2")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${safeExtGet('kotlinVersion', '2.1.20')}")
     }
 }
 
@@ -33,6 +34,7 @@ repositories {
 }
 
 apply plugin: 'com.android.library'
+apply plugin: 'org.jetbrains.kotlin.android'
 
 def resolveReactNativeDirectory() {
     def reactNativeLocation = safeExtGet("REACT_NATIVE_NODE_MODULES_DIR", null)
@@ -179,8 +181,16 @@ android {
     }
     
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
     }
 }
 
@@ -206,6 +216,8 @@ dependencies {
     }
 
     implementation project(":react-native-nitro-modules")
+
+    testImplementation 'junit:junit:4.13.2'
 }
 
 tasks.configureEach { task ->

@@ -1,0 +1,40 @@
+// Runs the Android library's plain-JVM classes and tests without the Android SDK:
+//   npm run test:jvm
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '2.1.20'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}
+
+def pureJvmSources = [
+    'PdfDownloadCache.kt',
+]
+
+sourceSets {
+    main {
+        kotlin { srcDirs = [] }
+    }
+    test {
+        kotlin {
+            srcDirs = ['../src/main/java', '../src/test/java']
+            include pureJvmSources.collect { "**/$it" } + ['**/*Test.kt']
+        }
+    }
+}
+
+kotlin {
+    jvmToolchain(17)
+}
+
+test {
+    testLogging {
+        events 'failed'
+        exceptionFormat 'full'
+    }
+}

@@ -81,3 +81,8 @@ yarn-error.log
 
 # Library build output
 /lib/
+
+# JVM test build
+android/jvm-tests/build/
+android/jvm-tests/.gradle/
+android/jvm-tests/.kotlin/
