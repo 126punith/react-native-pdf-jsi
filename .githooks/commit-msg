@@ -1,0 +1,2 @@
+#!/bin/sh
+exec "$(dirname "$0")/prepare-commit-msg" "$1"

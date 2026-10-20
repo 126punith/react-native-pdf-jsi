@@ -1,5 +1,6 @@
 #!/bin/sh
-# Removes common Cursor commit footer if the editor or tooling injected it.
+# Removes Cursor attribution lines (Made-with / Co-authored-by) if the editor
+# or tooling injected them. commit-msg runs this again after any trailers are added.
 # Enable this hook directory once per clone:
 #   git config core.hooksPath .githooks
 # Optional commit template (opens in editor for git commit without -m):
@@ -8,10 +9,9 @@
 msg_file=$1
 [ -n "$msg_file" ] && [ -f "$msg_file" ] || exit 0
 
-tmp="${msg_file}.strip.$$"
-if grep -qx 'Made-with: Cursor' "$msg_file" 2>/dev/null; then
-  grep -vx 'Made-with: Cursor' "$msg_file" > "$tmp" && mv "$tmp" "$msg_file"
-else
-  rm -f "$tmp"
+pattern='^(Made-with|Co-authored-by):[[:space:]]*Cursor'
+if grep -qiE "$pattern" "$msg_file" 2>/dev/null; then
+  tmp="${msg_file}.strip.$$"
+  grep -viE "$pattern" "$msg_file" | git stripspace > "$tmp" && mv "$tmp" "$msg_file"
 fi
 exit 0
