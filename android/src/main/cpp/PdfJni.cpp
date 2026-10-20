@@ -42,8 +42,9 @@ std::string pendingExceptionMessage(JNIEnv* env) {
     return message;
 }
 
+// Nitro runs async work on its own thread pool, whose threads start detached from the JVM.
 JNIEnv* requireEnv() {
-    JNIEnv* env = facebook::jni::Environment::current();
+    JNIEnv* env = facebook::jni::Environment::ensureCurrentThreadIsAttached();
     if (env == nullptr) {
         throwPdfError("unknown", "JNI environment is not available");
     }
@@ -66,7 +67,7 @@ bool ocrAvailable() {
     if (gOcrClass == nullptr) {
         return false;
     }
-    JNIEnv* env = facebook::jni::Environment::current();
+    JNIEnv* env = facebook::jni::Environment::ensureCurrentThreadIsAttached();
     if (env == nullptr) {
         return false;
     }
