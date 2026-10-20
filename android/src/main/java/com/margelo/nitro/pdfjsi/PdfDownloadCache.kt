@@ -79,6 +79,7 @@ class PdfDownloadCache(
   private val connectTimeoutMs: Int = 15_000,
   private val readTimeoutMs: Int = 30_000,
   private val resumeBackoffMs: Long = 500,
+  private val tempMaxAgeMs: Long = TEMP_MAX_AGE_MS,
 ) {
   @Volatile
   var maxCacheBytes: Long = DEFAULT_MAX_CACHE_BYTES
@@ -104,8 +105,18 @@ class PdfDownloadCache(
   init {
     sessionDir.mkdirs()
     persistentDir.mkdirs()
-    tempDir.deleteRecursively()
     tempDir.mkdirs()
+    pruneTemp()
+  }
+
+  /** Uncached downloads outlive the launch that made them, so a path kept by the app still opens after a restart. */
+  private fun pruneTemp() {
+    val cutoff = clock() - tempMaxAgeMs
+    tempDir.listFiles()?.forEach { file ->
+      if (file.lastModified() < cutoff) {
+        file.deleteRecursively()
+      }
+    }
   }
 
   fun download(request: DownloadRequest, listener: ProgressListener?): CompletableFuture<CacheRecord> {
@@ -487,6 +498,7 @@ class PdfDownloadCache(
 
   companion object {
     const val DEFAULT_MAX_CACHE_BYTES = 200L * 1024 * 1024
+    const val TEMP_MAX_AGE_MS = 24L * 60 * 60 * 1000
     private const val MAX_RESUME_ATTEMPTS = 3
     private const val HTTP_RANGE_NOT_SATISFIABLE = 416
     private const val BUFFER_SIZE = 64 * 1024

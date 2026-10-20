@@ -133,7 +133,11 @@ useEffect(() => {
 
 ## Downloads
 
-Saving into the public Downloads folder is done in JavaScript with `react-native-blob-util` (`FileManager.downloadToPublicFolder`). There is no native file-picker module.
+`PdfFiles.saveToDownloads(path, fileName)` (or `FileManager.downloadToPublicFolder`) saves a copy natively: into the public Downloads folder through MediaStore on Android, and into the app's Documents folder on iOS. No `react-native-blob-util` is needed.
+
+On iOS the Documents folder shows in the Files app only when the app's `Info.plist` sets `UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace` to `true`. The Expo plugin adds both (opt out with `{ "iosFileSharing": false }`); bare apps add them by hand.
+
+Paths returned for viewed documents point into the library's cache. To keep a document, load it with `cache: 'persistent'` or copy it with ``PdfFiles.copy(path, `${PdfFiles.documentDirectory}/name.pdf`)``.
 
 ## Commercial Nitro Edition & Support
 

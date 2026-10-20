@@ -47,6 +47,7 @@ final class PdfDownloadStore: NSObject, URLSessionDataDelegate {
   static let shared = PdfDownloadStore()
   static let defaultMaxCacheBytes: Int64 = 200 * 1024 * 1024
   static let defaultChunkThreshold: Int64 = 32 * 1024 * 1024
+  static let tempMaxAge: TimeInterval = 24 * 60 * 60
 
   typealias Completion = (Result<PdfStoreRecord, Error>) -> Void
   typealias Progress = (Int64, Int64) -> Void
@@ -116,10 +117,10 @@ final class PdfDownloadStore: NSObject, URLSessionDataDelegate {
     persistentDir = support.appendingPathComponent("pdf-jsi/persistent", isDirectory: true)
     tempDir = fm.temporaryDirectory.appendingPathComponent("pdf-jsi", isDirectory: true)
     super.init()
-    try? fm.removeItem(at: tempDir)
     for dir in [sessionDir, persistentDir, tempDir] {
       try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
     }
+    pruneTemp()
     var persistentURL = persistentDir
     var values = URLResourceValues()
     values.isExcludedFromBackup = true
@@ -489,6 +490,19 @@ final class PdfDownloadStore: NSObject, URLSessionDataDelegate {
   }
 
   // MARK: Files
+
+  /// Uncached downloads outlive the launch that made them, so a path kept by the app still opens after a restart.
+  private func pruneTemp() {
+    let fm = FileManager.default
+    let cutoff = Date().addingTimeInterval(-Self.tempMaxAge)
+    let files = (try? fm.contentsOfDirectory(at: tempDir, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+    for file in files {
+      let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+      if modified < cutoff {
+        try? fm.removeItem(at: file)
+      }
+    }
+  }
 
   private func readRecord(dir: URL, key: String, persistent: Bool) -> PdfStoreRecord? {
     let file = dir.appendingPathComponent("\(key).pdf")

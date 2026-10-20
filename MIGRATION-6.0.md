@@ -99,8 +99,8 @@ Without `onPasswordRequired`, the view calls `onError` with code `password-requi
 
 ```ts
 { uri: 'https://…', headers, cache: 'session' }  // default: cleared when the app's cache is cleared
-{ uri: 'https://…', cache: 'persistent' }         // kept in the documents folder, still revalidated
-{ uri: 'https://…', cache: 'none' }               // always downloaded
+{ uri: 'https://…', cache: 'persistent' }         // kept until removed (Application Support / noBackupFilesDir), still revalidated
+{ uri: 'https://…', cache: 'none' }               // always downloaded; the file is removed after 24 hours
 { uri: 'https://…', maxAgeMs: 60_000 }            // skip revalidation for a minute
 { uri: 'https://…', cacheKey: 'invoice-42' }      // for signed URLs that change every time
 { filePath: '/data/…/file.pdf' }
@@ -121,6 +121,26 @@ await PdfFiles.saveToDownloads(path, 'report.pdf');
 ```
 
 Source objects are compared by value, so writing `source={{ uri }}` inline no longer reloads the document on every render.
+
+## Saving files
+
+5.x copied every loaded PDF into the documents folder. 6.0 does not: the path from `onLoad`, `usePdfDocument` or `PdfCache.download` points into the library's cache. Do not store a `cache: 'none'` or `'session'` path for later; the file can be gone after a restart. Use `cache: 'persistent'`, or copy the file somewhere you own:
+
+```ts
+const target = `${PdfFiles.documentDirectory}/invoice-42.pdf`;
+await PdfFiles.copy(path, target);
+```
+
+`PdfFiles.saveToDownloads` (and `FileManager.downloadToPublicFolder`) writes to the public Downloads folder on Android and to the app's Documents folder on iOS. iOS lists that folder in the Files app (On My iPhone, then your app) only when the app's `Info.plist` contains:
+
+```xml
+<key>UIFileSharingEnabled</key>
+<true/>
+<key>LSSupportsOpeningDocumentsInPlace</key>
+<true/>
+```
+
+The Expo plugin adds both keys; pass `{ "iosFileSharing": false }` to opt out. Bare React Native apps add them by hand. `FileManager.openDownloadsFolder()` opens the app's folder in the Files app.
 
 ## Pages are zero-based
 

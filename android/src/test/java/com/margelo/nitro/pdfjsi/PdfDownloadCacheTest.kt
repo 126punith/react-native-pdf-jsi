@@ -349,4 +349,17 @@ class PdfDownloadCacheTest {
     download(request("/a.pdf", mode = CacheMode.NONE))
     assertEquals(2, requests.get())
   }
+
+  @Test
+  fun noneModeFilesSurviveARestartUntilTheyAreOld() {
+    routes["/a.pdf"] = Route(pdf(10_000, 1))
+    routes["/b.pdf"] = Route(pdf(10_000, 2))
+    val recent = download(request("/a.pdf", mode = CacheMode.NONE))
+    val old = download(request("/b.pdf", mode = CacheMode.NONE))
+    assertTrue(old.file.setLastModified(System.currentTimeMillis() - PdfDownloadCache.TEMP_MAX_AGE_MS - 60_000))
+    cache.shutdown()
+    cache = newCache()
+    assertTrue(recent.file.exists())
+    assertFalse(old.file.exists())
+  }
 }

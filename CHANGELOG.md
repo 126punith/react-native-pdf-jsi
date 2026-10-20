@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.0] - Unreleased
+
+Breaking release: a new viewer, native downloads and zero-based pages everywhere. Upgrade steps: [MIGRATION-6.0.md](MIGRATION-6.0.md).
+
+### Added
+
+- `PdfView`: Fabric viewer with `goToPage` / `zoomTo` commands, `fitPolicy`, paging, horizontal and RTL layouts, highlights, `onPageTap` / `onLinkPress` in page points, and `onPasswordRequired`. Page and scale events fire once scrolling settles.
+- Android: Kotlin viewer on PDFium that renders one bitmap per page plus 512 px tiles when zoomed, on a single prioritised render thread with a byte-sized bitmap cache that shrinks on memory pressure.
+- `PdfPage`: draws one page of an open `PdfDocument`, sized by its aspect ratio; unlocked and edited documents render without reopening.
+- `usePdfDocument` hook.
+- `PdfCache`: native downloads with ETag / Last-Modified revalidation, offline fallback, resume for large files, shared in-flight downloads and an LRU size limit. `PdfFiles.saveToDownloads`.
+- `PdfDocument` editing that stays in memory until `save(path)`: `rotatePage`, `deletePage`, `movePage`, `insertPages`, `addAnnotation`, `setFormFieldValues`; password-protected save on iOS.
+- `PdfDocument.renderPage` / `renderThumbnails` with `maxWidth`, `maxHeight`, `scale`, `format` and `quality`.
+- `PdfError` with stable codes on every rejection and viewer error.
+- TypeScript sources with generated type declarations.
+
+### Changed
+
+- Pages are 0-based in every API, including the viewer, managers and bookmarks.
+- Viewer props and events renamed; see the migration guide.
+- `BookmarkManager` takes its storage through `setStorage` instead of importing AsyncStorage.
+- `react-native-nitro-modules` 0.37.x is the only native peer dependency.
+- The Expo plugin sets `UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace` so files saved to Documents appear in the iOS Files app (opt out with `iosFileSharing: false`). `FileManager.openDownloadsFolder()` opens the app's own folder on iOS.
+- Files downloaded with `cache: 'none'` are kept for 24 hours instead of being deleted on the next launch, so a stored path still opens after a restart.
+
+### Removed
+
+- The 5.x `Pdf` class component, `PDFJSI` helpers, `EnhancedPdfView`, `usePDFJSI`, `PdfViewFlatList`, `DoubleTapView`, `PinchZoomView`, `index.js.flow` and `PDFText.makeSearchablePDF`.
+- Dependencies on AndroidPdfViewer, `io.legere:pdfiumandroid`, Gson, `react-native-blob-util`, AsyncStorage, `crypto-js` and `deprecated-react-native-prop-types`.
+
 ## [5.1.0] - Unreleased
 
 Memory and resource leak fixes. Opening and closing the same PDF repeatedly no longer grows memory. No breaking API changes. Details: [MEMORY_LEAK_ANALYSIS.md](MEMORY_LEAK_ANALYSIS.md).

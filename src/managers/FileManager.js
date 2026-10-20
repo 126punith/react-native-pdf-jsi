@@ -8,14 +8,20 @@ class FileManager {
       await Linking.openURL('content://com.android.externalstorage.documents/document/primary%3ADownload');
       return true;
     }
-    await Linking.openURL('shareddocuments://');
+    const documents = PdfFiles.documentDirectory.replace(/^file:\/\//i, '');
+    try {
+      await Linking.openURL(`shareddocuments://${encodeURI(documents)}`);
+    } catch {
+      await Linking.openURL('shareddocuments://');
+    }
     return true;
   }
 
   /**
    * Android: copies into the public Downloads folder through MediaStore and
    * returns its content:// URI. iOS: copies into the app's Documents folder
-   * and returns the path.
+   * and returns the path. The folder only shows in the Files app when the
+   * app's Info.plist sets UIFileSharingEnabled and LSSupportsOpeningDocumentsInPlace.
    */
   static async downloadToPublicFolder(sourcePath, fileName, mimeType = 'application/pdf') {
     const target = await PdfFiles.saveToDownloads(sourcePath, fileName, mimeType);

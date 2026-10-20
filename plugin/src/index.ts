@@ -2,6 +2,7 @@ import {
   ConfigPlugin,
   createRunOncePlugin,
   withGradleProperties,
+  withInfoPlist,
   withPodfileProperties,
 } from 'expo/config-plugins';
 
@@ -15,6 +16,13 @@ export type PdfJsiPluginProps = {
    * @default false
    */
   ocr?: boolean;
+  /**
+   * Show the app's Documents folder in the iOS Files app, where
+   * PdfFiles.saveToDownloads and the export helpers write.
+   * Sets UIFileSharingEnabled and LSSupportsOpeningDocumentsInPlace.
+   * @default true
+   */
+  iosFileSharing?: boolean;
 };
 
 const setGradleProperty: (key: string, value: string) => ConfigPlugin =
@@ -35,6 +43,13 @@ const setGradleProperty: (key: string, value: string) => ConfigPlugin =
  */
 const withPdfJsiOcrGradle: ConfigPlugin<boolean> = (config, enabled) =>
   setGradleProperty('pdfJsiEnableOcr', enabled ? 'true' : 'false')(config);
+
+const withIosFileSharing: ConfigPlugin = (config) =>
+  withInfoPlist(config, (config) => {
+    config.modResults.UIFileSharingEnabled = true;
+    config.modResults.LSSupportsOpeningDocumentsInPlace = true;
+    return config;
+  });
 
 /**
  * There is no old-architecture fallback, so force newArchEnabled on both platforms.
@@ -73,6 +88,8 @@ function assertNitroModulesInstalled(projectRoot: string | undefined) {
  *
  * Turns on the New Architecture and checks that react-native-nitro-modules is
  * installed. Optional `{ ocr: true }` enables Android ML Kit text recognition.
+ * On iOS the app's Documents folder is shown in the Files app unless
+ * `{ iosFileSharing: false }` is passed.
  * Nothing else is needed: PDFium ships with the package and iOS uses PDFKit.
  *
  * Note: This package requires development builds and won't work with Expo Go.
@@ -85,6 +102,9 @@ const withPdfJsi: ConfigPlugin<PdfJsiPluginProps | void> = (config, props) => {
 
   config = withNewArchitecture(config);
   config = withPdfJsiOcrGradle(config, enableOcr);
+  if (options.iosFileSharing !== false) {
+    config = withIosFileSharing(config);
+  }
 
   return config;
 };
