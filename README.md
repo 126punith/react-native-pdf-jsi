@@ -2,52 +2,119 @@
 
 [![npm downloads](https://img.shields.io/npm/dt/react-native-pdf-jsi)](https://www.npmjs.com/package/react-native-pdf-jsi)
 
-## Breaking change in 5.0.0
+PDF viewer and document toolkit for React Native on the New Architecture. Documents, downloads and editing live in Nitro modules; the viewer is a Fabric component that renders with PDFium on Android and PDFKit on iOS.
 
-**5.0.0 is not a drop-in upgrade.** Install it only if the app already uses the React Native New Architecture and you need the Nitro JSI document API (`getPdfLibrary().open(path)`).
+## Version 6.0.0
 
-Production apps on 4.x stay on the published line:
+6.0.0 is a breaking release, published under the npm `next` tag. Ask for it explicitly, by version or by tag:
 
 ```sh
-npm install react-native-pdf-jsi@4.5.0
+# npm
+npm install react-native-pdf-jsi@6.0.0 react-native-nitro-modules
+# or: npm install react-native-pdf-jsi@next react-native-nitro-modules
+
+# yarn
+yarn add react-native-pdf-jsi@6.0.0 react-native-nitro-modules
+
+# pnpm
+pnpm add react-native-pdf-jsi@6.0.0 react-native-nitro-modules
 ```
 
-`npm install react-native-pdf-jsi` with no version follows the npm `latest` tag. If that tag is 5.0.0, the next native build fails for the old architecture, Windows, `pdfId` strings, and the native modules removed below.
+Which version you get:
 
-### What 5.0 removes
+| Command | Installs |
+| --- | --- |
+| `react-native-pdf-jsi@6.0.0` or `@next` | 6.0.0 (New Architecture) |
+| `react-native-pdf-jsi` (no version) | 4.5.0 (`latest`, Old Architecture) |
 
-- Old Architecture (Paper). There is no fallback.
-- Windows.
-- `pdfId` string APIs. Open a document with `getPdfLibrary().open(path)` instead.
-- Native modules: `PDFJSIManager`, `PDFExporter`, `PDFTextModule`, `FileManager`, `FileDownloader`.
-- `createSearchablePDF` and `registerPathForSearch`.
+Once installed, `package.json` records `"react-native-pdf-jsi": "^6.0.0"`, so later installs stay on 6.x. Check what is published with `npm view react-native-pdf-jsi dist-tags`.
 
-5.0 requires `react-native-nitro-modules`. Details are in [MIGRATION-5.0.md](MIGRATION-5.0.md).
+Upgrading from 5.x or 4.x: follow [MIGRATION-6.0.md](MIGRATION-6.0.md).
 
-PDF viewer for React Native. Version 5 is the Nitro JSI path on the New Architecture.
+## Who should use 6.0
 
-- **Nitro** owns document logic: open, page geometry, render, search, text, OCR, merge, split, compress, and the on-disk cache.
-- **Fabric** owns the view (`RNPDFPdfView`) and nothing else.
-- **iOS** is a Swift Nitro hybrid on PDFKit and Vision.
-- **Android** is a C++ Nitro hybrid on PDFium.
-- Windows is not supported.
+Use 6.0 if:
 
-## Install 5.0 (New Architecture and Nitro JSI only)
+- Your app runs on the New Architecture (React Native 0.76 or newer).
+- You want the viewer to scroll and zoom natively, with no JavaScript work per frame.
+- You open remote PDFs and need them cached, available offline, or fetched with auth headers.
+- You need document work from JavaScript: search, text extraction, page images, editing, forms, merge, split or compression.
+- You want TypeScript types and errors you can match on.
 
-Install this version only when you need that JSI logic. Everyone else keeps `react-native-pdf-jsi@4.5.0`.
+Stay on 4.5.0 if:
+
+- Your app still uses the Old Architecture (Paper). 6.0 has no fallback.
+- You ship on Windows.
+- You can't take a breaking upgrade yet: 6.0 changes viewer props and makes every page index zero-based.
+
+## Main benefits
+
+- **One native dependency.** `react-native-nitro-modules` is the only native peer. `react-native-blob-util`, AsyncStorage, `crypto-js`, AndroidPdfViewer, `pdfiumandroid` and Gson are no longer needed.
+- **Native viewer.** Android renders pages in tiles on a background thread; iOS uses PDFKit. Page and zoom events arrive once scrolling settles, not on every frame.
+- **Dependable downloads.** Remote documents are revalidated with ETag / Last-Modified, served from disk when offline, resumed after an interruption (files of 32 MB and more), shared between concurrent requests, and kept under a size limit.
+- **Predictable API.** Pages are zero-based everywhere. Taps, highlights and search results share one coordinate system. Failures are `PdfError`s with stable codes.
+- **Safe editing.** Rotations, deletions, annotations and form values stay in memory until you call `save(path)`.
+- **Memory you can control.** Open documents are reference-counted and shared, with a small warm pool that empties on memory warnings.
+- **TypeScript.** The package is written in TypeScript and ships generated type declarations.
+
+## Architecture
+
+```mermaid
+flowchart TB
+  app[Your app] --> js["JS API: PdfView, PdfPage, usePdfDocument, PdfCache, PdfFiles"]
+  js --> fabric["Fabric views: RNPDFPdfView, RNPDFPdfPageView"]
+  js --> nitro["Nitro hybrid objects: PdfLibrary, PdfDocument, PdfCache"]
+  fabric --> androidView["Android: Kotlin tiled viewer"]
+  fabric --> iosView["iOS: PDFKit view"]
+  nitro --> pdfium["Android: PDFium (C++)"]
+  nitro --> pdfkit["iOS: PDFKit and Vision (Swift)"]
+  nitro --> disk["Native download cache"]
+```
+
+### Decisions in 6.0
+
+**Nitro owns documents, Fabric owns the screen.** Opening, rendering, searching, editing and downloading are Nitro hybrid objects (`PdfLibrary`, `PdfDocument`, `PdfCache`) called directly over JSI. The Fabric components (`PdfView`, `PdfPage`) only display. A document opened from JavaScript is the same one a view or thumbnail draws, so edits show without reopening the file.
+
+**Android has its own viewer on PDFium.** AndroidPdfViewer was replaced by a Kotlin viewer: one bitmap per visible page, plus 512 px tiles when zoomed in, rendered by a single prioritised thread. Bitmaps are kept in a cache measured in bytes that shrinks under memory pressure, so large documents stay within a fixed budget.
+
+**iOS uses the system engines.** PDFKit draws pages and Vision handles OCR, so nothing is bundled on iOS.
+
+**Downloads moved into native code.** `PdfCache` streams files straight to disk on a native thread instead of passing them through JavaScript with blob-util. Three cache modes cover the common cases: `none` (fresh each time), `session` (default, size-limited) and `persistent` (kept until removed).
+
+**One page and coordinate convention.** Every API takes and returns zero-based pages. Positions are PDF points from the top-left corner of the displayed page, so a search result's `rect` can be passed straight to `highlights`.
+
+**Errors are values with codes.** Every rejection and viewer error is a `PdfError` whose `code` (`download-failed`, `password-required`, `invalid-page`, …) is the same on both platforms.
+
+**Edits are explicit.** Changes to a document are held in memory and written only by `save(path)`, so the source file is never modified by accident.
+
+**New Architecture only.** Dropping the Old Architecture and Windows keeps one code path per platform.
+
+## Requirements
+
+| | |
+| --- | --- |
+| React Native | 0.76 or newer, New Architecture enabled |
+| `react-native-nitro-modules` | ^0.37.1 |
+| iOS | 13.0+ |
+| Android | minSdkVersion 21+ |
+| Expo | Development build (Expo Go is not supported) |
+
+## Installation
+
+### React Native CLI
 
 ```sh
-npm install react-native-pdf-jsi@5.1.0 react-native-nitro-modules react-native-blob-util
+npm install react-native-pdf-jsi@6.0.0 react-native-nitro-modules
 cd ios && pod install
 ```
 
-The host app must build with the New Architecture enabled. There is no Paper fallback.
-
-Optional Android OCR (ML Kit) is off unless you set `pdfJsiEnableOcr=true` in `gradle.properties`. iOS OCR uses Vision and needs no extra flag.
+To show saved files in the iOS Files app, add `UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace` (both `true`) to `Info.plist`. See [Saving files](#saving-files).
 
 ### Expo
 
-Use a development build (Expo Go is not supported). Install the native peers with `npx expo install react-native-pdf-jsi react-native-nitro-modules react-native-blob-util @react-native-async-storage/async-storage`, then add the plugin to `app.json`:
+```sh
+npx expo install react-native-pdf-jsi@6.0.0 react-native-nitro-modules
+```
 
 ```json
 {
@@ -57,65 +124,116 @@ Use a development build (Expo Go is not supported). Install the native peers wit
 }
 ```
 
-The plugin sets `newArchEnabled=true` for Android and iOS and fails prebuild if `"newArchEnabled": false` is set or `react-native-nitro-modules` is missing. Run `npx expo prebuild --clean` after adding it.
+Then run `npx expo prebuild --clean`. The plugin turns on the New Architecture, checks that `react-native-nitro-modules` is installed, and adds the iOS Files app keys. Options:
 
-## View
+- `ocr`: enables Android ML Kit text recognition. iOS OCR uses Vision and needs nothing.
+- `iosFileSharing`: set to `false` to leave `Info.plist` alone.
 
-```jsx
-import Pdf from 'react-native-pdf-jsi';
+Step-by-step Expo setup, code changes and Xcode 27 / iOS 27 fixes: [EXPO-6.0.md](EXPO-6.0.md).
 
-<Pdf
-  source={{ uri: filePath }}
-  onLoadComplete={(pages) => {}}
-  onPageChanged={(page, total) => {}}
-/>
+## Quick start
+
+```tsx
+import { useRef } from 'react';
+import { PdfView, type PdfViewRef } from 'react-native-pdf-jsi';
+
+export function Reader() {
+  const viewer = useRef<PdfViewRef>(null);
+
+  return (
+    <PdfView
+      ref={viewer}
+      style={{ flex: 1 }}
+      source={{ uri: 'https://example.com/report.pdf', cache: 'persistent' }}
+      onLoad={({ pageCount }) => {
+        console.log('pages', pageCount);
+        viewer.current?.goToPage(4);
+        viewer.current?.zoomTo(2, { animated: true });
+      }}
+      onPageChange={({ page, pageCount }) => console.log(`${page + 1}/${pageCount}`)}
+      onError={(error) => console.warn(error.code, error.message)}
+    />
+  );
+}
 ```
 
-## Document handle
+Other viewer props include `initialPage`, `initialScale`, `horizontal`, `enablePaging`, `enableRTL`, `fitPolicy` (`'width' | 'height' | 'page'`), `highlights`, `password` and `onPasswordRequired`. The full list is in [MIGRATION-6.0.md](MIGRATION-6.0.md#props).
 
-Cheap reads are synchronous. Work that touches the file or rasterizes a page returns a Promise.
+## Core APIs
 
-```js
-import { getPdfLibrary, openPdf } from 'react-native-pdf-jsi/src/PDFJSI';
+### Sources
+
+```ts
+{ uri: 'https://…', headers: { Authorization: 'Bearer …' } } // session cache (default)
+{ uri: 'https://…', cache: 'persistent' }                    // kept until removed, still revalidated
+{ uri: 'https://…', cache: 'none' }                          // downloaded every time
+{ uri: 'https://…', maxAgeMs: 60_000, cacheKey: 'invoice-42' }
+{ filePath: '/path/to/file.pdf' }
+{ base64: 'JVBERi0…' }
+require('./manual.pdf')
+```
+
+```ts
+import { PdfCache } from 'react-native-pdf-jsi';
+
+await PdfCache.download({ uri, cache: 'persistent' }); // fetch ahead of time
+PdfCache.maxCacheBytes = 500 * 1024 * 1024;            // session cache limit
+await PdfCache.clear();
+```
+
+### Documents and thumbnails
+
+```tsx
+import { PdfPage, usePdfDocument } from 'react-native-pdf-jsi';
+
+function Thumbnail({ uri }: { uri: string }) {
+  const { document } = usePdfDocument({ uri });
+  if (!document) return null;
+  return <PdfPage document={document} page={0} style={{ height: 120 }} />;
+}
+```
+
+### Rendering, search and editing
+
+```ts
+const image = await document.renderPage(0, { maxWidth: 1080, format: 'jpeg', quality: 85 });
+const matches = await document.searchText('invoice', 0, document.pageCount - 1); // rects fit `highlights`
+const text = await document.extractText(0);
+
+await document.rotatePage(0, 90);
+await document.deletePage(3);
+await document.addAnnotation({ page: 0, type: 'highlight', rect: { x: 72, y: 72, width: 200, height: 20 } });
+await document.setFormFieldValues({ name: 'Ada' });
+await document.save(outputPath); // nothing is written before this
+```
+
+Saving with a password is supported on iOS; on Android it rejects with `unsupported-operation`.
+
+### Merge, split, extract, compress
+
+```ts
+import { getPdfLibrary } from 'react-native-pdf-jsi';
 
 const library = getPdfLibrary();
-const document = await library.open(filePath);
-
-document.pageCount;          // number, sync
-document.pageSize(0);        // { width, height }, sync, 0-based
-await document.renderPage(0, 2);
-await document.searchText('hello', 0, document.pageCount - 1);
-await document.extractText(0);
-document.close();
-```
-
-Library calls that do not belong to one open document:
-
-```js
 await library.mergePDFs([a, b], outputPath);
-await library.splitPDF(filePath, JSON.stringify([[0, 1]]), outputDir);
+await library.splitPDF(filePath, JSON.stringify([[0, 9], [10, 19]]), outputDir);
 await library.extractPages(filePath, JSON.stringify([0, 2]), outputPath);
 await library.compressPDF(inputPath, outputPath, 6);
-library.jsiStats;            // sync
-library.kb16Support;         // sync
-library.ocrAvailable;        // sync
 ```
 
-Page indexes on the Nitro handle are **0-based**. The older JS helpers `renderPageDirect` and `searchTextDirect` still accept 1-based page numbers and convert them.
+### Document lifecycle
 
-## Document lifecycle
+A native document holds PDFium / PDFKit memory that the JavaScript garbage collector cannot see. `usePdfDocument` releases it on unmount. Outside components, prefer `withPdfDocument`, which releases the document even if the callback throws:
 
-A native document holds PDFium/PDFKit memory that the JavaScript garbage collector cannot see, so it must be closed explicitly. Since 5.1.0 the package keeps open documents in a reference-counted registry. Prefer `withPdfDocument`, which releases the document when the callback finishes, even if it throws:
-
-```js
+```ts
 import { withPdfDocument } from 'react-native-pdf-jsi';
 
 const text = await withPdfDocument(filePath, (document) => document.extractText(0));
 ```
 
-For a document that must stay open across several calls (for example, for the life of a screen), pair `acquirePdf` with `releasePdf`:
+For a document that stays open across several calls, pair `acquirePdf` with `releasePdf`:
 
-```js
+```ts
 import { acquirePdf, releasePdf } from 'react-native-pdf-jsi';
 
 useEffect(() => {
@@ -125,19 +243,40 @@ useEffect(() => {
 ```
 
 - Concurrent opens of the same path share one native document.
-- Released documents stay open in a small warm pool (2 documents) so reopening is instant. The pool is emptied on memory warnings, or call `trimPdfCache()`.
-- `openPdf(path)` still works and **pins** the document until `closePdf(path)`. `closePdf` force-closes, even while other code holds a reference.
-- Call `invalidatePdf(path)` before overwriting a file at the same path, so the next open reads the new contents.
-- `getPdfRegistryStats()` reports open, referenced, pinned, warm and stale counts, which is useful when checking for leaks.
-- If you set a custom OCR engine with `PDFText.setOCREngine`, call `PDFText.clearOCREngine()` when the component that created it unmounts.
+- Released documents stay in a warm pool of 2 so reopening is instant. The pool empties on memory warnings, or call `trimPdfCache()`.
+- Call `invalidatePdf(path)` after overwriting a file, so the next open reads the new contents.
+- `getPdfRegistryStats()` reports open, referenced, pinned, warm and stale counts, which helps when checking for leaks.
 
-## Downloads
+## Saving files
 
-`PdfFiles.saveToDownloads(path, fileName)` (or `FileManager.downloadToPublicFolder`) saves a copy natively: into the public Downloads folder through MediaStore on Android, and into the app's Documents folder on iOS. No `react-native-blob-util` is needed.
+`PdfFiles.saveToDownloads(path, fileName)` (or `FileManager.downloadToPublicFolder`) saves a copy natively: into the public Downloads folder through MediaStore on Android, and into the app's Documents folder on iOS.
 
-On iOS the Documents folder shows in the Files app only when the app's `Info.plist` sets `UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace` to `true`. The Expo plugin adds both (opt out with `{ "iosFileSharing": false }`); bare apps add them by hand.
+On iOS the Documents folder shows in the Files app only when the app's `Info.plist` sets `UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace` to `true`. The Expo plugin adds both (opt out with `{ "iosFileSharing": false }`); bare apps add them by hand. `FileManager.openDownloadsFolder()` opens the app's folder in the Files app.
 
 Paths returned for viewed documents point into the library's cache. To keep a document, load it with `cache: 'persistent'` or copy it with ``PdfFiles.copy(path, `${PdfFiles.documentDirectory}/name.pdf`)``.
+
+## Errors
+
+```ts
+import { isPdfError } from 'react-native-pdf-jsi';
+
+try {
+  await document.renderPage(99);
+} catch (error) {
+  if (isPdfError(error) && error.code === 'invalid-page') {
+    // …
+  }
+}
+```
+
+Codes: `invalid-source`, `download-failed`, `password-required`, `password-incorrect`, `unsupported-pdf`, `page-render-failed`, `out-of-memory`, `invalid-page`, `invalid-argument`, `unsupported-operation`, `io-error`, `cancelled`, `document-closed`, `unknown`. Match on `code`; messages may change. `errorMessageFor(error)` returns a readable English message.
+
+## Upgrading
+
+- From 5.x or 4.x to 6.0: [MIGRATION-6.0.md](MIGRATION-6.0.md)
+- Expo apps on 6.0: [EXPO-6.0.md](EXPO-6.0.md)
+- From 4.x to 5.0: [MIGRATION-5.0.md](MIGRATION-5.0.md)
+- Release notes: [CHANGELOG.md](CHANGELOG.md)
 
 ## Commercial Nitro Edition & Support
 

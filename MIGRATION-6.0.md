@@ -23,7 +23,7 @@ npm uninstall react-native-blob-util @react-native-async-storage/async-storage c
 
 `react-native-nitro-modules` (0.37.x) is the only native peer. The New Architecture is still required, iOS 13+.
 
-On Android the Jitpack repository is no longer needed for this package. Expo users: the config plugin no longer edits `build.gradle`.
+On Android the Jitpack repository is no longer needed for this package. Expo users: the config plugin no longer edits `build.gradle`; see [EXPO-6.0.md](EXPO-6.0.md) for the full Expo walkthrough.
 
 ## The viewer
 

@@ -133,6 +133,7 @@
         "react-native-pdf-jsi.podspec",
         "README.md",
         "MIGRATION-6.0.md",
+        "EXPO-6.0.md",
         "MIGRATION-5.0.md",
         "CHANGELOG.md",
         "LICENSE"
