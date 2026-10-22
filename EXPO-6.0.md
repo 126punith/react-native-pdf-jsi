@@ -11,7 +11,7 @@ This guide covers moving an Expo app to react-native-pdf-jsi 6.0.0, and setting 
 ## 1. Install
 
 ```sh
-npx expo install react-native-pdf-jsi@6.0.0 react-native-nitro-modules
+npx expo install react-native-pdf-jsi react-native-nitro-modules
 ```
 
 6.0 no longer uses these packages. Remove them unless your own code imports them:
@@ -383,7 +383,7 @@ Register both plugins after `react-native-pdf-jsi`, then run `npx expo prebuild 
 
 ## Checklist
 
-- [ ] `react-native-pdf-jsi@6.0.0` and `react-native-nitro-modules` installed with `npx expo install`
+- [ ] `react-native-pdf-jsi` (6.1.0 or newer) and `react-native-nitro-modules` installed with `npx expo install`
 - [ ] `react-native-blob-util` and `crypto-js` removed, unless your own code uses them
 - [ ] `"react-native-pdf-jsi"` in `plugins`; `newArchEnabled` not set to `false`
 - [ ] `npx expo prebuild --clean` finishes without plugin errors

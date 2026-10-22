@@ -1,6 +1,6 @@
 {
     "name": "react-native-pdf-jsi",
-    "version": "6.0.0",
+    "version": "6.1.0",
     "summary": "React Native PDF viewer and toolkit on Nitro and Fabric. Requires the New Architecture.",
     "description": "PDF viewer and toolkit for React Native. Nitro HybridObjects own documents, downloads and editing; a tiled Fabric viewer renders on Android (PDFium) and iOS (PDFKit). Requires the New Architecture.",
     "main": "lib/commonjs/index.js",

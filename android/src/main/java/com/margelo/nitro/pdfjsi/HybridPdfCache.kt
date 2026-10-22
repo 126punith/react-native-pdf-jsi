@@ -8,6 +8,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.util.Base64
 import android.util.Base64OutputStream
+import android.webkit.CookieManager
 import androidx.annotation.Keep
 import com.facebook.proguard.annotations.DoNotStrip
 import com.margelo.nitro.NitroModules
@@ -287,6 +288,8 @@ class HybridPdfCache : HybridPdfCacheSpec() {
           sessionDir = File(context.cacheDir, "pdf-jsi/session"),
           persistentDir = File(context.noBackupFilesDir, "pdf-jsi/persistent"),
           tempDir = File(context.cacheDir, "pdf-jsi/tmp"),
+          // React Native's networking stores cookies here; getInstance() throws when no WebView is installed.
+          cookies = { url -> runCatching { CookieManager.getInstance().getCookie(url) }.getOrNull() },
         ).also { shared = it }
       }
 

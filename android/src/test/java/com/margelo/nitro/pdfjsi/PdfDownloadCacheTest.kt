@@ -29,6 +29,8 @@ class PdfDownloadCacheTest {
   private lateinit var cache: PdfDownloadCache
   private val requests = AtomicInteger()
   private val rangeRequests = AtomicInteger()
+  @Volatile private var appCookie: String? = null
+  @Volatile private var receivedCookie: String? = null
 
   /** Per-path behaviour for the test server. */
   private class Route(
@@ -67,6 +69,7 @@ class PdfDownloadCacheTest {
     tempDir = folder.root.resolve("tmp"),
     readTimeoutMs = 5_000,
     resumeBackoffMs = 10,
+    cookies = { appCookie },
   )
 
   @After
@@ -77,6 +80,7 @@ class PdfDownloadCacheTest {
 
   private fun handle(exchange: HttpExchange) {
     requests.incrementAndGet()
+    receivedCookie = exchange.requestHeaders.getFirst("Cookie")
     val route = routes[exchange.requestURI.path]
     if (route == null) {
       exchange.sendResponseHeaders(404, -1)
@@ -326,6 +330,41 @@ class PdfDownloadCacheTest {
       PdfDownloadCache.keyFor("https://x/a.pdf?sig=1", emptyMap(), "doc"),
       PdfDownloadCache.keyFor("https://x/a.pdf?sig=2", emptyMap(), "doc"),
     )
+  }
+
+  @Test
+  fun appCookiesAreSent() {
+    routes["/a.pdf"] = Route(pdf(10_000))
+    appCookie = "session=abc"
+    download(request("/a.pdf"))
+    assertEquals("session=abc", receivedCookie)
+  }
+
+  @Test
+  fun explicitCookieHeaderWinsOverAppCookies() {
+    routes["/a.pdf"] = Route(pdf(10_000))
+    appCookie = "session=abc"
+    download(request("/a.pdf", headers = mapOf("cookie" to "session=mine")))
+    assertEquals("session=mine", receivedCookie)
+  }
+
+  @Test
+  fun noAppCookiesSendsNoCookieHeader() {
+    routes["/a.pdf"] = Route(pdf(10_000))
+    download(request("/a.pdf"))
+    assertNull(receivedCookie)
+  }
+
+  @Test
+  fun changingAppCookiesKeepsTheCacheEntry() {
+    routes["/a.pdf"] = Route(pdf(10_000))
+    appCookie = "session=one"
+    val first = download(request("/a.pdf"))
+    appCookie = "session=two"
+    val second = download(request("/a.pdf"))
+    assertEquals(first.key, second.key)
+    assertTrue(second.fromCache)
+    assertEquals("session=two", receivedCookie)
   }
 
   @Test

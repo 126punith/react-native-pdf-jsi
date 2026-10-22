@@ -80,6 +80,8 @@ class PdfDownloadCache(
   private val readTimeoutMs: Int = 30_000,
   private val resumeBackoffMs: Long = 500,
   private val tempMaxAgeMs: Long = TEMP_MAX_AGE_MS,
+  /** Returns the app's `Cookie` header value for a URL; used when the request has no `Cookie` header. */
+  private val cookies: (url: String) -> String? = { null },
 ) {
   @Volatile
   var maxCacheBytes: Long = DEFAULT_MAX_CACHE_BYTES
@@ -374,6 +376,9 @@ class PdfDownloadCache(
     connection.instanceFollowRedirects = true
     connection.useCaches = false
     request.headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
+    if (request.headers.keys.none { it.equals("Cookie", ignoreCase = true) }) {
+      cookies(request.url)?.takeIf { it.isNotEmpty() }?.let { connection.setRequestProperty("Cookie", it) }
+    }
     // Byte offsets must match the file on the server for Range requests.
     connection.setRequestProperty("Accept-Encoding", "identity")
     return connection

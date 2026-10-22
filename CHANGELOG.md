@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [6.0.0] - Unreleased
+## [6.1.0] - 2026-10-22
+
+### Fixed
+
+- Android: remote PDFs are downloaded with the app's cookies from React Native's cookie store again, as in 4.x, so session-cookie authentication works. An explicit `Cookie` in `source.headers` takes precedence.
+
+## [6.0.0] - 2026-10-20
 
 Breaking release: a new viewer, native downloads and zero-based pages everywhere. Upgrade steps: [MIGRATION-6.0.md](MIGRATION-6.0.md).
 

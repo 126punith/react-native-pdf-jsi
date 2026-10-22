@@ -4,30 +4,29 @@
 
 PDF viewer and document toolkit for React Native on the New Architecture. Documents, downloads and editing live in Nitro modules; the viewer is a Fabric component that renders with PDFium on Android and PDFKit on iOS.
 
-## Version 6.0.0
+## Version 6.1.0
 
-6.0.0 is a breaking release, published under the npm `next` tag. Ask for it explicitly, by version or by tag:
+6.x is the current release and the npm `latest` tag, so a plain install gets it:
 
 ```sh
 # npm
-npm install react-native-pdf-jsi@6.0.0 react-native-nitro-modules
-# or: npm install react-native-pdf-jsi@next react-native-nitro-modules
+npm install react-native-pdf-jsi react-native-nitro-modules
 
 # yarn
-yarn add react-native-pdf-jsi@6.0.0 react-native-nitro-modules
+yarn add react-native-pdf-jsi react-native-nitro-modules
 
 # pnpm
-pnpm add react-native-pdf-jsi@6.0.0 react-native-nitro-modules
+pnpm add react-native-pdf-jsi react-native-nitro-modules
 ```
 
 Which version you get:
 
 | Command | Installs |
 | --- | --- |
-| `react-native-pdf-jsi@6.0.0` or `@next` | 6.0.0 (New Architecture) |
-| `react-native-pdf-jsi` (no version) | 4.5.0 (`latest`, Old Architecture) |
+| `react-native-pdf-jsi` (no version) or `@latest` | 6.1.0 (New Architecture) |
+| `react-native-pdf-jsi@4.5.0` | 4.5.0 (Old Architecture) |
 
-Once installed, `package.json` records `"react-native-pdf-jsi": "^6.0.0"`, so later installs stay on 6.x. Check what is published with `npm view react-native-pdf-jsi dist-tags`.
+Apps still on the Old Architecture should pin `react-native-pdf-jsi@4.5.0`. Check what is published with `npm view react-native-pdf-jsi dist-tags`.
 
 Upgrading from 5.x or 4.x: follow [MIGRATION-6.0.md](MIGRATION-6.0.md).
 
@@ -104,7 +103,7 @@ flowchart TB
 ### React Native CLI
 
 ```sh
-npm install react-native-pdf-jsi@6.0.0 react-native-nitro-modules
+npm install react-native-pdf-jsi react-native-nitro-modules
 cd ios && pod install
 ```
 
@@ -113,7 +112,7 @@ To show saved files in the iOS Files app, add `UIFileSharingEnabled` and `LSSupp
 ### Expo
 
 ```sh
-npx expo install react-native-pdf-jsi@6.0.0 react-native-nitro-modules
+npx expo install react-native-pdf-jsi react-native-nitro-modules
 ```
 
 ```json
