@@ -544,6 +544,7 @@ class PdfViewerView(context: Context) : View(context) {
             offsetX = scroller.currX.toFloat()
             offsetY = scroller.currY.toFloat()
             clampOffsets()
+            if (flinging) emitPageChangeIfNeeded()
             postInvalidateOnAnimation()
         } else if (flinging) {
             flinging = false
@@ -721,6 +722,7 @@ class PdfViewerView(context: Context) : View(context) {
         offsetX += dx
         offsetY += dy
         clampOffsets()
+        emitPageChangeIfNeeded()
         invalidate()
     }
 
@@ -838,16 +840,22 @@ class PdfViewerView(context: Context) : View(context) {
 
     // region Events
 
-    /** Sends page and scale events if they changed. Called when motion stops. */
-    private fun settle() {
+    /** Sends a page event when the page under the viewport centre changes, including mid-scroll. */
+    private fun emitPageChangeIfNeeded() {
         val current = layout ?: return
-        if (touching || scaling || flinging || zoomAnimator != null) return
-        tileBucket = TileGrid.bucketFor(zoom)
         val page = pageBase + current.currentPage(scrollOffset(), zoom)
         if (page != lastPage) {
             lastPage = page
             emit(JSONObject().put("type", "pageChange").put("page", page).put("pageCount", pageSizes.size))
         }
+    }
+
+    /** Sends page and scale events if they changed. Called when motion stops. */
+    private fun settle() {
+        if (layout == null) return
+        if (touching || scaling || flinging || zoomAnimator != null) return
+        tileBucket = TileGrid.bucketFor(zoom)
+        emitPageChangeIfNeeded()
         if (lastScale.isNaN() || abs(lastScale - zoom) > 0.001f) {
             val first = lastScale.isNaN()
             lastScale = zoom

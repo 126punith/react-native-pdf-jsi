@@ -3,11 +3,14 @@ cmake_minimum_required(VERSION 3.13)
 project(react-native-pdf-jsi)
 
 set(PDFIUM_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/third_party/pdfium)
+if(NOT PDFIUM_LIB_DIR)
+    set(PDFIUM_LIB_DIR ${PDFIUM_ROOT}/lib)
+endif()
 add_library(pdfium SHARED IMPORTED)
 # Prebuilt PDFium with its own SONAME, so another libpdfium.so in the app can load alongside it.
 # libpdfn.so must not export _Unwind_*; those symbols belong to libc++_shared.
 set_target_properties(pdfium PROPERTIES
-    IMPORTED_LOCATION ${PDFIUM_ROOT}/lib/${ANDROID_ABI}/libpdfn.so
+    IMPORTED_LOCATION ${PDFIUM_LIB_DIR}/${ANDROID_ABI}/libpdfn.so
     INTERFACE_INCLUDE_DIRECTORIES ${PDFIUM_ROOT}/include
 )
 

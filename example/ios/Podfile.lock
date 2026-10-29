@@ -1811,7 +1811,7 @@ PODS:
     - React-RCTFBReactNativeSpec
     - ReactCommon/turbomodule/core
     - SocketRocket
-  - react-native-pdf-jsi (6.0.0):
+  - react-native-pdf-jsi (6.1.1):
     - boost
     - DoubleConversion
     - fast_float
@@ -2751,7 +2751,7 @@ SPEC CHECKSUMS:
   React-logger: fceaaedb9c715923a1900af68a7534e9b3a601a1
   React-Mapbuffer: 7e7ca4c53288117e7e0406e9eaa804bf259b4b30
   React-microtasksnativemodule: 885bebe5c5f25035e1fd0920776078840a0e3a76
-  react-native-pdf-jsi: fd3c93e0ee3f6b137acc0da24b835a2c1bb2bcfc
+  react-native-pdf-jsi: 0817789ada5183c39a10f5570e943af59a21b6d5
   react-native-safe-area-context: 67fe53f3dae94f028ed6a8c5ac50e0359781dda7
   React-NativeModulesApple: c4bee6aa736092cd347456488a4f97a8e7517604
   React-oscompat: 95875e81f5d4b3c7b2c888d5bd2c9d83450d8bdb

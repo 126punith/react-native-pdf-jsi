@@ -4,7 +4,7 @@ import PDFKit
 import UIKit
 
 public final class HybridPdfLibrary: HybridPdfLibrarySpec {
-  public var version: String { "6.1.0" }
+  public var version: String { "6.1.1" }
 
   public var kb16Support: KB16Support {
     KB16Support(

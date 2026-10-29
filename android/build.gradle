@@ -82,6 +82,127 @@ def reactNativeArchitectures() {
     return value ? value.split(",") : ["armeabi-v7a", "x86", "x86_64", "arm64-v8a"]
 }
 
+// Prebuilt PDFium (libpdfn.so) is not shipped in the npm package. It is
+// resolved in this order:
+//   1. pdfJsiPdfiumDir gradle property (dir containing lib/<abi>/libpdfn.so)
+//   2. third_party/pdfium/lib in this module (git checkout)
+//   3. downloaded from pdfiumUrl (override with pdfJsiPdfiumUrl), checked
+//      against pdfiumSha256 and cached in the Gradle user home
+// Bump all three constants together; see scripts/package-pdfium.sh.
+def pdfiumVersion = "r1"
+def pdfiumSha256 = "330913954b8bf09f246fb907aecbc282e164e68c8dd647aab48718a679d19903"
+def pdfiumDefaultUrl = "https://github.com/126punith/react-native-pdf-jsi/releases/download/pdfium-android-${pdfiumVersion}/pdfium-android-${pdfiumVersion}.zip"
+
+def findPdfJsiProperty(String name) {
+    def value = project.findProperty(name)
+    return value != null ? value : rootProject.findProperty(name)
+}
+
+def hasPdfiumLibs(File libDir, abis) {
+    return abis.every { new File(libDir, "${it}/libpdfn.so").isFile() }
+}
+
+def pdfiumAbis = reactNativeArchitectures()
+def pdfiumOverride = findPdfJsiProperty("pdfJsiPdfiumDir")
+def pdfiumBundledLib = file("third_party/pdfium/lib")
+def pdfiumDownloadRoot = layout.buildDirectory.dir("pdfium/${pdfiumVersion}").get().asFile
+def pdfiumNeedsDownload = false
+def pdfiumLibDir
+
+if (pdfiumOverride != null) {
+    pdfiumLibDir = new File(rootProject.file(pdfiumOverride.toString()), "lib")
+    if (!hasPdfiumLibs(pdfiumLibDir, pdfiumAbis)) {
+        throw new GradleException(
+            "[react-native-pdf-jsi] pdfJsiPdfiumDir=${pdfiumOverride} must contain " +
+                "lib/<abi>/libpdfn.so for ${pdfiumAbis.join(', ')}."
+        )
+    }
+} else if (hasPdfiumLibs(pdfiumBundledLib, pdfiumAbis)) {
+    pdfiumLibDir = pdfiumBundledLib
+} else {
+    pdfiumLibDir = new File(pdfiumDownloadRoot, "lib")
+    pdfiumNeedsDownload = true
+}
+
+def downloadPdfium = tasks.register("downloadPdfium") {
+    description = "Downloads the prebuilt PDFium libraries used by react-native-pdf-jsi."
+    onlyIf { pdfiumNeedsDownload }
+
+    def url = (findPdfJsiProperty("pdfJsiPdfiumUrl") ?: pdfiumDefaultUrl).toString()
+    def cacheZip = new File(
+        gradle.gradleUserHomeDir,
+        "caches/react-native-pdf-jsi/pdfium/${pdfiumVersion}/pdfium-android-${pdfiumVersion}.zip"
+    )
+    def abis = pdfiumAbis
+    def outRoot = pdfiumDownloadRoot
+    def libDir = pdfiumLibDir
+    def expectedSha = pdfiumSha256
+
+    inputs.property("url", url)
+    inputs.property("sha256", expectedSha)
+    outputs.dir(outRoot)
+
+    doLast {
+        def sha256 = { File f ->
+            def digest = java.security.MessageDigest.getInstance("SHA-256")
+            f.withInputStream { is ->
+                byte[] buf = new byte[65536]
+                int n
+                while ((n = is.read(buf)) > 0) {
+                    digest.update(buf, 0, n)
+                }
+            }
+            return digest.digest().encodeHex().toString()
+        }
+
+        if (!cacheZip.isFile() || sha256(cacheZip) != expectedSha) {
+            cacheZip.parentFile.mkdirs()
+            def tmp = new File(cacheZip.parentFile, "${cacheZip.name}.part")
+            logger.lifecycle("[react-native-pdf-jsi] Downloading PDFium ${pdfiumVersion} from ${url}")
+            try {
+                def conn = new URL(url).openConnection()
+                conn.connectTimeout = 30000
+                conn.readTimeout = 120000
+                if (conn instanceof HttpURLConnection) {
+                    conn.instanceFollowRedirects = true
+                }
+                conn.inputStream.withStream { is -> tmp.withOutputStream { os -> os << is } }
+            } catch (Exception e) {
+                tmp.delete()
+                throw new GradleException(
+                    "[react-native-pdf-jsi] Could not download PDFium from ${url} (${e.message}). " +
+                        "For offline builds, set pdfJsiPdfiumDir in gradle.properties to a directory " +
+                        "containing lib/<abi>/libpdfn.so, or pdfJsiPdfiumUrl to a mirror.",
+                    e
+                )
+            }
+            def actualSha = sha256(tmp)
+            if (actualSha != expectedSha) {
+                tmp.delete()
+                throw new GradleException(
+                    "[react-native-pdf-jsi] PDFium checksum mismatch for ${url}: " +
+                        "expected ${expectedSha}, got ${actualSha}."
+                )
+            }
+            cacheZip.delete()
+            if (!tmp.renameTo(cacheZip)) {
+                throw new GradleException("[react-native-pdf-jsi] Could not move ${tmp} to ${cacheZip}.")
+            }
+        }
+
+        project.delete(outRoot)
+        project.copy {
+            from project.zipTree(cacheZip)
+            into outRoot
+        }
+        if (!hasPdfiumLibs(libDir, abis)) {
+            throw new GradleException(
+                "[react-native-pdf-jsi] ${cacheZip} does not contain lib/<abi>/libpdfn.so for ${abis.join(', ')}."
+            )
+        }
+    }
+}
+
 android {
     def agpVersion = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION
     if (agpVersion.tokenize('.')[0].toInteger() >= 7) {
@@ -113,7 +234,8 @@ android {
             cmake {
                 cppFlags "-fexceptions", "-frtti", "-O3", "-ffast-math", "-funroll-loops"
                 arguments "-DANDROID_STL=c++_shared",
-                    "-DANDROID_PAGE_SIZE_AGNOSTIC=ON"
+                    "-DANDROID_PAGE_SIZE_AGNOSTIC=ON",
+                    "-DPDFIUM_LIB_DIR=${pdfiumLibDir.absolutePath}"
             }
         }
     }
@@ -204,6 +326,9 @@ tasks.configureEach { task ->
         if (task.name.contains("configureCMake") || task.name.contains("buildCMake")
                 || task.name.startsWith("externalNativeBuildClean")) {
             task.dependsOn(":react-native-nitro-modules:prepareHeaders")
+        }
+        if (task.name.contains("configureCMake") || task.name.contains("buildCMake")) {
+            task.dependsOn(downloadPdfium)
         }
     }
 

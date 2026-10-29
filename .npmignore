@@ -80,5 +80,5 @@ npm-debug.log
 **/*.dex
 **/*.o
 **/*.so
-# Prebuilt PDFium is required at build time
-!android/third_party/pdfium/lib/**/libpdfn.so
+# Prebuilt PDFium is downloaded by android/build.gradle at build time
+android/third_party/pdfium/lib/

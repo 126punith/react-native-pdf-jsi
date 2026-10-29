@@ -9,7 +9,7 @@
 namespace margelo::nitro::pdfjsi {
 
 std::string HybridPdfLibrary::getVersion() {
-    return "6.1.0";
+    return "6.1.1";
 }
 
 KB16Support HybridPdfLibrary::getKb16Support() {

@@ -5,6 +5,7 @@ import {
   withInfoPlist,
   withPodfileProperties,
 } from 'expo/config-plugins';
+import path from 'path';
 
 const pkg = require('../../package.json');
 
@@ -23,20 +24,58 @@ export type PdfJsiPluginProps = {
    * @default true
    */
   iosFileSharing?: boolean;
+  /**
+   * Directory containing lib/<abi>/libpdfn.so, for Android builds that cannot
+   * download PDFium from GitHub Releases. Relative paths are resolved from the
+   * project root. Sets gradle property pdfJsiPdfiumDir.
+   */
+  pdfiumDir?: string;
+  /**
+   * Mirror URL of the PDFium release zip. The SHA-256 is still verified.
+   * Sets gradle property pdfJsiPdfiumUrl.
+   */
+  pdfiumUrl?: string;
 };
 
-const setGradleProperty: (key: string, value: string) => ConfigPlugin =
+const setGradleProperty: (key: string, value: string | undefined) => ConfigPlugin =
   (key, value) => (config) =>
     withGradleProperties(config, (config) => {
       const props = config.modResults;
-      const existing = props.find((p) => p.type === 'property' && p.key === key);
-      if (existing && existing.type === 'property') {
-        existing.value = value;
+      const index = props.findIndex((p) => p.type === 'property' && p.key === key);
+      if (value === undefined) {
+        if (index !== -1) {
+          props.splice(index, 1);
+        }
+      } else if (index !== -1) {
+        props[index] = { type: 'property', key, value };
       } else {
         props.push({ type: 'property', key, value });
       }
       return config;
     });
+
+/**
+ * gradle.properties paths resolve from the android/ folder, so a project-relative
+ * path is rewritten relative to it.
+ */
+function toAndroidRelativePath(projectRoot: string | undefined, dir: string) {
+  if (path.isAbsolute(dir) || !projectRoot) {
+    return dir;
+  }
+  return path
+    .relative(path.join(projectRoot, 'android'), path.resolve(projectRoot, dir))
+    .split(path.sep)
+    .join('/');
+}
+
+const withPdfiumSource: ConfigPlugin<{ dir?: string; url?: string }> = (config, { dir, url }) => {
+  const projectRoot = config._internal?.projectRoot;
+  config = setGradleProperty(
+    'pdfJsiPdfiumDir',
+    dir ? toAndroidRelativePath(projectRoot, dir) : undefined
+  )(config);
+  return setGradleProperty('pdfJsiPdfiumUrl', url || undefined)(config);
+};
 
 /**
  * Ensure pdfJsiEnableOcr is set in android/gradle.properties
@@ -90,7 +129,8 @@ function assertNitroModulesInstalled(projectRoot: string | undefined) {
  * installed. Optional `{ ocr: true }` enables Android ML Kit text recognition.
  * On iOS the app's Documents folder is shown in the Files app unless
  * `{ iosFileSharing: false }` is passed.
- * Nothing else is needed: PDFium ships with the package and iOS uses PDFKit.
+ * Android downloads PDFium on the first build; `pdfiumDir` / `pdfiumUrl`
+ * point it at a local copy or a mirror. iOS uses PDFKit.
  *
  * Note: This package requires development builds and won't work with Expo Go.
  */
@@ -102,6 +142,7 @@ const withPdfJsi: ConfigPlugin<PdfJsiPluginProps | void> = (config, props) => {
 
   config = withNewArchitecture(config);
   config = withPdfJsiOcrGradle(config, enableOcr);
+  config = withPdfiumSource(config, { dir: options.pdfiumDir, url: options.pdfiumUrl });
   if (options.iosFileSharing !== false) {
     config = withIosFileSharing(config);
   }

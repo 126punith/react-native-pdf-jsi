@@ -79,7 +79,7 @@ The default export is still the viewer (`import Pdf from 'react-native-pdf-jsi'`
 
 Highlights and taps share one coordinate system: PDF points measured from the top-left corner of the page as it is displayed (rotation applied). `document.searchText` returns rectangles in the same system, so results can be passed straight to `highlights`.
 
-`onPageChange` fires once scrolling settles, not on every frame.
+`onPageChange` fires whenever the page at the centre of the view changes, including during scrolling and animated jumps. It is not sent on every frame, only when the page differs from the last one reported.
 
 ### Passwords
 

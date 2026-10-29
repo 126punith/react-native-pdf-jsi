@@ -44,14 +44,26 @@ With options:
 | --- | --- | --- |
 | `ocr` | `false` | Enables Android ML Kit text recognition (`pdfJsiEnableOcr=true`). iOS uses Vision and needs nothing. |
 | `iosFileSharing` | `true` | Shows the app's Documents folder in the iOS Files app, where saved and exported files go. |
+| `pdfiumDir` | unset | Directory containing `lib/<abi>/libpdfn.so`, for Android builds that cannot reach GitHub. Relative paths are resolved from the project root. Sets `pdfJsiPdfiumDir`. |
+| `pdfiumUrl` | unset | Mirror URL of the PDFium release zip. The SHA-256 is still checked. Sets `pdfJsiPdfiumUrl`. |
 
 What prebuild writes:
 
 - `ios/<App>/Info.plist`: `UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace` set to `true` (unless `iosFileSharing` is `false`).
 - `ios/Podfile.properties.json`: `"newArchEnabled": "true"`.
-- `android/gradle.properties`: `newArchEnabled=true` and `pdfJsiEnableOcr=true|false`.
+- `android/gradle.properties`: `newArchEnabled=true`, `pdfJsiEnableOcr=true|false`, and `pdfJsiPdfiumDir` / `pdfJsiPdfiumUrl` when those options are set.
 
-The plugin no longer edits `build.gradle` or adds the Jitpack repository. PDFium ships inside the package, and iOS uses PDFKit.
+The plugin no longer edits `build.gradle` or adds the Jitpack repository. iOS uses PDFKit.
+
+### Android PDFium download
+
+The PDFium libraries are not in the npm package. The first Android build (local or EAS) downloads them from GitHub Releases, checks the SHA-256 and caches them in the Gradle user home. If your build machine cannot reach GitHub, commit the unzipped release asset to your project and point the plugin at it:
+
+```json
+["react-native-pdf-jsi", { "pdfiumDir": "./vendor/pdfium" }]
+```
+
+`./vendor/pdfium` must contain `lib/arm64-v8a/libpdfn.so` and the other ABIs you build.
 
 ## 3. Prebuild and run
 

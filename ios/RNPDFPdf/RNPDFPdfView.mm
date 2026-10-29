@@ -10,8 +10,10 @@
 
 using namespace facebook::react;
 
-/// Page and scale events wait this long after the last scroll or zoom change.
+/// Scale events and the final page check wait this long after the last scroll or zoom change.
 static const NSTimeInterval kSettleDelay = 0.15;
+
+static void *kScrollOffsetContext = &kScrollOffsetContext;
 
 static NSString *NormalizePath(NSString *path)
 {
@@ -78,6 +80,7 @@ static CGRect DisplayToPage(PDFPage *page, CGRect rect)
   int _lastPage;
   float _lastScale;
   NSMutableArray<NSDictionary *> *_pendingEvents;
+  UIScrollView *_observedScroll;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -134,6 +137,7 @@ static CGRect DisplayToPage(PDFPage *page, CGRect rect)
 
 - (void)dealloc
 {
+  [self stopObservingScroll];
   [NSNotificationCenter.defaultCenter removeObserver:self];
   [NSObject cancelPreviousPerformRequestsWithTarget:self];
 }
@@ -292,6 +296,7 @@ static CGRect DisplayToPage(PDFPage *page, CGRect rect)
 - (void)closeDocument
 {
   [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(settle) object:nil];
+  [self stopObservingScroll];
   [_highlightAnnotations removeAllObjects];
   _document = nil;
   _pdfView.document = nil;
@@ -426,6 +431,7 @@ static CGRect DisplayToPage(PDFPage *page, CGRect rect)
   [_pdfView goToPage:page];
   [self centreCrossAxis];
   _positioned = YES;
+  [self startObservingScroll];
   [self scheduleSettle];
 }
 
@@ -549,7 +555,58 @@ static CGRect DisplayToPage(PDFPage *page, CGRect rect)
 
 - (void)viewportChanged
 {
+  [self emitPageChangeIfNeeded];
   [self scheduleSettle];
+}
+
+/// Sends a page event when the page under the viewport centre changes, including mid-scroll.
+- (void)emitPageChangeIfNeeded
+{
+  if (_document == nil || !_positioned || _baseScale <= 0) {
+    return;
+  }
+  int page = (int)[self currentPageIndex];
+  if (page != _lastPage) {
+    _lastPage = page;
+    [self emit:@{@"type" : @"pageChange", @"page" : @(page), @"pageCount" : @(_document.pageCount)}];
+  }
+}
+
+/// PDFView only notifies when its own current page changes, so the scroll offset is observed directly.
+/// The scroll view can be replaced when paging is toggled, hence the re-check on every layout pass.
+- (void)startObservingScroll
+{
+  UIScrollView *scroll = [self scrollView];
+  if (scroll == _observedScroll) {
+    return;
+  }
+  [self stopObservingScroll];
+  if (scroll == nil) {
+    return;
+  }
+  [scroll addObserver:self forKeyPath:@"contentOffset" options:0 context:kScrollOffsetContext];
+  _observedScroll = scroll;
+}
+
+- (void)stopObservingScroll
+{
+  if (_observedScroll == nil) {
+    return;
+  }
+  [_observedScroll removeObserver:self forKeyPath:@"contentOffset" context:kScrollOffsetContext];
+  _observedScroll = nil;
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath
+                      ofObject:(id)object
+                        change:(NSDictionary<NSKeyValueChangeKey, id> *)change
+                       context:(void *)context
+{
+  if (context == kScrollOffsetContext) {
+    [self emitPageChangeIfNeeded];
+  } else {
+    [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+  }
 }
 
 - (void)scheduleSettle
@@ -569,11 +626,7 @@ static CGRect DisplayToPage(PDFPage *page, CGRect rect)
     [self scheduleSettle];
     return;
   }
-  int page = (int)[self currentPageIndex];
-  if (page != _lastPage) {
-    _lastPage = page;
-    [self emit:@{@"type" : @"pageChange", @"page" : @(page), @"pageCount" : @(_document.pageCount)}];
-  }
+  [self emitPageChangeIfNeeded];
   float scale = (float)(_pdfView.scaleFactor / _baseScale);
   if (isnan(_lastScale) || fabsf(_lastScale - scale) > 0.001f) {
     BOOL first = isnan(_lastScale);

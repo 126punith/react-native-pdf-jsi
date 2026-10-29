@@ -10,8 +10,8 @@
 
 using namespace facebook::react;
 
-/// Defined in HybridPdfDocument.swift.
-extern "C" PDFDocument *_Nullable RNPDFSharedDocument(NSString *path);
+/// Defined in HybridPdfDocument.swift. Returns a +1 retained PDFDocument or NULL.
+extern "C" void *_Nullable RNPDFSharedDocument(const char *path);
 
 @interface RNPDFPdfPageView () <RCTRNPDFPdfPageViewViewProtocol>
 @end
@@ -89,7 +89,8 @@ extern "C" PDFDocument *_Nullable RNPDFSharedDocument(NSString *path);
   BOOL annotations = _annotations;
   CGFloat screenScale = self.traitCollection.displayScale > 0 ? self.traitCollection.displayScale : 2;
   dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-    PDFDocument *document = RNPDFSharedDocument(path);
+    void *raw = RNPDFSharedDocument(path.UTF8String);
+    PDFDocument *document = raw ? (__bridge_transfer PDFDocument *)raw : nil;
     NSString *code = nil;
     NSString *message = nil;
     UIImage *image = nil;

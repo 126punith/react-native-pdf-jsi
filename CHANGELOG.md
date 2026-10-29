@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.1] - 2026-10-28
+
+### Fixed
+
+- iOS: the build no longer fails in `NitroPdfJsi-Swift.h` with "Unknown type name 'PDFDocument'", "Use of undeclared identifier 'NSString'" and "Unknown type name '__bridge_transfer'" ([#44](https://github.com/126punith/react-native-pdf-jsi/issues/44)). The internal document lookup used by `PdfPage` was public and took Objective-C types, so Swift wrote it into the generated header, which Nitro includes from plain C++. It is now internal and uses only C types.
+
+### Changed
+
+- `PdfView`: `onPageChange` now fires while scrolling, as soon as the page at the centre of the view changes, instead of waiting for scrolling to stop ([#43](https://github.com/126punith/react-native-pdf-jsi/issues/43)). Flings, paging snaps and animated `goToPage` jumps report the pages they pass through. `onScaleChange` still fires once zooming settles.
+- Android: the prebuilt PDFium libraries are no longer in the npm package, which shrinks it from about 26 MB to about 2 MB unpacked. The first Android build downloads them from GitHub Releases, verifies the SHA-256 and caches them in the Gradle user home. For offline builds, set `pdfJsiPdfiumDir` or `pdfJsiPdfiumUrl` in `gradle.properties` (see the README), or the Expo plugin options `pdfiumDir` / `pdfiumUrl`.
+- The package no longer includes source maps or the Android Gradle wrapper.
+
+### Added
+
+- A short sponsorship message is printed after install. It never fails the install and is skipped in CI and when `RN_PDF_JSI_HIDE_BANNER=1`, `ADBLOCK=1`, `DISABLE_OPENCOLLECTIVE=1` or `--silent` is set.
+
 ## [6.1.0] - 2026-10-22
 
 ### Fixed

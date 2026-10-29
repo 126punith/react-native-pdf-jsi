@@ -4,7 +4,7 @@
 
 PDF viewer and document toolkit for React Native on the New Architecture. Documents, downloads and editing live in Nitro modules; the viewer is a Fabric component that renders with PDFium on Android and PDFKit on iOS.
 
-## Version 6.1.0
+## Version 6.1.1
 
 6.x is the current release and the npm `latest` tag, so a plain install gets it:
 
@@ -23,7 +23,7 @@ Which version you get:
 
 | Command | Installs |
 | --- | --- |
-| `react-native-pdf-jsi` (no version) or `@latest` | 6.1.0 (New Architecture) |
+| `react-native-pdf-jsi` (no version) or `@latest` | 6.1.1 (New Architecture) |
 | `react-native-pdf-jsi@4.5.0` | 4.5.0 (Old Architecture) |
 
 Apps still on the Old Architecture should pin `react-native-pdf-jsi@4.5.0`. Check what is published with `npm view react-native-pdf-jsi dist-tags`.
@@ -49,7 +49,7 @@ Stay on 4.5.0 if:
 ## Main benefits
 
 - **One native dependency.** `react-native-nitro-modules` is the only native peer. `react-native-blob-util`, AsyncStorage, `crypto-js`, AndroidPdfViewer, `pdfiumandroid` and Gson are no longer needed.
-- **Native viewer.** Android renders pages in tiles on a background thread; iOS uses PDFKit. Page and zoom events arrive once scrolling settles, not on every frame.
+- **Native viewer.** Android renders pages in tiles on a background thread; iOS uses PDFKit. Page events arrive as soon as the visible page changes, even mid-scroll; zoom events arrive once zooming settles. Neither is sent on every frame.
 - **Dependable downloads.** Remote documents are revalidated with ETag / Last-Modified, served from disk when offline, resumed after an interruption (files of 32 MB and more), shared between concurrent requests, and kept under a size limit.
 - **Predictable API.** Pages are zero-based everywhere. Taps, highlights and search results share one coordinate system. Failures are `PdfError`s with stable codes.
 - **Safe editing.** Rotations, deletions, annotations and form values stay in memory until you call `save(path)`.
@@ -127,8 +127,20 @@ Then run `npx expo prebuild --clean`. The plugin turns on the New Architecture, 
 
 - `ocr`: enables Android ML Kit text recognition. iOS OCR uses Vision and needs nothing.
 - `iosFileSharing`: set to `false` to leave `Info.plist` alone.
+- `pdfiumDir` / `pdfiumUrl`: local copy or mirror of the Android PDFium binaries, for builds that cannot reach GitHub. See [Android PDFium binaries](#android-pdfium-binaries).
 
 Step-by-step Expo setup, code changes and Xcode 27 / iOS 27 fixes: [EXPO-6.0.md](EXPO-6.0.md).
+
+### Android PDFium binaries
+
+The prebuilt PDFium libraries (about 23 MB) are not in the npm package. The first Android build downloads them from this repo's GitHub Releases, checks the SHA-256 and caches them in `~/.gradle/caches/react-native-pdf-jsi/`. Later builds use the cache.
+
+For builds without access to GitHub, set one of these in `android/gradle.properties`:
+
+- `pdfJsiPdfiumDir=/path/to/pdfium`: a directory containing `lib/<abi>/libpdfn.so`, for example the unzipped release asset.
+- `pdfJsiPdfiumUrl=https://mirror.example.com/pdfium-android-r1.zip`: a mirror of the release zip. The checksum is still verified.
+
+With Expo, use the plugin options `pdfiumDir` and `pdfiumUrl` instead; prebuild writes these properties for you.
 
 ## Quick start
 
@@ -301,3 +313,5 @@ Contact: [punithm865@gmail.com](mailto:punithm865@gmail.com)
 [Become a GitHub Sponsor](https://github.com/sponsors/126punith)
 
 Your support helps me maintain the library and continue building for the React Native community.
+
+The package prints a short sponsorship message after install. It is skipped in CI; to hide it elsewhere, set `RN_PDF_JSI_HIDE_BANNER=1`.

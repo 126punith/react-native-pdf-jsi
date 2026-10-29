@@ -800,9 +800,13 @@ enum HybridPdfShared {
 }
 
 /// Lookup for RNPDFPdfPageView.mm, which cannot import the Swift module header.
+/// Must stay internal and C-typed: public declarations are emitted into NitroPdfJsi-Swift.h,
+/// which Nitro includes from plain C++ where Objective-C types do not exist.
+/// Returns a +1 retained PDFDocument; the caller takes ownership with __bridge_transfer.
 @_cdecl("RNPDFSharedDocument")
-public func RNPDFSharedDocument(_ path: NSString) -> PDFDocument? {
-  HybridPdfShared.find(path as String)
+func RNPDFSharedDocument(_ path: UnsafePointer<CChar>) -> UnsafeMutableRawPointer? {
+  guard let document = HybridPdfShared.find(String(cString: path)) else { return nil }
+  return Unmanaged.passRetained(document).toOpaque()
 }
 
 enum HybridPdfPaths {
