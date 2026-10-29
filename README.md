@@ -1,6 +1,8 @@
 # react-native-pdf-jsi
 
 [![npm downloads](https://img.shields.io/npm/dt/react-native-pdf-jsi)](https://www.npmjs.com/package/react-native-pdf-jsi)
+[![weekly downloads](https://img.shields.io/npm/dw/react-native-pdf-jsi)](https://www.npmjs.com/package/react-native-pdf-jsi)
+[![monthly downloads](https://img.shields.io/npm/dm/react-native-pdf-jsi)](https://www.npmjs.com/package/react-native-pdf-jsi)
 
 PDF viewer and document toolkit for React Native on the New Architecture. Documents, downloads and editing live in Nitro modules; the viewer is a Fabric component that renders with PDFium on Android and PDFKit on iOS.
 
@@ -315,3 +317,22 @@ Contact: [punithm865@gmail.com](mailto:punithm865@gmail.com)
 Your support helps me maintain the library and continue building for the React Native community.
 
 The package prints a short sponsorship message after install. It is skipped in CI; to hide it elsewhere, set `RN_PDF_JSI_HIDE_BANNER=1`.
+
+---
+
+## 🛠️ Need Enterprise Background Infrastructure?
+
+If your application requires robust, production-grade tracking and offline synchronization that integrates seamlessly with your React Native architecture, check out our dedicated native solutions:
+
+### 🤖 [React Native Background Location Pro](https://github.com/126punith/react-native-background-location-pro)
+A battle-tested background location engine built entirely as a native Kotlin foreground service. It is designed to survive aggressive OS battery savers, device reboots, and prolonged offline periods with zero reliance on heavy third-party tracking frameworks.
+
+### 😎 [React Native Sync Vault (100% Free & Open Source)](https://github.com)
+A durable, native outbox and upcoming reactive data layer that ensures your offline network mutations are committed to local SQLite and delivered to your server exactly once—surviving app kills, crashes, and background suspensions.
+
+---
+
+### 🎁 Limited Cross-Platform Suite Bundle Offer
+Building a mission-critical mobile application for both platforms? Get lifetime access to both the **Android and iOS premium background modules for just $79 USD** via GitHub Sponsors (or **₹7,500 INR** via direct UPI for domestic developers). 
+
+👉 **[Click here to secure the Cross-Platform Suite Bundle via GitHub Sponsors](https://github.com)** or email `punithm300@gmail.com` with your payment verification to get instant collaborator access.
