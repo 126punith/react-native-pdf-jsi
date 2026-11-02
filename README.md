@@ -6,6 +6,36 @@
 
 PDF viewer and document toolkit for React Native on the New Architecture. Documents, downloads and editing live in Nitro modules; the viewer is a Fabric component that renders with PDFium on Android and PDFKit on iOS.
 
+---
+
+## 🚀 Premium Infrastructure Native Modules (Android + iOS)
+
+If you need production-grade background infrastructure designed on the same high-performance architecture principles, my commercial cross-platform modules are now shipping:
+
+### **[React Native Background Location Pro](https://github.com/126punith/react-native-background-location-pro)**
+
+A pure native implementation engineered on the **New Architecture (TurboModules / JSI)** that survives aggressive OS process kills, system reboots, and network dropouts without relying on heavy third-party tracking SDKs.
+
+- **Android Layer:** Native Kotlin Foreground Service (`foregroundServiceType="location"`) + `AlarmManager` self-healing watchdog
+- **iOS Layer:** Native Swift `CLLocationManager` + `CLBackgroundActivitySession` (iOS 17+) + local SQLite3 queue
+- **Data Integrity:** Offline-first caching with duplicate-free, transactional batch server syncing
+
+| Android (`ForegroundService`) | iOS (`CLLocationManager`) |
+| :---: | :---: |
+| <img src="https://raw.githubusercontent.com/126punith/react-native-background-location-pro/main/assets/demo-preview.gif" width="220" alt="Android Background Tracking Demo"/> | <img src="https://raw.githubusercontent.com/126punith/react-native-background-location-pro/main/assets/demo-ios-preview.gif" width="220" alt="iOS Background Tracking Demo"/> |
+| [Watch Android demo (MP4)](https://github.com/126punith/react-native-background-location-pro/blob/main/assets/demo.mp4) | [Watch iOS demo (MP4)](https://github.com/126punith/react-native-background-location-pro/blob/main/assets/demo-ios.mp4) |
+
+### **Get Instant Repository Access**
+
+Pay once, no ongoing subscription. Private codebase access is processed and attached to your GitHub account via one-time tiers:
+
+- **Android Edition** — **$39 USD** / **₹3,000 INR**
+- **iOS Edition** — **$59 USD** / **₹5,000 INR**
+- **Best Value Bundle (Both Platforms)** ⭐ — **$89 USD** / **₹7,000 INR**
+
+👉 **[Sponsor on GitHub to Get Access Now →](https://github.com/sponsors/126punith)**  
+👉 **[Review the Full Capabilities Matrix & Codebase Blueprints →](https://github.com/126punith/react-native-background-location-pro)**
+
 ## Version 6.1.1
 
 6.x is the current release and the npm `latest` tag, so a plain install gets it:
@@ -291,48 +321,8 @@ Codes: `invalid-source`, `download-failed`, `password-required`, `password-incor
 - From 4.x to 5.0: [MIGRATION-5.0.md](MIGRATION-5.0.md)
 - Release notes: [CHANGELOG.md](CHANGELOG.md)
 
-## Commercial Nitro Edition & Support
+## Support open-source development
 
-react-native-pdf-jsi has crossed 223K downloads. Thank you to everyone who has used the library and supported its development.
-
-I've recently worked on a complete migration to Nitro Modules and am exploring a paid offering for developers and teams interested in this implementation.
-
-### What's included?
-
-- Access to the Nitro-based implementation under a commercial license, where applicable.
-- Assistance with setup and integration.
-- Help troubleshooting native Android and iOS build issues.
-- Direct support from the maintainer.
-
-### Interested in the Nitro Edition?
-
-The Nitro Edition and dedicated support will be available as a paid offering. Pricing and licensing details can be discussed based on your requirements.
-
-Contact: [punithm865@gmail.com](mailto:punithm865@gmail.com)
-
-### Want to support the ongoing development of the open-source version?
-
-[Become a GitHub Sponsor](https://github.com/sponsors/126punith)
-
-Your support helps me maintain the library and continue building for the React Native community.
+If this library helps your team, you can support ongoing maintenance here: [Become a GitHub Sponsor](https://github.com/sponsors/126punith).
 
 The package prints a short sponsorship message after install. It is skipped in CI; to hide it elsewhere, set `RN_PDF_JSI_HIDE_BANNER=1`.
-
----
-
-## 🛠️ Need Enterprise Background Infrastructure?
-
-If your application requires robust, production-grade tracking and offline synchronization that integrates seamlessly with your React Native architecture, check out our dedicated native solutions:
-
-### 🤖 [React Native Background Location Pro](https://github.com/126punith/react-native-background-location-pro)
-A battle-tested background location engine built entirely as a native Kotlin foreground service. It is designed to survive aggressive OS battery savers, device reboots, and prolonged offline periods with zero reliance on heavy third-party tracking frameworks.
-
-### 😎 [React Native Sync Vault (100% Free & Open Source)](https://github.com)
-A durable, native outbox and upcoming reactive data layer that ensures your offline network mutations are committed to local SQLite and delivered to your server exactly once—surviving app kills, crashes, and background suspensions.
-
----
-
-### 🎁 Limited Cross-Platform Suite Bundle Offer
-Building a mission-critical mobile application for both platforms? Get lifetime access to both the **Android and iOS premium background modules for just $79 USD** via GitHub Sponsors (or **₹7,500 INR** via direct UPI for domestic developers). 
-
-👉 **[Click here to secure the Cross-Platform Suite Bundle via GitHub Sponsors](https://github.com)** or email `punithm300@gmail.com` with your payment verification to get instant collaborator access.
