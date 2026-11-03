@@ -25,6 +25,27 @@ A pure native implementation engineered on the **New Architecture (TurboModules 
 | <img src="https://raw.githubusercontent.com/126punith/react-native-background-location-pro/main/assets/demo-preview.gif" width="220" alt="Android Background Tracking Demo"/> | <img src="https://raw.githubusercontent.com/126punith/react-native-background-location-pro/main/assets/demo-ios-preview.gif" width="220" alt="iOS Background Tracking Demo"/> |
 | [Watch Android demo (MP4)](https://github.com/126punith/react-native-background-location-pro/blob/main/assets/demo.mp4) | [Watch iOS demo (MP4)](https://github.com/126punith/react-native-background-location-pro/blob/main/assets/demo-ios.mp4) |
 
+### **Try It Free Before You Buy**
+
+Don't take the demo videos on faith. The free evaluation package runs the **complete native engine** inside your own app, so you can watch it survive process kills, go offline and resync on your own routes and devices before you spend anything.
+
+[![eval on npm](https://img.shields.io/npm/v/react-native-background-location-pro-eval?label=eval%20on%20npm&logo=npm&color=cb3837)](https://www.npmjs.com/package/react-native-background-location-pro-eval)
+
+```sh
+npm i react-native-background-location-pro-eval
+cd ios && pod install
+```
+
+```ts
+import LocationTracker from 'react-native-background-location-pro-eval';
+
+LocationTracker.startTracking('https://your-server.example.com');
+```
+
+- ✅ **Free in development:** the same offline queue, duplicate-free sync, motion gate and self-healing watchdog that ship in the paid editions
+- 🔒 **Production and store builds need a license:** they report `buildTier: 'release'` and tracking stays off
+- 💎 **Ready to ship?** Pick an edition below to get the full source with lifetime updates
+
 ### **Get Instant Repository Access**
 
 Pay once, no ongoing subscription. Private codebase access is processed and attached to your GitHub account via one-time tiers:
