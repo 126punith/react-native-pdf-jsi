@@ -92,6 +92,14 @@ def reactNativeArchitectures() {
 def pdfiumVersion = "r1"
 def pdfiumSha256 = "330913954b8bf09f246fb907aecbc282e164e68c8dd647aab48718a679d19903"
 def pdfiumDefaultUrl = "https://github.com/126punith/react-native-pdf-jsi/releases/download/pdfium-android-${pdfiumVersion}/pdfium-android-${pdfiumVersion}.zip"
+def pdfiumNpmFallbackUrl = "https://registry.npmjs.org/react-native-pdf-jsi/-/react-native-pdf-jsi-6.1.0.tgz"
+def pdfiumFallbackRoot = "package/android/third_party/pdfium"
+def pdfiumLibSha256ByAbi = [
+    "arm64-v8a" : "3e91e93d0291bbdfa23cebff9c8324258b207b52dac60c372301c4f43e2d6574",
+    "armeabi-v7a": "45a3af3a25e79530b4f766d2bfe616405f77223f5f74b704f99e0828ae97dafa",
+    "x86"       : "7f7e52b53ecf50845eb904481cd58b7796771eb0973f26a22916347efdb3b9bf",
+    "x86_64"    : "b81f5745cf76edb37c9b213a5ed18e30b8c155f1dc722d2bb5384386f65a3d9a"
+]
 
 def findPdfJsiProperty(String name) {
     def value = project.findProperty(name)
@@ -128,18 +136,20 @@ def downloadPdfium = tasks.register("downloadPdfium") {
     description = "Downloads the prebuilt PDFium libraries used by react-native-pdf-jsi."
     onlyIf { pdfiumNeedsDownload }
 
-    def url = (findPdfJsiProperty("pdfJsiPdfiumUrl") ?: pdfiumDefaultUrl).toString()
-    def cacheZip = new File(
-        gradle.gradleUserHomeDir,
-        "caches/react-native-pdf-jsi/pdfium/${pdfiumVersion}/pdfium-android-${pdfiumVersion}.zip"
-    )
+    def overrideUrl = findPdfJsiProperty("pdfJsiPdfiumUrl")?.toString()
+    def releaseUrl = pdfiumDefaultUrl.toString()
+    def fallbackUrl = pdfiumNpmFallbackUrl.toString()
     def abis = pdfiumAbis
     def outRoot = pdfiumDownloadRoot
     def libDir = pdfiumLibDir
     def expectedSha = pdfiumSha256
+    def expectedLibShas = pdfiumLibSha256ByAbi
+    def fallbackRoot = pdfiumFallbackRoot
 
-    inputs.property("url", url)
+    inputs.property("url", overrideUrl ?: releaseUrl)
+    inputs.property("fallbackUrl", fallbackUrl)
     inputs.property("sha256", expectedSha)
+    inputs.property("libSha256ByAbi", expectedLibShas.toString())
     outputs.dir(outRoot)
 
     doLast {
@@ -155,51 +165,149 @@ def downloadPdfium = tasks.register("downloadPdfium") {
             return digest.digest().encodeHex().toString()
         }
 
-        if (!cacheZip.isFile() || sha256(cacheZip) != expectedSha) {
-            cacheZip.parentFile.mkdirs()
-            def tmp = new File(cacheZip.parentFile, "${cacheZip.name}.part")
-            logger.lifecycle("[react-native-pdf-jsi] Downloading PDFium ${pdfiumVersion} from ${url}")
-            try {
-                def conn = new URL(url).openConnection()
-                conn.connectTimeout = 30000
-                conn.readTimeout = 120000
-                if (conn instanceof HttpURLConnection) {
-                    conn.instanceFollowRedirects = true
+        def assertLibChecksums = { File libsRoot ->
+            abis.each { abi ->
+                def soFile = new File(libsRoot, "${abi}/libpdfn.so")
+                if (!soFile.isFile()) {
+                    throw new GradleException(
+                        "[react-native-pdf-jsi] Missing lib/${abi}/libpdfn.so in downloaded PDFium bundle."
+                    )
                 }
-                conn.inputStream.withStream { is -> tmp.withOutputStream { os -> os << is } }
-            } catch (Exception e) {
-                tmp.delete()
-                throw new GradleException(
-                    "[react-native-pdf-jsi] Could not download PDFium from ${url} (${e.message}). " +
-                        "For offline builds, set pdfJsiPdfiumDir in gradle.properties to a directory " +
-                        "containing lib/<abi>/libpdfn.so, or pdfJsiPdfiumUrl to a mirror.",
-                    e
-                )
-            }
-            def actualSha = sha256(tmp)
-            if (actualSha != expectedSha) {
-                tmp.delete()
-                throw new GradleException(
-                    "[react-native-pdf-jsi] PDFium checksum mismatch for ${url}: " +
-                        "expected ${expectedSha}, got ${actualSha}."
-                )
-            }
-            cacheZip.delete()
-            if (!tmp.renameTo(cacheZip)) {
-                throw new GradleException("[react-native-pdf-jsi] Could not move ${tmp} to ${cacheZip}.")
+                def expected = expectedLibShas[abi]
+                def actual = sha256(soFile)
+                if (expected == null || actual != expected) {
+                    throw new GradleException(
+                        "[react-native-pdf-jsi] PDFium checksum mismatch for lib/${abi}/libpdfn.so: " +
+                            "expected ${expected}, got ${actual}."
+                    )
+                }
             }
         }
 
-        project.delete(outRoot)
-        project.copy {
-            from project.zipTree(cacheZip)
-            into outRoot
-        }
-        if (!hasPdfiumLibs(libDir, abis)) {
-            throw new GradleException(
-                "[react-native-pdf-jsi] ${cacheZip} does not contain lib/<abi>/libpdfn.so for ${abis.join(', ')}."
+        def tryExtract = { Map candidate ->
+            def url = candidate.url.toString()
+            def kind = candidate.kind.toString()
+            def requireArchiveSha = candidate.requireArchiveSha
+            def cacheFile = new File(
+                gradle.gradleUserHomeDir,
+                "caches/react-native-pdf-jsi/pdfium/${pdfiumVersion}/${candidate.cacheName}"
             )
+            if (!cacheFile.isFile() || (requireArchiveSha != null && sha256(cacheFile) != requireArchiveSha)) {
+                cacheFile.parentFile.mkdirs()
+                def tmp = new File(cacheFile.parentFile, "${cacheFile.name}.part")
+                logger.lifecycle("[react-native-pdf-jsi] Downloading PDFium ${pdfiumVersion} from ${url}")
+                try {
+                    def conn = new URL(url).openConnection()
+                    conn.connectTimeout = 30000
+                    conn.readTimeout = 120000
+                    if (conn instanceof HttpURLConnection) {
+                        conn.instanceFollowRedirects = true
+                    }
+                    conn.inputStream.withStream { is -> tmp.withOutputStream { os -> os << is } }
+                } catch (Exception e) {
+                    tmp.delete()
+                    throw new GradleException(
+                        "[react-native-pdf-jsi] Could not download PDFium from ${url} (${e.message}).",
+                        e
+                    )
+                }
+                if (requireArchiveSha != null) {
+                    def archiveSha = sha256(tmp)
+                    if (archiveSha != requireArchiveSha) {
+                        tmp.delete()
+                        throw new GradleException(
+                            "[react-native-pdf-jsi] PDFium archive checksum mismatch for ${url}: " +
+                                "expected ${requireArchiveSha}, got ${archiveSha}."
+                        )
+                    }
+                }
+                cacheFile.delete()
+                if (!tmp.renameTo(cacheFile)) {
+                    throw new GradleException("[react-native-pdf-jsi] Could not move ${tmp} to ${cacheFile}.")
+                }
+            }
+
+            project.delete(outRoot)
+            outRoot.mkdirs()
+            if (kind == "zip") {
+                project.copy {
+                    from project.zipTree(cacheFile)
+                    into outRoot
+                }
+            } else if (kind == "tgz") {
+                project.copy {
+                    from project.tarTree(project.resources.gzip(cacheFile))
+                    into outRoot
+                }
+            } else {
+                throw new GradleException("[react-native-pdf-jsi] Unknown PDFium archive type: ${kind}")
+            }
+
+            def sourceLibDir = new File(outRoot, "lib")
+            if (!sourceLibDir.isDirectory()) {
+                sourceLibDir = new File(outRoot, "${fallbackRoot}/lib")
+            }
+            if (!sourceLibDir.isDirectory()) {
+                throw new GradleException(
+                    "[react-native-pdf-jsi] Downloaded archive from ${url} does not contain a PDFium lib directory."
+                )
+            }
+
+            if (sourceLibDir != libDir) {
+                project.delete(libDir)
+                project.copy {
+                    from sourceLibDir
+                    into libDir
+                }
+            }
+            if (!hasPdfiumLibs(libDir, abis)) {
+                throw new GradleException(
+                    "[react-native-pdf-jsi] Downloaded archive from ${url} does not contain " +
+                        "lib/<abi>/libpdfn.so for ${abis.join(', ')}."
+                )
+            }
+            assertLibChecksums(libDir)
         }
+
+        def overrideKind = (overrideUrl != null && (overrideUrl.endsWith(".tgz") || overrideUrl.endsWith(".tar.gz"))) ? "tgz" : "zip"
+        def candidates = overrideUrl != null
+            ? [[
+                url: overrideUrl,
+                cacheName: "override-${Integer.toHexString(overrideUrl.hashCode())}.${overrideKind}",
+                kind: overrideKind,
+                requireArchiveSha: null
+            ]]
+            : [
+                [
+                    url: releaseUrl,
+                    cacheName: "pdfium-android-${pdfiumVersion}.zip",
+                    kind: "zip",
+                    requireArchiveSha: expectedSha
+                ],
+                [
+                    url: fallbackUrl,
+                    cacheName: "react-native-pdf-jsi-6.1.0.tgz",
+                    kind: "tgz",
+                    requireArchiveSha: null
+                ]
+            ]
+
+        def errors = []
+        for (candidate in candidates) {
+            try {
+                tryExtract(candidate)
+                return
+            } catch (Exception e) {
+                errors << "- ${candidate.url}: ${e.message}"
+            }
+        }
+
+        throw new GradleException(
+            "[react-native-pdf-jsi] Could not download PDFium ${pdfiumVersion}.\n" +
+                errors.join("\n") + "\n" +
+                "For offline builds, set pdfJsiPdfiumDir in gradle.properties to a directory " +
+                "containing lib/<abi>/libpdfn.so, or pdfJsiPdfiumUrl to a mirror."
+        )
     }
 }
 

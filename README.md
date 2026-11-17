@@ -16,6 +16,17 @@ If you need production-grade background infrastructure designed on the same high
 
 A pure native implementation engineered on the **New Architecture (TurboModules / JSI)** that survives aggressive OS process kills, system reboots, and network dropouts without relying on heavy third-party tracking SDKs.
 
+> ### Upcoming BG SDK update (Last Week of Nov 2026)
+> A major BG SDK update is planned for the **last week of November 2026**.
+> It will include new capabilities, plus **proper migration-focused documentation** and **feature-wise documentation** published on the official website to make adoption and upgrades much easier.
+>
+> Planned highlights:
+> - HTTP pipeline improvements: configurable upload path, custom headers, extra payload fields, Wi-Fi-only auto sync, and queue retention controls.
+> - Data and diagnostics APIs: one-shot `getCurrentPosition`, odometer access, queue stats, and rejected-record retrieval for operational debugging.
+> - Geofence reliability upgrades: persisted geofences, automatic re-arming after reboot, and nearest-fence arming when the OS geofence limit is reached.
+> - Tracking schedules: day/time tracking windows with local-time execution.
+> - Event coverage expansion: richer HTTP and provider-state callbacks for better observability.
+
 - **Android Layer:** Native Kotlin Foreground Service (`foregroundServiceType="location"`) + `AlarmManager` self-healing watchdog
 - **iOS Layer:** Native Swift `CLLocationManager` + `CLBackgroundActivitySession` (iOS 17+) + local SQLite3 queue
 - **Data Integrity:** Offline-first caching with duplicate-free, transactional batch server syncing
@@ -186,7 +197,7 @@ Step-by-step Expo setup, code changes and Xcode 27 / iOS 27 fixes: [EXPO-6.0.md]
 
 ### Android PDFium binaries
 
-The prebuilt PDFium libraries (about 23 MB) are not in the npm package. The first Android build downloads them from this repo's GitHub Releases, checks the SHA-256 and caches them in `~/.gradle/caches/react-native-pdf-jsi/`. Later builds use the cache.
+The prebuilt PDFium libraries (about 23 MB) are not in the npm package. The first Android build downloads them from this repo's GitHub Releases, checks the SHA-256 and caches them in `~/.gradle/caches/react-native-pdf-jsi/`. If that release asset is unavailable, the build falls back to the npm tarball mirror for the same PDFium revision and verifies `libpdfn.so` checksums per ABI before use. Later builds use the cache.
 
 For builds without access to GitHub, set one of these in `android/gradle.properties`:
 

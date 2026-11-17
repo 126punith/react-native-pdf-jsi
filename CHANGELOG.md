@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Android: if the default GitHub Releases PDFium asset is missing or temporarily unavailable, the Gradle download task now falls back to the npm tarball mirror that contains the same `r1` binaries, then verifies each ABI's `libpdfn.so` SHA-256 before building. Existing `pdfJsiPdfiumDir` and `pdfJsiPdfiumUrl` overrides still take precedence.
+
 ## [6.1.1] - 2026-10-28
 
 ### Fixed
