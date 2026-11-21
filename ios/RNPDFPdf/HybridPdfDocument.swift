@@ -105,7 +105,7 @@ public final class HybridPdfDocument: HybridPdfDocumentSpec {
   }
 
   private static func index(_ value: Double, _ name: String) throws -> Int {
-    guard value.isFinite, value.rounded() == value, abs(value) < 1e9 else {
+    guard value.isFinite, value.rounded() == value, Swift.abs(value) < 1_000_000_000.0 else {
       throw pdfError("invalid-argument", "\(name) must be an integer")
     }
     return Int(value)
