@@ -89,7 +89,7 @@ def reactNativeArchitectures() {
 //   3. downloaded from pdfiumUrl (override with pdfJsiPdfiumUrl), checked
 //      against pdfiumSha256 and cached in the Gradle user home
 // Bump all three constants together; see scripts/package-pdfium.sh.
-def pdfiumVersion = "r1"
+def pdfiumVersion = "r2"
 def pdfiumSha256 = "330913954b8bf09f246fb907aecbc282e164e68c8dd647aab48718a679d19903"
 def pdfiumDefaultUrl = "https://github.com/126punith/react-native-pdf-jsi/releases/download/pdfium-android-${pdfiumVersion}/pdfium-android-${pdfiumVersion}.zip"
 def pdfiumNpmFallbackUrl = "https://registry.npmjs.org/react-native-pdf-jsi/-/react-native-pdf-jsi-6.1.0.tgz"
