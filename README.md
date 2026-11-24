@@ -16,17 +16,6 @@ If you need production-grade background infrastructure designed on the same high
 
 A pure native implementation engineered on the **New Architecture (TurboModules / JSI)** that survives aggressive OS process kills, system reboots, and network dropouts without relying on heavy third-party tracking SDKs.
 
-> ### Upcoming BG SDK update (Last Week of Nov 2026)
-> A major BG SDK update is planned for the **last week of November 2026**.
-> It will include new capabilities, plus **proper migration-focused documentation** and **feature-wise documentation** published on the official website to make adoption and upgrades much easier.
->
-> Planned highlights:
-> - HTTP pipeline improvements: configurable upload path, custom headers, extra payload fields, Wi-Fi-only auto sync, and queue retention controls.
-> - Data and diagnostics APIs: one-shot `getCurrentPosition`, odometer access, queue stats, and rejected-record retrieval for operational debugging.
-> - Geofence reliability upgrades: persisted geofences, automatic re-arming after reboot, and nearest-fence arming when the OS geofence limit is reached.
-> - Tracking schedules: day/time tracking windows with local-time execution.
-> - Event coverage expansion: richer HTTP and provider-state callbacks for better observability.
-
 - **Android Layer:** Native Kotlin Foreground Service (`foregroundServiceType="location"`) + `AlarmManager` self-healing watchdog
 - **iOS Layer:** Native Swift `CLLocationManager` + `CLBackgroundActivitySession` (iOS 17+) + local SQLite3 queue
 - **Data Integrity:** Offline-first caching with duplicate-free, transactional batch server syncing
@@ -35,6 +24,39 @@ A pure native implementation engineered on the **New Architecture (TurboModules 
 | :---: | :---: |
 | <img src="https://raw.githubusercontent.com/126punith/react-native-background-location-pro/main/assets/demo-preview.gif" width="220" alt="Android Background Tracking Demo"/> | <img src="https://raw.githubusercontent.com/126punith/react-native-background-location-pro/main/assets/demo-ios-preview.gif" width="220" alt="iOS Background Tracking Demo"/> |
 | [Watch Android demo (MP4)](https://github.com/126punith/react-native-background-location-pro/blob/main/assets/demo.mp4) | [Watch iOS demo (MP4)](https://github.com/126punith/react-native-background-location-pro/blob/main/assets/demo-ios.mp4) |
+
+### **Eval v2.0.0 — background tracking reduced to hooks**
+
+Background tracking is one of the hardest problems in mobile. Eval **v2.0.0** turns that into a screen you can wire up in minutes, while still giving you the full native engine underneath.
+
+**Core value**
+
+- **Minutes, not weeks:** three React hooks — `usePermissions`, `useLocationTracking`, `useLocationUpdates` — cover permissions, start/stop/sync, and live points.
+- **Your choice of control:** start with hooks for speed; drop down to the same `LocationTracker` APIs when you need HTTP headers, geofences, schedules, the on-device queue, odometer, or diagnostics. The hooks sit on that module — you are never locked into one style.
+- **Native where it matters:** kill the app, lose the network, reboot the device — capture, SQLite buffering, and sync retries keep running without the JS thread staying alive.
+- **Try the real pipeline free:** the evaluation package is the complete engine in debug builds, not a feature-stripped demo.
+
+```tsx
+import {
+  useLocationTracking,
+  useLocationUpdates,
+  usePermissions,
+} from 'react-native-background-location-pro-eval';
+
+const SERVER_URL = 'https://api.example.com';
+
+export function TrackingScreen() {
+  const permissions = usePermissions();
+  const {isTracking, startTracking, stopTracking, syncNow, status} =
+    useLocationTracking({serverUrl: SERVER_URL});
+  const {latestLocation} = useLocationUpdates({maxItems: 20});
+
+  // Grant Always location, then startTracking() — points land on your backend.
+}
+```
+
+📖 **Hooks guide:** [background-location-pro.vercel.app/docs/react-hooks](https://background-location-pro.vercel.app/docs/react-hooks)  
+📖 **Docs:** [background-location-pro.vercel.app](https://background-location-pro.vercel.app)
 
 ### **Try It Free Before You Buy**
 
@@ -45,12 +67,6 @@ Don't take the demo videos on faith. The free evaluation package runs the **comp
 ```sh
 npm i react-native-background-location-pro-eval
 cd ios && pod install
-```
-
-```ts
-import LocationTracker from 'react-native-background-location-pro-eval';
-
-LocationTracker.startTracking('https://your-server.example.com');
 ```
 
 - ✅ **Free in development:** the same offline queue, duplicate-free sync, motion gate and self-healing watchdog that ship in the paid editions
